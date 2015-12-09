@@ -1,12 +1,12 @@
 ![N1 Logo](https://edgehill.s3.amazonaws.com/static/N1.png)
 
-**This is a fork of the main [N1](https://github.com/nylas/N1) project.**
-
-**N1 is an open-source mail client built on the modern web with [Electron](https://github.com/atom/electron), [React](https://facebook.github.io/react/), and [Flux](https://facebook.github.io/flux/).** It is designed to be extensible, so it's easy to create new experiences and workflows around email. N1 is built on the Nylas Sync Engine which is also [open source free software](https://github.com/nylas/sync-engine).
-
 [![Build Status](https://travis-ci.org/mbilker/N1.svg?branch=master)](https://travis-ci.org/mbilker/N1)
 [![Dependency Status](https://david-dm.org/mbilker/N1.svg)](https://david-dm.org/mbilker/N1)
 [![Slack Invite Button](http://slack-invite.nylas.com/badge.svg)](http://slack-invite.nylas.com)
+
+This is a **fork** of the main [N1 project](https://github.com/nylas/N1).
+
+**N1 is an open-source mail client built on the modern web with [Electron](https://github.com/atom/electron), [React](https://facebook.github.io/react/), and [Flux](https://facebook.github.io/flux/).** It is designed to be extensible, so it's easy to create new experiences and workflows around email. N1 is built on the Nylas Sync Engine which is also [open source free software](https://github.com/nylas/sync-engine).
 
 # Download N1
 
