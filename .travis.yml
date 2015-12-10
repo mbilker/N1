@@ -26,10 +26,6 @@ matrix:
   - os: linux
     env: NODE_VERSION=5 NODE_INSTALL=1
   - os: osx
-    env: NODE_VERSION=0.10
-  - os: osx
-    env: NODE_VERSION=0.12
-  - os: osx
     env: NODE_VERSION=4.2
   - os: osx
     env: NODE_VERSION=5
