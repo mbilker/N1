@@ -53,7 +53,3 @@ cache:
   directories:
     - node_modules
     - build/node_modules
-
-env:
-  global:
-    - NYLAS_GITHUB_OAUTH_TOKEN=cb200be7c921f73a1c35930f6a4ac8758b271be0
