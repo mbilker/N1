@@ -4,6 +4,7 @@ React = require 'react'
 {File,
  Utils,
  Actions,
+ DOMUtils,
  DraftStore,
  UndoManager,
  ContactStore,
@@ -63,6 +64,7 @@ class ComposerView extends React.Component
       body: ""
       files: []
       subject: ""
+      account: null
       focusedField: Fields.To # Gets updated in @_initiallyFocusedField
       enabledFields: [] # Gets updated in @_initiallyEnabledFields
       showQuotedText: false
@@ -174,6 +176,7 @@ class ComposerView extends React.Component
     if @props.mode is "inline"
       <FocusTrackingRegion className={@_wrapClasses()}
                            ref="composerWrap"
+                           onFocusIn={@_onFocusIn}
                            tabIndex="-1">
         {@_renderComposer()}
       </FocusTrackingRegion>
@@ -214,7 +217,7 @@ class ComposerView extends React.Component
         {@_renderContent()}
       </ScrollRegion>
 
-  _renderContent: ->
+  _renderContent: =>
     <div className="composer-centered">
       {if @state.focusedField in Fields.ParticipantFields
         <ExpandedParticipants
@@ -222,6 +225,7 @@ class ComposerView extends React.Component
           from={@state.from}
           ref="expandedParticipants"
           mode={@props.mode}
+          account={@state.account}
           focusedField={@state.focusedField}
           enabledFields={@state.enabledFields}
           onPopoutComposer={@_onPopoutComposer}
@@ -486,6 +490,14 @@ class ComposerView extends React.Component
       @refs[Fields.Body].selectEnd()
     @_mouseDownTarget = null
 
+  # When a user focuses the composer, it's possible that no input is
+  # initially focused. If this happens, we focus the contenteditable. If
+  # we didn't focus the contenteditable, the user may start typing and
+  # erroneously trigger keyboard shortcuts.
+  _onFocusIn: (event) =>
+    return if DOMUtils.closest(event.target, DOMUtils.inputTypes())
+    @refs[Fields.Body].selectEnd()
+
   _onMouseMoveComposeBody: (event) =>
     if @_mouseComposeBody is "down" then @_mouseComposeBody = "move"
 
@@ -506,6 +518,7 @@ class ComposerView extends React.Component
       body: draft.body
       files: draft.files
       subject: draft.subject
+      account: AccountStore.itemWithId(draft.accountId)
 
     if !@state.populated
       _.extend state,
@@ -554,16 +567,16 @@ class ComposerView extends React.Component
   # When the account store changes, the From field may or may not still
   # be in scope. We need to make sure to update our enabled fields.
   _onAccountStoreChanged: =>
-    if @_shouldShowFromField(@_proxy?.draft())
-      enabledFields = @state.enabledFields.concat [Fields.From]
+    enabledFields = if @_shouldShowFromField(@_proxy?.draft())
+      @state.enabledFields.concat [Fields.From]
     else
-      enabledFields = _.without(@state.enabledFields, Fields.From)
-    @setState {enabledFields}
+      _.without(@state.enabledFields, Fields.From)
+    account = AccountStore.itemWithId @_proxy?.draft().accountId
+    @setState {enabledFields, account}
 
   _shouldShowFromField: (draft) ->
     return false unless draft
     return AccountStore.items().length > 1 and
-           not draft.replyToMessageId and
            draft.files.length is 0
 
   _shouldEnableSubject: =>

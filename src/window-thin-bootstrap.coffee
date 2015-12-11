@@ -18,7 +18,7 @@ global.NylasEnv =
   onBeforeUnload: ->
   getWindowLoadTime: -> 0
   getConfigDirPath: ->
-    @configDirPath ?= fs.absolute('~/.nylas')
+    @configDirPath ?= JSON.parse(decodeURIComponent(location.search.substr(14))).configDirPath
   getLoadSettings: ->
     @loadSettings ?= JSON.parse(decodeURIComponent(location.search.substr(14)))
   inSpecMode: ->
@@ -34,4 +34,4 @@ prefs.activate()
 
 ipc.on 'command', (command, args) ->
   if command is 'window:toggle-dev-tools'
-    ipc.send('call-window-method', 'toggleDevTools')
+    ipc.send('call-webcontents-method', 'toggleDevTools')
