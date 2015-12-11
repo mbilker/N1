@@ -71,6 +71,7 @@ class DatabaseView extends ModelView
     @_orders = config.orders ? []
 
     @_count = -1
+
     @invalidateCount()
     @invalidateRetainedRange()
     @

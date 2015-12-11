@@ -5,19 +5,74 @@ import RetinaImg from './retina-img';
 import React, {Component, PropTypes} from 'react';
 
 /**
- * EditableList renders a list of items, and controls to add/edit/remove items.
+ * Renders a list of items and renders controls to add/edit/remove items.
  * It resembles OS X's default list component.
  * An item can be a React Component, a string or number.
  *
  * EditableList handles:
- * - Keyboard and mouser to select an item
- * - Input to add item when add button clicked
- * - Remove item when remove button click
- * - Double click to edit item, or use edit button
+ * - Keyboard and mouse interactions to select an item
+ * - Input to create a new item when the add button is clicked
+ * - Callback to remove item when the remove button is clicked
+ * - Double click to edit item, or use an edit button icon
+ *
+ * @param {object} props - props for EditableList
+ * @param {(Component|string|number)} props.children - Items to be rendered by
+ * the list
+ * @param {string} props.className - CSS class to be applied to component
+ * @param {boolean} props.allowEmptySelection - Determines wether the
+ * EditableList will allow to have no selected items
+ * @param {boolean} props.showEditIcon - Determines wether to show edit icon
+ * button on selected items
+ * @param {object} props.createInputProps - Props object to be passed on to
+ * the create input element. However, keep in mind that these props can not
+ * override the default props that EditableList will pass to the input.
+ * @param {object} props.initialState - Used for testing purposes to initialize
+ * the component with a given state.
+ * @param {props.onCreateItem} props.onCreateItem
+ * @param {props.onDeleteItem} props.onDeleteItem
+ * @param {props.onItemEdited} props.onItemEdited
+ * @param {props.onItemSelected} props.onItemSelected
+ * @param {props.onItemCreated} props.onItemCreated
+ * @class EditableList
  */
 class EditableList extends Component {
   static displayName = 'EditableList'
 
+  /**
+   * If provided, this function will be called when the add button is clicked,
+   * and will prevent an input to add items to be created inside the list
+   * @callback props.onCreateItem
+   */
+  /**
+   * If provided, this function will be called when the delete button is clicked.
+   * @callback props.onDeleteItem
+   * @param {(Component|string|number)} selectedItem - The selected item.
+   * @param {number} idx - The selected item idx
+   */
+  /**
+   * If provided, this function will be called when an item has been edited. This only
+   * applies to items that are not React Components.
+   * @callback props.onItemEdited
+   * @param {string} newValue - The new value for the item
+   * @param {(string|number)} originalValue - The original value for the item
+   * @param {number} idx - The index of the edited item
+   */
+  /**
+   * If provided, this function will be called when an item is selected via click or arrow
+   * keys. If the selection is cleared, it will receive null.
+   * @callback props.onItemSelected
+   * @param {(Component|string|number)} selectedItem - The selected item or null
+   * when selection cleared
+   * @param {number} idx - The index of the selected item or null when selection
+   * cleared
+   */
+  /**
+   * If provided, this function will be called when the user has entered a value to create
+   * a new item in the new item input. This function will be called when the
+   * user presses Enter or when the input is blurred.
+   * @callback props.onItemCreated
+   * @param {string} value - The value for the new item
+   */
   static propTypes = {
     children: PropTypes.arrayOf(PropTypes.oneOfType([
       PropTypes.string,
@@ -48,42 +103,9 @@ class EditableList extends Component {
     onItemCreated: ()=> {},
   }
 
-  /**
-   * @param {object} props
-   * @param {string} props.className - CSS class to be applied to component
-   * @param {boolean} props.allowEmptySelection - Determines wether the
-   * EditableList will allow to have no selected items
-   * @param {boolean} props.showEditIcon - Determines wether to show edit icon
-   * button on selected items
-   * @param {object} props.createInputProps - Props object to be passed on to
-   * the create input element. However, keeep in mind that these props can not
-   * override the default props that EditableList will pass to the input.
-   * @param {function} props.onCreateItem - If provided, this function will be
-   * called when the add button is clicked, and will prevent an input to add
-   * items to be added to the list
-   * @param {function(selectedItem, idx: number)} props.onDeleteItem - If provided,
-   * this function will be called when the delete button is clicked, and will
-   * receive the selected item (React Component|string|number) and the selected
-   * item index.
-   * @param {function(newValue, originalValue, idx: number)} props.onItemEdited - If provided,
-   * this function will be called when an item has been edited. This only
-   * applies to items that are not React Components. It will receive the new
-   * value for the item, the original item, and the index of the item.
-   * @param {function(item, idx: number)} props.onItemSelected - If provided,
-   * this function will be called when an item is selected via click or arrow
-   * keys. It will recieve the item (React Component|string|number) and the
-   * index.
-   * @param {function(value: string)} props.onItemCreated - If provided,
-   * this function will be called when the user has entered a value to create
-   * a new item in the add item input. This function will be called when the
-   * user presses Enter or when the add input to add the item is blurred. It
-   * will receive the value entered in the input.
-   * @param{object} props.initialState - Used for testing purposes to initialize
-   * the component with a given state.
-   */
   constructor(props) {
     super(props);
-    this._doubleClickedItem = false;
+    this._beganEditing = false;
     this.state = props.initialState || {
       editing: null,
       selected: (props.allowEmptySelection ? null : 0),
@@ -95,26 +117,47 @@ class EditableList extends Component {
   // Helpers
 
   _createItem = (value)=> {
-    this.setState({creatingItem: false}, ()=> {
+    this._clearCreatingState(()=> {
       this.props.onItemCreated(value);
     });
   }
 
   _updateItem = (value, originalItem, idx)=> {
-    this.setState({editing: null}, ()=> {
+    this._clearEditingState(()=> {
       this.props.onItemEdited(value, originalItem, idx);
     });
   }
 
   _selectItem = (item, idx)=> {
-    this.setState({selected: idx}, ()=> {
-      this.props.onItemSelected(item, idx);
+    if (this.state.selected !== idx) {
+      this.setState({selected: idx}, ()=> {
+        this.props.onItemSelected(item, idx);
+      });
+    }
+  }
+
+  _clearEditingState = (callback)=> {
+    this._setStateAndFocus({editing: null}, callback);
+  }
+
+  _clearCreatingState = (callback)=> {
+    this._setStateAndFocus({creatingItem: false}, callback);
+  }
+
+  _setStateAndFocus = (state, callback = ()=> {})=> {
+    this.setState(state, ()=> {
+      this._focusSelf();
+      callback();
     });
   }
 
+  _focusSelf = ()=> {
+    React.findDOMNode(this).focus();
+  }
+
   /**
-   * Scrolls to the dom node of the item at the provided index
-   * @param{number} idx - Index of item inside the list to scroll to
+   * @private Scrolls to the dom node of the item at the provided index
+   * @param {number} idx - Index of item inside the list to scroll to
    */
   _scrollTo = (idx)=> {
     if (!idx) return;
@@ -131,7 +174,7 @@ class EditableList extends Component {
   }
 
   _onEditInputFocus = ()=> {
-    this._doubleClickedItem = false;
+    this._beganEditing = false;
   }
 
   _onEditInputKeyDown = (event, item, idx)=> {
@@ -139,7 +182,7 @@ class EditableList extends Component {
     if (_.includes(['Enter', 'Return'], event.key)) {
       this._updateItem(event.target.value, item, idx);
     } else if (event.key === 'Escape') {
-      this.setState({editing: null});
+      this._clearEditingState();
     }
   }
 
@@ -152,7 +195,7 @@ class EditableList extends Component {
     if (_.includes(['Enter', 'Return'], event.key)) {
       this._createItem(event.target.value);
     } else if (event.key === 'Escape') {
-      this.setState({creatingItem: false});
+      this._clearCreatingState();
     }
   }
 
@@ -160,15 +203,15 @@ class EditableList extends Component {
     this._selectItem(item, idx);
   }
 
-  _onItemDoubleClick = (event, item, idx)=> {
+  _onItemEdit = (event, item, idx)=> {
     if (!React.isValidElement(item)) {
-      this._doubleClickedItem = true;
+      this._beganEditing = true;
       this.setState({editing: idx});
     }
   }
 
   _onListBlur = ()=> {
-    if (!this._doubleClickedItem && this.props.allowEmptySelection) {
+    if (!this._beganEditing && this.props.allowEmptySelection) {
       this.setState({selected: null});
     }
   }
@@ -226,7 +269,7 @@ class EditableList extends Component {
   }
 
   /**
-   * Will render the create input with the provided input props.
+   * @private Will render the create input with the provided input props.
    * Provided props will be overriden with the props that EditableList needs to
    * pass to the input.
    */
@@ -245,9 +288,10 @@ class EditableList extends Component {
     );
   }
 
+  // handlers object for testing
   _renderItem = (item, idx, {editing, selected} = this.state, handlers = {})=> {
     const onClick = handlers.onClick || this._onItemClick;
-    const onDoubleClick = handlers.onDoubleClick || this._onItemDoubleClick;
+    const onEdit = handlers.onEdit || this._onItemEdit;
 
     const classes = classNames({
       'list-item': true,
@@ -268,14 +312,14 @@ class EditableList extends Component {
         className={classes}
         key={idx}
         onClick={_.partial(onClick, _, item, idx)}
-        onDoubleClick={_.partial(onDoubleClick, _, item, idx)}>
+        onDoubleClick={_.partial(onEdit, _, item, idx)}>
         {itemToRender}
         <RetinaImg
           className="edit-icon"
           name="edit-icon.png"
           title="Edit Item"
           mode={RetinaImg.Mode.ContentIsMask}
-          onClick={_.partial(onDoubleClick, _, item, idx)} />
+          onClick={_.partial(onEdit, _, item, idx)} />
       </div>
     );
   }

@@ -158,6 +158,11 @@ function bootstrap() {
       options: buildInstallOptions
     },
     {
+      command: gruntPath + " add-nylas-build-resources --gruntfile build/Gruntfile.coffee",
+      message: "",
+      options: {}
+    },
+    {
       command: npmInstallApmCommand,
       message: m2,
       options: npmInstallApmOptions
