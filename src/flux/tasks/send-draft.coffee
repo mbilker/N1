@@ -45,7 +45,7 @@ class SendDraftTask extends Task
     # In this scenario, we don't want to send, but want to restore the
     # draft and notify the user to try again. In order to safely do this
     # we need to keep a backup to restore.
-    DatabaseStore.findBy(Message, clientId: @draftClientId).then (draftModel) =>
+    DatabaseStore.findBy(Message, clientId: @draftClientId).include(Message.attributes.body).then (draftModel) =>
       @backupDraft = draftModel.clone()
 
   performRemote: ->
@@ -57,7 +57,7 @@ class SendDraftTask extends Task
     .catch(@_onError)
 
   _fetchLatestDraft: ->
-    DatabaseStore.findBy(Message, clientId: @draftClientId).then (draftModel) =>
+    DatabaseStore.findBy(Message, clientId: @draftClientId).include(Message.attributes.body).then (draftModel) =>
       @draftAccountId = draftModel.accountId
       @draftServerId = draftModel.serverId
       @draftVersion = draftModel.version
