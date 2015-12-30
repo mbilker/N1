@@ -2,13 +2,13 @@ _str = require 'underscore.string'
 {DOMUtils, ContenteditableExtension} = require 'nylas-exports'
 
 class ListManager extends ContenteditableExtension
-  @onContentChanged: (editor, mutations) ->
+  @onContentChanged: ({editor, mutations}) ->
     if @_spaceEntered and @hasListStartSignature(editor.currentSelection())
       @createList(editor)
 
     @_collapseAdjacentLists(editor)
 
-  @onKeyDown: (editor, event) ->
+  @onKeyDown: ({editor, event}) ->
     @_spaceEntered = event.key is " "
     if DOMUtils.isInList()
       if event.key is "Backspace" and DOMUtils.atStartOfList()
@@ -44,11 +44,11 @@ class ListManager extends ContenteditableExtension
 
     if @numberRegex().test(text)
       @originalInput = text[0...3]
-      editor.insertOrderedList()
+      @insertList(editor, ordered: true)
       @removeListStarter(@numberRegex(), editor.currentSelection())
     else if @bulletRegex().test(text)
       @originalInput = text[0...2]
-      editor.insertUnorderedList()
+      @insertList(editor, ordered: false)
       @removeListStarter(@bulletRegex(), editor.currentSelection())
     else
       return
@@ -90,12 +90,24 @@ class ListManager extends ContenteditableExtension
 
     @originalInput = null
 
+  @insertList: (editor, {ordered}) ->
+    node = editor.currentSelection().anchorNode
+    if @isInsideListItem(node)
+      editor.indent()
+    else
+      editor.insertOrderedList() if ordered is true
+      editor.insertUnorderedList() if not ordered
+
+
   @outdentListItem: (editor) ->
     if @originalInput
       editor.outdent()
       @restoreOriginalInput(editor)
     else
       editor.outdent()
+
+  @isInsideListItem: (node) =>
+    DOMUtils.isDescendantOf(node, (parent) -> parent.tagName is 'LI')
 
   # If users ended up with two <ul> lists adjacent to each other, we
   # collapse them into one. We leave adjacent <ol> lists intact in case
