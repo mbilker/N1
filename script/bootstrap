@@ -48,7 +48,10 @@ function makeSqlite3Command() {
 
   // Use our local version of npm (npm 3x) to build sqlite
   var npmPath = '"' + path.resolve(__dirname, '..', 'build', 'node_modules', '.bin', 'npm') + '"';
-  return npmPath + " install https://github.com/bengotow/node-sqlite3/archive/bengotow/usleep.tar.gz --ignore-scripts && cd node_modules/sqlite3 && "+nodeGypPath+" configure rebuild --target="+targetElectronVersion+" --arch="+targetArch+" --target_platform="+targetPlatform+" --dist-url=https://atom.io/download/atom-shell --module_name=node_sqlite3 --module_path=../lib/binding/node-v46-"+targetPlatform+"-"+targetArch
+  var command = npmPath + " install https://github.com/bengotow/node-sqlite3/archive/bengotow/usleep.tar.gz --ignore-scripts && ";
+  command += "cd node_modules/sqlite3 && ";
+  command += nodeGypPath+" configure rebuild --target="+targetElectronVersion+" --arch="+targetArch+" --target_platform="+targetPlatform+" --dist-url=https://atom.io/download/atom-shell --module_name=node_sqlite3 --module_path=../lib/binding/node-v46-"+targetPlatform+"-"+targetArch;
+  return command;
 }
 
 function bootstrap() {
@@ -90,13 +93,12 @@ function bootstrap() {
   apmEnv['ATOM_HOME'] = path.join(userHomeDirectory, '.nylas');
 
   var apmDedupeCommand = apmPath + ' dedupe' + apmFlags;
-  var semverOptions = {
-    cwd: path.resolve(__dirname, '..', 'apm', 'node_modules', 'atom-package-manager'),
-    env: apmEnv
-  };
 
   var integrationCommand = npmPath + npmFlags + 'install';
   var integrationOptions = {cwd: path.resolve(__dirname, '..', 'spec_integration')};
+
+  var gruntCmd = ""
+  var downloadElectronCmd = gruntPath + " download-electron --gruntfile build/Gruntfile.coffee"
 
   if (process.argv.indexOf('--no-quiet') === -1) {
     buildInstallCommand  += ' --loglevel error';
@@ -142,16 +144,11 @@ function bootstrap() {
   m5  = "\n\n---> De-duping packages `apm dedupe`\n\n"
   m5 += "     $ "+apmDedupeCommand+" "+packagesToDedupe.join(' ')+"\n"
 
-  m6  = "\n\n---> Request version `apm dedupe`\n\n"
-  m6 += "     $ "+apmDedupeCommand+" request semver "+printArgs(semverOptions)+"\n"
+  m6  = "\n\n---> Getting latest Electron\n\n"
+  m6 += "     $ "+downloadElectronCmd
 
-  m7  = "\n\n---> Getting latest Electron\n\n"
-  var gruntCmd = ""
-  var downloadElectronCmd = gruntPath + " download-electron --gruntfile build/Gruntfile.coffee"
-  m7 += "     $ "+downloadElectronCmd
-
-  m8  = "\n\n---> Installing integration test modules\n\n"
-  m8 += "     $ "+integrationCommand+" "+printArgs(integrationOptions)+"\n"
+  m7  = "\n\n---> Installing integration test modules\n\n"
+  m7 += "     $ "+integrationCommand+" "+printArgs(integrationOptions)+"\n"
 
   var commands = [
     {
@@ -220,18 +217,13 @@ function bootstrap() {
         message: m5
       },
       {
-        command: apmDedupeCommand + ' request semver',
-        options: semverOptions,
-        message: m6
-      },
-      {
         command: downloadElectronCmd,
-        message: m7
+        message: m6
       },
       {
         command: integrationCommand,
         options: integrationOptions,
-        message: m8
+        message: m7
       },
       {
         command: sqlite3Command,
