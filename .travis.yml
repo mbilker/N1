@@ -9,6 +9,13 @@ addons:
     packages:
     - fakeroot
     - libgnome-keyring-dev
+    - rpm
+
+branches:
+  only:
+  - master
+  - ci-test
+  - stable
 
 # Trusty image already has a few Node.js versions preinstalled,
 # including 0.10, 0.12, and 4.1, but not 4.2 and 5. Explicitly
