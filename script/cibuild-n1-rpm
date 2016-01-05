@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -e
+
+docker build -t n1-rpm .
+docker run \
+ --rm \
+ --env NYLAS_GITHUB_OAUTH_TOKEN="$NYLAS_GITHUB_OAUTH_TOKEN" \
+ n1-rpm /n1/script/rpmbuild
+docker rmi n1-rpm
