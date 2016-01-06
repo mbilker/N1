@@ -58,7 +58,7 @@ getAssets = ->
   switch process.platform
     when 'darwin'
       [
-        {assetName: 'N1-mac.dmg', sourcePath: appName}
+        {assetName: 'N1-mac.zip', sourcePath: appName}
         {assetName: 'N1-mac-symbols.zip', sourcePath: 'Nylas.breakpad.syms'}
       ]
     when 'win32'
@@ -73,13 +73,13 @@ getAssets = ->
       else
         arch = 'amd64'
 
-      assets = [];
+      assets = []
 
       # Check for a Debian build
       sourcePath = "#{buildDir}/#{appFileName}-#{version}-#{arch}.deb"
       assetName = "N1-#{arch}.deb"
       if fs.isFileSync(sourcePath)
-	assets.push {assetName, sourcePath}
+        assets.push {assetName, sourcePath}
 
       # Check for a Fedora build
       rpmName = fs.readdirSync("#{buildDir}/rpm")[0]
@@ -91,7 +91,7 @@ getAssets = ->
           arch = 'x86_64'
         assetName = "N1.#{arch}.rpm"
 
-	assets.push {assetName, sourcePath}
+        assets.push {assetName, sourcePath}
 
       cp sourcePath, path.join(buildDir, assetName)
 
