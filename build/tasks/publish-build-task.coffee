@@ -55,10 +55,10 @@ getAssets = ->
   appFileName = grunt.config.get('nylasGruntConfig.appFileName')
 
   switch process.platform
-    dmgName = path.join(buildDir, "#{appName.split('.')[0]}.dmg")
-    cp dmgName, path.join(buildDir, "N1-#{version}.dmg")
-
     when 'darwin'
+      dmgName = path.join(buildDir, "#{appName.split('.')[0]}.dmg")
+      cp dmgName, path.join(buildDir, "N1-#{version}.dmg")
+
       [
         {assetName: "N1-#{version}-mac.zip", sourcePath: appName}
         {assetName: "N1-#{version}-mac-symbols.zip", sourcePath: 'Nylas.breakpad.syms'}
