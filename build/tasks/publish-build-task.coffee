@@ -59,13 +59,13 @@ getAssets = ->
       dmgName = "#{appName.split('.')[0]}.dmg"
 
       [
-        {assetName: 'N1-mac.zip', sourcePath: appName}
-        {assetName: 'N1-mac-symbols.zip', sourcePath: 'Nylas.breakpad.syms'}
-        {assetName: 'N1.dmg', sourcePath: dmgName}
+        {assetName: "N1-#{version}-mac.zip", sourcePath: appName}
+        {assetName: "N1-#{version}-mac-symbols.zip", sourcePath: 'Nylas.breakpad.syms'}
+        {assetName: "N1-#{version}.dmg", sourcePath: dmgName}
       ]
     when 'win32'
-      assets = [{assetName: 'N1-windows.zip', sourcePath: appName}]
-      for squirrelAsset in ['N1Setup.exe', 'RELEASES', "N1-#{version}-full.nupkg", "N1-#{version}-delta.nupkg"]
+      assets = [{assetName: "N1-#{version}-windows.zip", sourcePath: appName}]
+      for squirrelAsset in ["N1-#{version}-Setup.exe", 'RELEASES', "N1-#{version}-full.nupkg", "N1-#{version}-delta.nupkg"]
         cp path.join(buildDir, 'installer', squirrelAsset), path.join(buildDir, squirrelAsset)
         assets.push({assetName: squirrelAsset, sourcePath: assetName})
       assets
@@ -79,7 +79,7 @@ getAssets = ->
 
       # Check for a Debian build
       sourcePath = "#{buildDir}/#{appFileName}-#{version}-#{arch}.deb"
-      assetName = "N1-#{arch}.deb"
+      assetName = "N1-#{version}-#{arch}.deb"
       grunt.log.ok "Debian Deb: #{sourcePath}"
       if fs.isFileSync(sourcePath)
         assets.push {assetName, sourcePath}
@@ -94,7 +94,7 @@ getAssets = ->
           arch = 'i386'
         else
           arch = 'x86_64'
-        assetName = "N1.#{arch}.rpm"
+        assetName = "N1-#{version}-#{arch}.rpm"
 
         assets.push {assetName, sourcePath}
         cp sourcePath, path.join(buildDir, assetName)
