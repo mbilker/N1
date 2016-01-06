@@ -395,6 +395,6 @@ module.exports = (grunt) ->
 
   {shouldPublishBuild} = require('./tasks/task-helpers')(grunt)
   if shouldPublishBuild()
-    ciTasks.push('publish-nylas-build')
+    ciTasks.push('publish-build')
 
   grunt.registerTask('ci', ciTasks)

@@ -73,25 +73,29 @@ getAssets = ->
       else
         arch = 'amd64'
 
+      assets = [];
+
       # Check for a Debian build
       sourcePath = "#{buildDir}/#{appFileName}-#{version}-#{arch}.deb"
       assetName = "N1-#{arch}.deb"
+      if fs.isFileSync(sourcePath)
+	assets.push {assetName, sourcePath}
 
       # Check for a Fedora build
-      unless fs.isFileSync(sourcePath)
-        rpmName = fs.readdirSync("#{buildDir}/rpm")[0]
-        sourcePath = "#{buildDir}/rpm/#{rpmName}"
+      rpmName = fs.readdirSync("#{buildDir}/rpm")[0]
+      sourcePath = "#{buildDir}/rpm/#{rpmName}"
+      if fs.isFileSync(sourcePath)
         if process.arch is 'ia32'
           arch = 'i386'
         else
           arch = 'x86_64'
         assetName = "N1.#{arch}.rpm"
 
+	assets.push {assetName, sourcePath}
+
       cp sourcePath, path.join(buildDir, assetName)
 
-      [
-        {assetName, sourcePath}
-      ]
+      assets
 
 logError = (message, error, details) ->
   grunt.log.error(message)
