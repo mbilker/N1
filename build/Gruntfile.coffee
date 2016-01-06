@@ -385,7 +385,12 @@ module.exports = (grunt) ->
   ciTasks.push('set-version', 'lint', 'generate-asar')
 
   if process.platform is "darwin"
-    ciTasks.push('test', 'codesign', 'mkdmg')
+    ciTasks.push('test')
+
+    # I don't have a OS X codesign certificate
+    # ciTasks.push('codesign')
+
+    ciTasks.push('mkdmg')
 
   else if process.platform is "linux"
     ciTasks.push('test', 'mkdeb', 'mkrpm')

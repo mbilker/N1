@@ -57,9 +57,12 @@ getAssets = ->
 
   switch process.platform
     when 'darwin'
+      dmgName = "#{appName().split('.')[0]}.dmg"
+
       [
         {assetName: 'N1-mac.zip', sourcePath: appName}
         {assetName: 'N1-mac-symbols.zip', sourcePath: 'Nylas.breakpad.syms'}
+        {assetName: 'N1.dmg', sourcePath: dmgName}
       ]
     when 'win32'
       assets = [{assetName: 'N1-windows.zip', sourcePath: appName}]
