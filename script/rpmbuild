@@ -2,5 +2,9 @@
 
 set -e
 
-script/build
+script/bootstrap
+script/grunt build
+script/grunt set-version
+script/grunt generate-asar
+script/grunt install --install-dir /usr
 script/grunt mkrpm --stack --no-color --install-dir /usr
