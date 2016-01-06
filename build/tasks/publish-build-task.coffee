@@ -80,6 +80,7 @@ getAssets = ->
       assetName = "N1-#{arch}.deb"
       if fs.isFileSync(sourcePath)
         assets.push {assetName, sourcePath}
+        cp sourcePath, path.join(buildDir, assetName)
 
       # Check for a Fedora build
       rpmName = fs.readdirSync("#{buildDir}/rpm")[0]
@@ -92,8 +93,7 @@ getAssets = ->
         assetName = "N1.#{arch}.rpm"
 
         assets.push {assetName, sourcePath}
-
-      cp sourcePath, path.join(buildDir, assetName)
+        cp sourcePath, path.join(buildDir, assetName)
 
       assets
 
