@@ -56,7 +56,7 @@ getAssets = ->
 
   switch process.platform
     when 'darwin'
-      dmgName = "#{appName.split('.')[0]}.dmg"
+      dmgName = "#{buildDir}/#{appName.split('.')[0]}.dmg"
 
       [
         {assetName: "N1-#{version}-mac.zip", sourcePath: appName}
