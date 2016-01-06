@@ -20,7 +20,6 @@ module.exports = (gruntObject) ->
 
   grunt.registerTask 'publish-build', 'Publish the built app', ->
     tasks = []
-    tasks.push('build-docs', 'prepare-docs') if process.platform is 'darwin'
     tasks.push('upload-assets')
     grunt.task.run(tasks)
 
@@ -81,6 +80,7 @@ getAssets = ->
       # Check for a Debian build
       sourcePath = "#{buildDir}/#{appFileName}-#{version}-#{arch}.deb"
       assetName = "N1-#{arch}.deb"
+      grunt.log.ok "Debian Deb: #{sourcePath}"
       if fs.isFileSync(sourcePath)
         assets.push {assetName, sourcePath}
         cp sourcePath, path.join(buildDir, assetName)
@@ -88,6 +88,7 @@ getAssets = ->
       # Check for a Fedora build
       rpmName = fs.readdirSync("#{buildDir}/rpm")[0]
       sourcePath = "#{buildDir}/rpm/#{rpmName}"
+      grunt.log.ok "Fedora RPM: #{sourcePath}"
       if fs.isFileSync(sourcePath)
         if process.arch is 'ia32'
           arch = 'i386'
