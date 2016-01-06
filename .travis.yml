@@ -27,11 +27,11 @@ matrix:
   - os: linux
     env: NODE_VERSION=4.2 NODE_INSTALL=1
   - os: linux
-    env: NODE_VERSION=5 NODE_INSTALL=1
+    env: NODE_VERSION=5 NODE_INSTALL=1 PUBLISH_BUILD=1
   - os: osx
     env: NODE_VERSION=4.2
   - os: osx
-    env: NODE_VERSION=5
+    env: NODE_VERSION=5 PUBLISH_BUILD=1
 
 install:
 - if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
