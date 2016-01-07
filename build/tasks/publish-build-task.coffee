@@ -65,11 +65,22 @@ getAssets = ->
         {assetName: "N1-#{version}.dmg", sourcePath: dmgName}
       ]
     when 'win32'
-      assets = [{assetName: "N1-#{version}-windows.zip", sourcePath: appName}]
-      for squirrelAsset in ["N1-#{version}-Setup.exe", 'RELEASES', "N1-#{version}-full.nupkg", "N1-#{version}-delta.nupkg"]
-        cp path.join(buildDir, 'installer', squirrelAsset), path.join(buildDir, squirrelAsset)
-        assets.push({assetName: squirrelAsset, sourcePath: assetName})
-      assets
+      installerDir = path.join(buildDir, 'installer')
+      setupExeName = path.join(buildDir, "N1-#{version}-Setup.exe")
+      cp path.join(installerDir, 'Nylas N1Setup.exe'), setupExeName
+
+      nupkgName = path.join(buildDir, "N1-#{version}-full.nupkg")
+      cp path.join(installerDir, "nylas-#{version}-full.nupkg"), nupkgName
+
+      releasesName = path.join(buildDir, 'RELEASES')
+      cp path.join(installerDir, 'RELEASES'), releasesName
+
+      [
+        {assetName: 'RELEASES', sourcePath: releasesName}
+        {assetName: "N1-#{version}-windows.zip", sourcePath: appName}
+        {assetName: "N1-#{version}-Setup.exe", sourcePath: setupExeName}
+        {assetName: "N1-#{version}-full.nupkg", sourcePath: nupkgName}
+      ]
     when 'linux'
       if process.arch is 'ia32'
         arch = 'i386'
