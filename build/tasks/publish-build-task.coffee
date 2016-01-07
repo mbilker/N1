@@ -72,11 +72,7 @@ getAssets = ->
       nupkgName = path.join(buildDir, "N1-#{version}-full.nupkg")
       cp path.join(installerDir, "nylas-#{version}-full.nupkg"), nupkgName
 
-      releasesName = path.join(buildDir, 'RELEASES')
-      cp path.join(installerDir, 'RELEASES'), releasesName
-
       [
-        {assetName: 'RELEASES', sourcePath: releasesName}
         {assetName: "N1-#{version}-Setup.exe", sourcePath: setupExeName}
         {assetName: "N1-#{version}-full.nupkg", sourcePath: nupkgName}
       ]
