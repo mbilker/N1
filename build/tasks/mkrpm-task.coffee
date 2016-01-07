@@ -37,6 +37,8 @@ module.exports = (grunt) ->
 
     {name, version, description} = grunt.file.readJSON('package.json')
 
+    version = version.replace(/-dev/, "~dev")
+
     rpmDir = path.join(buildDir, 'rpm')
     rm rpmDir
     mkdir rpmDir
@@ -44,6 +46,7 @@ module.exports = (grunt) ->
     templateData = {name, version, buildDir, description, iconName, linuxBinDir, linuxShareDir, contentsDir, appName, appFileName}
 
     linuxResourcesPath = path.join('build', 'resources', 'linux')
+
     # This populates nylas.spec
     specInFilePath = path.join(linuxResourcesPath, 'redhat', 'nylas.spec.in')
     specOutFilePath = path.join(buildDir, 'nylas.spec')
