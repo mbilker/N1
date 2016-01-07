@@ -50,6 +50,6 @@ environment:
     PUBLISH_BUILD: true
 
 cache:
-  - '%USERPROFILE%\.nylas\.apm'
-  - '%USERPROFILE%\.nylas\.npm'
-  - '%USERPROFILE%\.npm'
+- 'C:\projects\n1\build\node_modules'
+- 'C:\projects\n1\node_modules
+- '%USERPROFILE%\.nylas\.apm'
