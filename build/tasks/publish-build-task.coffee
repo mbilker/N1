@@ -77,7 +77,6 @@ getAssets = ->
 
       [
         {assetName: 'RELEASES', sourcePath: releasesName}
-        {assetName: "N1-#{version}-windows.zip", sourcePath: appName}
         {assetName: "N1-#{version}-Setup.exe", sourcePath: setupExeName}
         {assetName: "N1-#{version}-full.nupkg", sourcePath: nupkgName}
       ]
