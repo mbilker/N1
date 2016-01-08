@@ -1,5 +1,5 @@
 React = require 'react'
-{Actions, AccountStore, Label, ThreadCountsStore} = require("nylas-exports")
+{Actions, AccountStore, ThreadCountsStore} = require("nylas-exports")
 crypto = require 'crypto'
 {RetinaImg} = require 'nylas-component-kit'
 {Categories} = require 'nylas-observables'
