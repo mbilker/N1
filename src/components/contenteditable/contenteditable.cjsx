@@ -13,6 +13,7 @@ ListManager = require './list-manager'
 MouseService = require './mouse-service'
 DOMNormalizer = require './dom-normalizer'
 ClipboardService = require './clipboard-service'
+BlockquoteManager = require './blockquote-manager'
 
 ###
 Public: A modern React-compatible contenteditable
@@ -62,7 +63,7 @@ class Contenteditable extends React.Component
 
   coreServices: [MouseService, ClipboardService]
 
-  coreExtensions: [DOMNormalizer, ListManager, TabManager]
+  coreExtensions: [DOMNormalizer, ListManager, TabManager, BlockquoteManager]
 
 
   ########################################################################
@@ -412,8 +413,8 @@ class Contenteditable extends React.Component
   # we currently have rendered. Every time React re-renders the component
   # we get new DOM objects. When the `exportedSelection` is re-imported
   # during `_restoreSelection`, the `ExtendedSelection` class will attempt
-  # to find the appropriate DOM Nodes via the `DOMUtils.findSimilarNodes`
-  # method.
+  # to find the appropriate DOM Nodes via the `similar nodes` conveience methods
+  # in DOMUtils.
   #
   # When React re-renders it doesn't restore the Selection. We need to do
   # this manually with `_restoreSelection`
