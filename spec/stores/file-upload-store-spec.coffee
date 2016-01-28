@@ -178,5 +178,3 @@ describe 'FileUploadStore', ->
         .then => throw new Error('It should fail.')
         .catch (msg) =>
           expect(msg).not.toBeUndefined()
-
-
