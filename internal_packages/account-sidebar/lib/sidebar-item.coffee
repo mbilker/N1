@@ -73,9 +73,9 @@ class SidebarItem
         jsonString = event.dataTransfer.getData(item.dataTransferType)
         ids = null
         try
-          ids = JSON.parse(jsonString);
+          ids = JSON.parse(jsonString)
         catch err
-          console.error('OutlineViewItem onDrop: JSON parse #{err}');
+          console.error("OutlineViewItem onDrop: JSON parse #{err}")
         return unless ids
         item.perspective.applyToThreads(ids)
       shouldAcceptDrop: (item, event) ->
