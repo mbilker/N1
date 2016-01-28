@@ -65,20 +65,23 @@ class Account extends Model
 
   fromJSON: (json) ->
     json["label"] ||= json[@constructor.attributes['emailAddress'].jsonKey]
-    super(json)
+    super
 
   # Returns a {Contact} model that represents the current user.
   me: ->
-    Contact = require './contact'
-    return new Contact
-      accountId: @id
-      name: @name
-      email: @emailAddress
+    if @defaultAlias
+      return @meUsingAlias(@defaultAlias)
+    else
+      Contact = require './contact'
+      return new Contact
+        accountId: @id
+        name: @name
+        email: @emailAddress
 
   meUsingAlias: (alias) ->
     Contact = require './contact'
     return @me() unless alias
-    return Contact.fromString(alias)
+    return Contact.fromString(alias, accountId: @id)
 
   usesLabels: ->
     @organizationUnit is "label"
@@ -86,13 +89,21 @@ class Account extends Model
   usesFolders: ->
     @organizationUnit is "folder"
 
-  categoryClass: ->
-    if @usesLabels()
-      return require './label'
-    else if @usesFolders()
-      return require './folder'
+  categoryLabel: ->
+    if @usesFolders()
+      'Folders'
+    else if @usesLabels()
+      'Labels'
     else
-      return null
+      'Unknown'
+
+  categoryIcon: ->
+    if @usesFolders()
+      'folder.png'
+    else if @usesLabels()
+      'tag.png'
+    else
+      'folder.png'
 
   # Public: Returns the localized, properly capitalized provider name,
   # like Gmail, Exchange, or Outlook 365
@@ -103,8 +114,5 @@ class Account extends Model
       return 'Gmail'
     else
       return @provider
-
-  usesImportantFlag: ->
-    @provider is 'gmail'
 
 module.exports = Account

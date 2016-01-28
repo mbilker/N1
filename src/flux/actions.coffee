@@ -74,11 +74,7 @@ class Actions
   ###
   @didPassivelyReceiveNewModels: ActionScopeGlobal
 
-  @uploadStateChanged: ActionScopeGlobal
-  @fileAborted: ActionScopeGlobal
   @downloadStateChanged: ActionScopeGlobal
-  @linkFileToUpload: ActionScopeGlobal
-  @fileUploaded: ActionScopeGlobal
   @sendDraftSuccess: ActionScopeGlobal
   @sendToAllWindows: ActionScopeGlobal
   @draftSendingFailed: ActionScopeGlobal
@@ -89,6 +85,14 @@ class Actions
   *Scope: Work Window*
   ###
   @queueTask: ActionScopeWorkWindow
+
+  ###
+  Public: Queue multiple {Task} objects to the {TaskQueue}, which should be
+  undone as a single user action.
+
+  *Scope: Work Window*
+  ###
+  @queueTasks: ActionScopeWorkWindow
 
   @undoTaskId: ActionScopeWorkWindow
 
@@ -144,13 +148,6 @@ class Actions
   *Scope: Window*
   ###
   @clearDeveloperConsole: ActionScopeWindow
-
-  ###
-  Public: Select the provided account ID in the current window.
-
-  *Scope: Window*
-  ###
-  @selectAccount: ActionScopeWindow
 
   ###
   Public: Remove the selected account
@@ -218,15 +215,23 @@ class Actions
   @setFocus: ActionScopeWindow
 
   ###
-  Public: Focus the interface on a specific {Category}.
+  Public: Focus the interface on a specific {MailboxPerspective}.
 
   *Scope: Window*
 
   ```
-  Actions.focusMailView(<Category>)
+  Actions.focusMailboxPerspective(<Category>)
   ```
   ###
-  @focusMailView: ActionScopeWindow
+  @focusMailboxPerspective: ActionScopeWindow
+
+  ###
+  Public: Focus the interface on the default mailbox perspective for the provided
+  account id.
+
+  *Scope: Window*
+  ###
+  @focusDefaultMailboxPerspectiveForAccounts: ActionScopeWindow
 
   ###
   Public: If the message with the provided id is currently beign displayed in the
@@ -358,31 +363,6 @@ class Actions
   @destroyDraft: ActionScopeWindow
 
   ###
-  Public: Updates the search query in the app's main search bar with the provided query text.
-
-  *Scope: Window*
-
-  ```
-  Actions.searchQueryChanged("New Search Query")
-  ```
-  ###
-  @searchQueryChanged: ActionScopeWindow
-
-  ###
-  Public: Submits a search with the provided query text. Unlike `searchQueryChanged`, this
-  action immediately performs a search.
-
-  *Scope: Window*
-
-  ```
-  Actions.searchQueryCommitted("New Search Query")
-  ```
-  ###
-  @searchQueryCommitted: ActionScopeWindow
-  @searchWeightsChanged: ActionScopeWindow
-  @searchBlurred: ActionScopeWindow
-
-  ###
   Public: Submits the user's response to an RSVP event.
 
   *Scope: Window*
@@ -465,14 +445,13 @@ class Actions
 
   # File Actions
   # Some file actions only need to be processed in their current window
-  @attachFile: ActionScopeWindow
-  @attachFilePath: ActionScopeWindow
-  @abortUpload: ActionScopeWindow
+  @addAttachment: ActionScopeGlobal
+  @selectAttachment: ActionScopeWindow
+  @removeAttachment: ActionScopeGlobal
   @fetchAndOpenFile: ActionScopeWindow
   @fetchAndSaveFile: ActionScopeWindow
   @fetchFile: ActionScopeWindow
   @abortFetchFile: ActionScopeWindow
-  @fileDownloaded: ActionScopeWindow
 
   ###
   Public: Pop the current sheet off the Sheet stack maintained by the {WorkspaceStore}.

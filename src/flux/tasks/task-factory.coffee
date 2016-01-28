@@ -8,36 +8,58 @@ CategoryStore = require '../stores/category-store'
 
 class TaskFactory
 
-  taskForApplyingCategory: ({threads, fromView, category, exclusive}) =>
-    account = AccountStore.current()
-    if account.usesFolders()
-      return null unless category
-      return new ChangeFolderTask
-        folder: category
-        threads: threads
-    else
-      labelsToRemove = []
-      if exclusive
-        currentLabel = CategoryStore.byId(fromView?.categoryId())
-        currentLabel ?= CategoryStore.getStandardCategory("inbox")
-        labelsToRemove = [currentLabel]
+  tasksForApplyingCategories: ({threads, categoriesToRemove, categoryToAdd}) =>
+    byAccount = {}
+    tasks = []
 
-      return new ChangeLabelsTask
-        threads: threads
-        labelsToRemove: labelsToRemove
-        labelsToAdd: [category]
+    for thread in threads
+      accountId = thread.accountId
+      byAccount[accountId] ?=
+        categoriesToRemove: categoriesToRemove?(accountId) ? []
+        categoryToAdd: categoryToAdd(accountId)
+        threads: []
+      byAccount[accountId].threads.push(thread)
 
-  taskForRemovingCategory: ({threads, fromView, category, exclusive}) =>
-    account = AccountStore.current()
+    for accountId, {categoryToAdd, categoriesToRemove, threads} of byAccount
+      continue unless categoryToAdd and categoriesToRemove
+
+      account = AccountStore.accountForId(accountId)
+      if account.usesFolders()
+        tasks.push new ChangeFolderTask
+          folder: categoryToAdd
+          threads: threads
+      else
+        tasks.push new ChangeLabelsTask
+          threads: threads
+          labelsToRemove: categoriesToRemove
+          labelsToAdd: [categoryToAdd]
+
+    return tasks
+
+  taskForApplyingCategory: ({threads, category}) =>
+    tasks = @tasksForApplyingCategories
+      threads: threads
+      categoryToAdd: (accountId) -> category
+
+    if tasks.length > 1
+      throw new Error("taskForApplyingCategory: Threads must be from the same account.")
+
+    return tasks[0]
+
+  taskForRemovingCategory: ({threads, fromPerspective, category, exclusive}) =>
+    # TODO Can not apply to threads across more than one account for now
+    account = AccountStore.accountForItems(threads)
+    return unless account?
+
     if account.usesFolders()
       return new ChangeFolderTask
-        folder: CategoryStore.getStandardCategory("inbox")
+        folder: CategoryStore.getStandardCategory(account, "inbox")
         threads: threads
     else
       labelsToAdd = []
       if exclusive
-        currentLabel = CategoryStore.byId(fromView?.categoryId())
-        currentLabel ?= CategoryStore.getStandardCategory("inbox")
+        currentLabel = fromPerspective?.category()
+        currentLabel ?= CategoryStore.getStandardCategory(account, "inbox")
         labelsToAdd = [currentLabel]
 
       return new ChangeLabelsTask
@@ -45,21 +67,17 @@ class TaskFactory
         labelsToRemove: [category]
         labelsToAdd: labelsToAdd
 
-  taskForArchiving: ({threads, fromView}) =>
-    category = CategoryStore.getArchiveCategory()
-    @taskForApplyingCategory({threads, fromView, category, exclusive: true})
+  tasksForArchiving: ({threads, fromPerspective}) =>
+    @tasksForApplyingCategories
+      threads: threads,
+      categoriesToRemove: (accountId) -> _.filter(fromPerspective.categories(), _.matcher({accountId}))
+      categoryToAdd: (accountId) -> CategoryStore.getArchiveCategory(accountId)
 
-  taskForUnarchiving: ({threads, fromView}) =>
-    category = CategoryStore.getArchiveCategory()
-    @taskForRemovingCategory({threads, fromView, category, exclusive: true})
-
-  taskForMovingToTrash: ({threads, fromView}) =>
-    category = CategoryStore.getTrashCategory()
-    @taskForApplyingCategory({threads, fromView, category, exclusive: true})
-
-  taskForMovingFromTrash: ({threads, fromView}) =>
-    category = CategoryStore.getTrashCategory()
-    @taskForRemovingCategory({threads, fromView, category, exclusive: true})
+  tasksForMovingToTrash: ({threads, fromPerspective}) =>
+    @tasksForApplyingCategories
+      threads: threads,
+      categoriesToRemove: (accountId) -> _.filter(fromPerspective.categories(), _.matcher({accountId}))
+      categoryToAdd: (accountId) -> CategoryStore.getTrashCategory(accountId)
 
   taskForInvertingUnread: ({threads}) =>
     unread = _.every threads, (t) -> _.isMatch(t, {unread: false})

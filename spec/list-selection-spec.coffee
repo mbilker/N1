@@ -1,28 +1,32 @@
 _ = require 'underscore'
 
-Thread = require '../src/flux/models/thread'
-ModelView = require '../src/flux/stores/model-view'
-ModelViewSelection = require '../src/flux/stores/model-view-selection'
+{Thread} = require 'nylas-exports'
+{ListTabular} = require 'nylas-component-kit'
 
-describe "ModelViewSelection", ->
+ListDataSource = ListTabular.DataSource
+ListSelection = ListTabular.Selection
+
+describe "ListSelection", ->
   beforeEach ->
     @trigger = jasmine.createSpy('trigger')
+
     @items = []
     @items.push(new Thread(id: "#{ii}")) for ii in [0..99]
 
-    @view = new ModelView()
-    @view._pages =
-      "0":
-        items: @items
-        loaded: true
-    @selection = new ModelViewSelection(@view, @trigger)
+    @view = new ListDataSource()
+    @view.indexOfId = jasmine.createSpy('indexOfId').andCallFake (id) =>
+      _.findIndex(@items, _.matcher({id}))
+    @view.get = jasmine.createSpy('get').andCallFake (idx) =>
+      @items[idx]
+
+    @selection = new ListSelection(@view, @trigger)
 
   it "should initialize with an empty set", ->
     expect(@selection.items()).toEqual([])
     expect(@selection.ids()).toEqual([])
 
   it "should throw an exception if a view is not provided", ->
-    expect( => new ModelViewSelection(null, @trigger)).toThrow()
+    expect( => new ListSelection(null, @trigger)).toThrow()
 
   describe "set", ->
     it "should replace the current selection with the provided models", ->
@@ -52,34 +56,43 @@ describe "ModelViewSelection", ->
 
   describe "remove", ->
     beforeEach ->
-      @selection.set([@items[2], @items[4]])
+      @selection.set([@items[2], @items[4], @items[7]])
 
     it "should do nothing if called without a valid item", ->
       @selection.remove(null)
       @selection.remove(undefined)
       @selection.remove(false)
-      expect(@selection.ids()).toEqual(['2', '4'])
+      expect(@selection.ids()).toEqual(['2', '4', '7'])
 
     it "should remove the item from the set", ->
       @selection.remove(@items[2])
-      expect(@selection.ids()).toEqual(['4'])
+      expect(@selection.ids()).toEqual(['4', '7'])
 
-    it "should throw an exception if the item passed is not a model", ->
+    it "should throw an exception if any item passed is not a model", ->
       expect( => @selection.remove('hi')).toThrow()
+
+    it "should accept an array of models as well as a single item", ->
+      @selection.remove([@items[2], @items[4]])
+      expect(@selection.ids()).toEqual(['7'])
 
     it "should trigger", ->
       @selection.remove()
       expect(@trigger).toHaveBeenCalled()
 
-  describe "updateModelReferences", ->
+  describe "_applyChangeRecord", ->
     it "should replace items in the selection with the matching provided items, if present", ->
       @selection.set([@items[2], @items[4], @items[7]])
       expect(@selection.items()[0]).toBe(@items[2])
-
       expect(@selection.items()[0].subject).toBe(undefined)
       newItem2 = new Thread(id: '2', subject:'Hello world!')
-      @selection.updateModelReferences([newItem2])
+      @selection._applyChangeRecord({objectClass: 'Thread', objects: [newItem2], type: 'persist'})
       expect(@selection.items()[0].subject).toBe('Hello world!')
+
+    it "should rremove items in the selection if type is unpersist", ->
+      @selection.set([@items[2], @items[4], @items[7]])
+      newItem2 = new Thread(id: '2', subject:'Hello world!')
+      @selection._applyChangeRecord({objectClass: 'Thread', objects: [newItem2], type: 'unpersist'})
+      expect(@selection.ids()).toEqual(['4', '7'])
 
   describe "toggle", ->
     beforeEach ->

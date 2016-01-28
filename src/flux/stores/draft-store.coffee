@@ -8,6 +8,7 @@ DraftStoreProxy = require './draft-store-proxy'
 DatabaseStore = require './database-store'
 AccountStore = require './account-store'
 ContactStore = require './contact-store'
+FocusedPerspectiveStore = require './focused-perspective-store'
 FocusedContentStore = require './focused-content-store'
 
 SendDraftTask = require '../tasks/send-draft'
@@ -152,12 +153,6 @@ class DraftStore
 
   ########### PRIVATE ####################################################
 
-  _getFromField: (account) ->
-    if account.defaultAlias?
-      account.meUsingAlias(account.defaultAlias)
-    else
-      account.me()
-
   _doneWithSession: (session) ->
     session.teardown()
     delete @_draftSessions[session.draftClientId]
@@ -251,8 +246,6 @@ class DraftStore
       Promise.resolve(draftClientId: draft.clientId, draft: draft)
 
   _newMessageWithContext: (args, attributesCallback) =>
-    return unless AccountStore.current()
-
     # We accept all kinds of context. You can pass actual thread and message objects,
     # or you can pass Ids and we'll look them up. Passing the object is preferable,
     # and in most cases "the data is right there" anyway. Lookups add extra latency
@@ -290,8 +283,10 @@ class DraftStore
     return queries
 
   _constructDraft: ({attributes, thread}) =>
+    account = AccountStore.accountForId(thread.accountId)
+    throw new Error("Cannot find #{thread.accountId}") unless account
     return new Message _.extend {}, attributes,
-      from: [@_getFromField(AccountStore.current())]
+      from: [account.me()]
       date: (new Date)
       draft: true
       pristine: true
@@ -374,13 +369,23 @@ class DraftStore
     InlineStyleTransformer.run(body).then (body) =>
       SanitizeTransformer.run(body, SanitizeTransformer.Preset.UnsafeOnly)
 
+  _getAccountForNewMessage: =>
+    defAccountId = NylasEnv.config.get('core.sending.defaultAccountIdForSend')
+    if defAccountId?
+      AccountStore.accountForId(defAccountId)
+    else
+      focusedAccountId = FocusedPerspectiveStore.current().accountIds[0]
+      if focusedAccountId
+        AccountStore.accountForId(focusedAccountId)
+      else
+        AccountStore.accounts()[0]
+
   _onPopoutBlankDraft: =>
-    account = AccountStore.current()
-    return unless account
+    account = @_getAccountForNewMessage()
 
     draft = new Message
       body: ""
-      from: [@_getFromField(account)]
+      from: [account.me()]
       date: (new Date)
       draft: true
       pristine: true
@@ -390,8 +395,6 @@ class DraftStore
       @_onPopoutDraftClientId(draftClientId, {newDraft: true})
 
   _onPopoutDraftClientId: (draftClientId, options = {}) =>
-    return unless AccountStore.current()
-
     if not draftClientId?
       throw new Error("DraftStore::onPopoutDraftId - You must provide a draftClientId")
 
@@ -414,8 +417,7 @@ class DraftStore
           windowProps: _.extend(options, {draftClientId})
 
   _onHandleMailtoLink: (event, urlString) =>
-    account = AccountStore.current()
-    return unless account
+    account = @_getAccountForNewMessage()
 
     try
       urlString = decodeURI(urlString)
@@ -458,7 +460,7 @@ class DraftStore
     draft = new Message
       body: query.body || ''
       subject: query.subject || '',
-      from: [@_getFromField(account)]
+      from: [account.me()]
       date: (new Date)
       draft: true
       pristine: true
@@ -510,26 +512,11 @@ class DraftStore
       # We do, however, need to ensure that all of the pending changes are
       # committed to the Database since we'll look them up again just
       # before send.
-      session.changes.commit(force: true, noSyncback: true).then =>
+      session.changes.commit(noSyncback: true).then =>
         draft = session.draft()
-        # We unfortunately can't give the SendDraftTask the raw draft JSON
-        # data because there may still be pending tasks (like a
-        # {FileUploadTask}) that will continue to update the draft data.
-        opts =
-          threadId: draft.threadId
-          replyToMessageId: draft.replyToMessageId
-
-        task = new SendDraftTask(draftClientId, opts)
-        Actions.queueTask(task)
-
-        # NOTE: We may be done with the session in this window, but there
-        # may still be {FileUploadTask}s and other pending draft mutations
-        # in the worker window.
-        #
-        # The send "pending" indicator in the main window is declaratively
-        # bound to the existence of a `@_draftSession`. We want to show
-        # the pending state immediately even as files are uploading.
+        Actions.queueTask(new SendDraftTask(draft))
         @_doneWithSession(session)
+
         NylasEnv.close() if @_isPopout()
 
   _isPopout: ->

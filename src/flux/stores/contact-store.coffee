@@ -1,13 +1,13 @@
 fs = require 'fs'
 path = require 'path'
 Reflux = require 'reflux'
+Rx = require 'rx-lite'
 Actions = require '../actions'
 Contact = require '../models/contact'
 Utils = require '../models/utils'
 NylasStore = require 'nylas-store'
 RegExpUtils = require '../../regexp-utils'
 DatabaseStore = require './database-store'
-AccountStore = require './account-store'
 ContactRankingStore = require './contact-ranking-store'
 _ = require 'underscore'
 
@@ -38,14 +38,22 @@ class ContactStore extends NylasStore
   constructor: ->
     if NylasEnv.isMainWindow() or NylasEnv.inSpecMode()
       @_contactCache = []
-      @_accountId = null
+      @_registerListeners()
+      @_registerObservables()
 
-      @listenTo DatabaseStore, @_onDatabaseChanged
-      @listenTo AccountStore, @_onAccountChanged
-      @listenTo ContactRankingStore, @_sortContactsCacheWithRankings
+  _registerListeners: ->
+    @listenTo ContactRankingStore, @_sortContactsCacheWithRankings
 
-      @_accountId = AccountStore.current()?.id
-      @_refreshCache()
+  _registerObservables: =>
+    # TODO I'm a bit worried about how big a cache this might be
+    @disposable?.dispose()
+    query = DatabaseStore.findAll(Contact)
+    @_disposable = Rx.Observable.fromQuery(query).subscribe(@_onContactsChanged)
+
+  _onContactsChanged: (contacts) =>
+    @_contactCache = [].concat(contacts)
+    @_sortContactsCacheWithRankings()
+    @trigger()
 
   # Public: Search the user's contact list for the given search term.
   # This method compares the `search` string against each Contact's
@@ -97,6 +105,7 @@ class ContactStore extends NylasStore
       false
 
     matches = []
+
     for contact in @_contactCache
       if matchFunction(contact)
         matches.push(contact)
@@ -174,42 +183,14 @@ class ContactStore extends NylasStore
 
     return Promise.resolve(detected)
 
-  __refreshCache: =>
-    return unless @_accountId
-
-    DatabaseStore.findAll(Contact).where(Contact.attributes.accountId.equal(@_accountId)).then (contacts=[]) =>
-      @_contactCache = contacts
-      @_sortContactsCacheWithRankings()
-      @trigger()
-    .catch (err) =>
-      console.warn("Request for Contacts failed. #{err}")
-    return true
-
-  _refreshCache: _.debounce(ContactStore::__refreshCache, 100)
-
   _sortContactsCacheWithRankings: =>
-    rankings = ContactRankingStore.value()
-    return unless rankings
+    rankings = ContactRankingStore.valuesForAllAccounts()
     @_contactCache = _.sortBy @_contactCache, (contact) =>
-      - (rankings[contact.email.toLowerCase()] ? 0) / 1
-
-  _onDatabaseChanged: (change) =>
-    return unless change?.objectClass is Contact.name
-    @_refreshCache()
+      (- (rankings[contact.email.toLowerCase()] ? 0) / 1)
 
   _resetCache: =>
-    @_contactCache = []
+    @_contactCache = {}
     ContactRankingStore.reset()
     @trigger(@)
-
-  _onAccountChanged: =>
-    return if @_accountId is AccountStore.current()?.id
-    @_accountId = AccountStore.current()?.id
-
-    if @_accountId
-      @_refreshCache()
-    else
-      @_resetCache()
-
 
 module.exports = new ContactStore()

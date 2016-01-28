@@ -32,6 +32,7 @@ msgWithReplyTo = null
 messageWithStyleTags = null
 fakeMessageWithFiles = null
 msgWithReplyToDuplicates = null
+account = null
 
 class TestExtension extends ComposerExtension
   @prepareNewDraft: ({draft}) ->
@@ -58,14 +59,18 @@ describe "DraftStore", ->
           # requires us to add `advanceClock` blocks.
           _.defer -> DraftStore._onInlineStylesResult({}, body)
 
+      account = AccountStore.accounts()[0]
+
       fakeThread = new Thread
         id: 'fake-thread-id'
+        accountId: account.id
         subject: 'Fake Subject'
 
       fakeMessage1 = new Message
         id: 'fake-message-1'
+        accountId: account.id
         to: [new Contact(email: 'ben@nylas.com'), new Contact(email: 'evan@nylas.com')]
-        cc: [new Contact(email: 'mg@nylas.com'), new Contact(email: AccountStore.current().me().email)]
+        cc: [new Contact(email: 'mg@nylas.com'), account.me()]
         bcc: [new Contact(email: 'recruiting@nylas.com')]
         from: [new Contact(email: 'customer@example.com', name: 'Customer')]
         threadId: 'fake-thread-id'
@@ -75,6 +80,7 @@ describe "DraftStore", ->
 
       fakeMessage2 = new Message
         id: 'fake-message-2'
+        accountId: account.id
         to: [new Contact(email: 'customer@example.com')]
         from: [new Contact(email: 'ben@nylas.com')]
         threadId: 'fake-thread-id'
@@ -84,8 +90,9 @@ describe "DraftStore", ->
 
       fakeMessageWithFiles = new Message
         id: 'fake-message-with-files'
+        accountId: account.id
         to: [new Contact(email: 'ben@nylas.com'), new Contact(email: 'evan@nylas.com')]
-        cc: [new Contact(email: 'mg@nylas.com'), new Contact(email: AccountStore.current().me().email)]
+        cc: [new Contact(email: 'mg@nylas.com'), account.me()]
         bcc: [new Contact(email: 'recruiting@nylas.com')]
         from: [new Contact(email: 'customer@example.com', name: 'Customer')]
         files: [new File(filename: "test.jpg"), new File(filename: "test.pdj")]
@@ -96,10 +103,11 @@ describe "DraftStore", ->
 
       msgFromMe = new Message
         id: 'fake-message-3'
+        accountId: account.id
         to: [new Contact(email: '1@1.com'), new Contact(email: '2@2.com')]
         cc: [new Contact(email: '3@3.com'), new Contact(email: '4@4.com')]
         bcc: [new Contact(email: '5@5.com'), new Contact(email: '6@6.com')]
-        from: [new Contact(email: AccountStore.current().me().email)]
+        from: [account.me()]
         threadId: 'fake-thread-id'
         body: 'Fake Message 2'
         subject: 'Re: Fake Subject'
@@ -107,6 +115,7 @@ describe "DraftStore", ->
 
       msgWithReplyTo = new Message
         id: 'fake-message-reply-to'
+        accountId: account.id
         to: [new Contact(email: '1@1.com'), new Contact(email: '2@2.com')]
         cc: [new Contact(email: '3@3.com'), new Contact(email: '4@4.com')]
         bcc: [new Contact(email: '5@5.com'), new Contact(email: '6@6.com')]
@@ -119,6 +128,7 @@ describe "DraftStore", ->
 
       msgWithReplyToDuplicates = new Message
         id: 'fake-message-reply-to-duplicates'
+        accountId: account.id
         to: [new Contact(email: '1@1.com'), new Contact(email: '2@2.com')]
         cc: [new Contact(email: '1@1.com'), new Contact(email: '4@4.com')]
         from: [new Contact(email: 'reply-to@5.com')]
@@ -130,8 +140,9 @@ describe "DraftStore", ->
 
       messageWithStyleTags = new Message
         id: 'message-with-style-tags'
+        accountId: account.id
         to: [new Contact(email: 'ben@nylas.com'), new Contact(email: 'evan@nylas.com')]
-        cc: [new Contact(email: 'mg@nylas.com'), new Contact(email: AccountStore.current().me().email)]
+        cc: [new Contact(email: 'mg@nylas.com'), account.me()]
         bcc: [new Contact(email: 'recruiting@nylas.com')]
         from: [new Contact(email: 'customer@example.com', name: 'Customer')]
         threadId: 'fake-thread-id'
@@ -242,7 +253,7 @@ describe "DraftStore", ->
 
       it "should not include you when you were cc'd on the previous message", ->
         ccEmails = @model.cc.map (cc) -> cc.email
-        expect(ccEmails.indexOf(AccountStore.current().me().email)).toEqual(-1)
+        expect(ccEmails.indexOf(account.me().email)).toEqual(-1)
 
       it "should set the replyToMessageId to the previous message's ids", ->
         expect(@model.replyToMessageId).toEqual(fakeMessage1.id)
@@ -654,21 +665,25 @@ describe "DraftStore", ->
         expect(DraftStore._onBeforeUnload()).toBe(true)
 
   describe "sending a draft", ->
-    draftClientId = "local-123"
     beforeEach ->
+      @draft = new Message
+        clientId: "local-123",
+        threadId: "thread-123",
+        replyToMessageId: "message-123"
+        uploads: ['stub']
       DraftStore._draftSessions = {}
       DraftStore._draftsSending = {}
       @forceCommit = false
-      msg = new Message(clientId: draftClientId, threadId: "thread-123", replyToMessageId: "message-123")
       proxy =
         prepare: -> Promise.resolve(proxy)
         teardown: ->
-        draft: -> msg
+        draft: => @draft
         changes:
           commit: ({force}={}) =>
             @forceCommit = force
             Promise.resolve()
-      DraftStore._draftSessions[draftClientId] = proxy
+
+      DraftStore._draftSessions[@draft.clientId] = proxy
       spyOn(DraftStore, "_doneWithSession").andCallThrough()
       spyOn(DraftStore, "trigger")
       spyOn(SoundRegistry, "playSound")
@@ -676,20 +691,20 @@ describe "DraftStore", ->
 
     it "plays a sound immediately when sending draft", ->
       spyOn(NylasEnv.config, "get").andReturn true
-      DraftStore._onSendDraft(draftClientId)
+      DraftStore._onSendDraft(@draft.clientId)
       expect(NylasEnv.config.get).toHaveBeenCalledWith("core.sending.sounds")
       expect(SoundRegistry.playSound).toHaveBeenCalledWith("hit-send")
 
     it "doesn't plays a sound if the setting is off", ->
       spyOn(NylasEnv.config, "get").andReturn false
-      DraftStore._onSendDraft(draftClientId)
+      DraftStore._onSendDraft(@draft.clientId)
       expect(NylasEnv.config.get).toHaveBeenCalledWith("core.sending.sounds")
       expect(SoundRegistry.playSound).not.toHaveBeenCalled()
 
     it "sets the sending state when sending", ->
       spyOn(NylasEnv, "isMainWindow").andReturn true
-      DraftStore._onSendDraft(draftClientId)
-      expect(DraftStore.isSendingDraft(draftClientId)).toBe true
+      DraftStore._onSendDraft(@draft.clientId)
+      expect(DraftStore.isSendingDraft(@draft.clientId)).toBe true
 
     # Since all changes haven't been applied yet, we want to ensure that
     # no view of the draft renders the draft as if its sending, but with
@@ -697,7 +712,7 @@ describe "DraftStore", ->
     it "does NOT trigger until the latest changes have been applied", ->
       spyOn(NylasEnv, "isMainWindow").andReturn true
       runs ->
-        DraftStore._onSendDraft(draftClientId)
+        DraftStore._onSendDraft(@draft.clientId)
         expect(DraftStore.trigger).not.toHaveBeenCalled()
       waitsFor ->
         Actions.queueTask.calls.length > 0
@@ -709,20 +724,20 @@ describe "DraftStore", ->
         DraftStore._onDataChanged
           objectClass: "Message"
           objects: [draft: true]
-        expect(DraftStore.isSendingDraft(draftClientId)).toBe true
+        expect(DraftStore.isSendingDraft(@draft.clientId)).toBe true
         expect(DraftStore.trigger).toHaveBeenCalled()
         expect(DraftStore.trigger.calls.length).toBe 1
 
     it "returns false if the draft hasn't been seen", ->
       spyOn(NylasEnv, "isMainWindow").andReturn true
-      expect(DraftStore.isSendingDraft(draftClientId)).toBe false
+      expect(DraftStore.isSendingDraft(@draft.clientId)).toBe false
 
     it "closes the window if it's a popout", ->
       spyOn(NylasEnv, "getWindowType").andReturn "composer"
       spyOn(NylasEnv, "isMainWindow").andReturn false
       spyOn(NylasEnv, "close")
       runs ->
-        DraftStore._onSendDraft(draftClientId)
+        DraftStore._onSendDraft(@draft.clientId)
       waitsFor "N1 to close", ->
         NylasEnv.close.calls.length > 0
 
@@ -732,59 +747,40 @@ describe "DraftStore", ->
       spyOn(NylasEnv, "close")
       spyOn(DraftStore, "_isPopout").andCallThrough()
       runs ->
-        DraftStore._onSendDraft(draftClientId)
+        DraftStore._onSendDraft(@draft.clientId)
       waitsFor ->
         DraftStore._isPopout.calls.length > 0
       runs ->
         expect(NylasEnv.close).not.toHaveBeenCalled()
 
-    it "forces a commit to happen before sending", ->
+    it "queues the correct SendDraftTask", ->
       runs ->
-        DraftStore._onSendDraft(draftClientId)
-      waitsFor ->
-        DraftStore._doneWithSession.calls.length > 0
-      runs ->
-        expect(@forceCommit).toBe true
-
-    it "includes the threadId", ->
-      runs ->
-        DraftStore._onSendDraft(draftClientId)
+        DraftStore._onSendDraft(@draft.clientId)
       waitsFor ->
         DraftStore._doneWithSession.calls.length > 0
       runs ->
         expect(Actions.queueTask).toHaveBeenCalled()
         task = Actions.queueTask.calls[0].args[0]
         expect(task instanceof SendDraftTask).toBe true
-        expect(task.threadId).toBe "thread-123"
-
-    it "includes the replyToMessageId", ->
-      runs ->
-        DraftStore._onSendDraft(draftClientId)
-      waitsFor ->
-        DraftStore._doneWithSession.calls.length > 0
-      runs ->
-        expect(Actions.queueTask).toHaveBeenCalled()
-        task = Actions.queueTask.calls[0].args[0]
-        expect(task instanceof SendDraftTask).toBe true
-        expect(task.replyToMessageId).toBe "message-123"
+        expect(task.draft).toBe @draft
 
     it "queues a SendDraftTask", ->
       runs ->
-        DraftStore._onSendDraft(draftClientId)
+        DraftStore._onSendDraft(@draft.clientId)
       waitsFor ->
         DraftStore._doneWithSession.calls.length > 0
       runs ->
         expect(Actions.queueTask).toHaveBeenCalled()
         task = Actions.queueTask.calls[0].args[0]
         expect(task instanceof SendDraftTask).toBe true
-        expect(task.draftClientId).toBe draftClientId
+        expect(task.draft).toBe(@draft)
 
     it "resets the sending state if there's an error", ->
       spyOn(NylasEnv, "isMainWindow").andReturn false
-      DraftStore._draftsSending[draftClientId] = true
-      Actions.draftSendingFailed({errorMessage: "boohoo", draftClientId})
-      expect(DraftStore.isSendingDraft(draftClientId)).toBe false
-      expect(DraftStore.trigger).toHaveBeenCalledWith(draftClientId)
+      DraftStore._draftsSending[@draft.clientId] = true
+      Actions.draftSendingFailed({errorMessage: "boohoo", draftClientId: @draft.clientId})
+      expect(DraftStore.isSendingDraft(@draft.clientId)).toBe false
+      expect(DraftStore.trigger).toHaveBeenCalledWith(@draft.clientId)
 
     it "displays a popup in the main window if there's an error", ->
       spyOn(NylasEnv, "isMainWindow").andReturn true
@@ -793,11 +789,11 @@ describe "DraftStore", ->
       dialog = remote.require('dialog')
       spyOn(dialog, "showMessageBox")
       spyOn(Actions, "composePopoutDraft")
-      DraftStore._draftsSending[draftClientId] = true
-      Actions.draftSendingFailed({threadId: 't1', errorMessage: "boohoo", draftClientId})
+      DraftStore._draftsSending[@draft.clientId] = true
+      Actions.draftSendingFailed({threadId: 't1', errorMessage: "boohoo", draftClientId: @draft.clientId})
       advanceClock(200)
-      expect(DraftStore.isSendingDraft(draftClientId)).toBe false
-      expect(DraftStore.trigger).toHaveBeenCalledWith(draftClientId)
+      expect(DraftStore.isSendingDraft(@draft.clientId)).toBe false
+      expect(DraftStore.trigger).toHaveBeenCalledWith(@draft.clientId)
       expect(dialog.showMessageBox).toHaveBeenCalled()
       dialogArgs = dialog.showMessageBox.mostRecentCall.args[1]
       expect(dialogArgs.detail).toEqual("boohoo")
@@ -807,24 +803,24 @@ describe "DraftStore", ->
       spyOn(NylasEnv, "isMainWindow").andReturn true
       spyOn(FocusedContentStore, "focused").andReturn(id: "t1")
       spyOn(Actions, "composePopoutDraft")
-      DraftStore._draftsSending[draftClientId] = true
-      Actions.draftSendingFailed({threadId: 't2', errorMessage: "boohoo", draftClientId})
+      DraftStore._draftsSending[@draft.clientId] = true
+      Actions.draftSendingFailed({threadId: 't2', errorMessage: "boohoo", draftClientId: @draft.clientId})
       advanceClock(200)
       expect(Actions.composePopoutDraft).toHaveBeenCalled
       call = Actions.composePopoutDraft.calls[0]
-      expect(call.args[0]).toBe draftClientId
+      expect(call.args[0]).toBe @draft.clientId
       expect(call.args[1]).toEqual {errorMessage: "boohoo"}
 
     it "re-opens the draft if there is no thread id", ->
       spyOn(NylasEnv, "isMainWindow").andReturn true
       spyOn(Actions, "composePopoutDraft")
-      DraftStore._draftsSending[draftClientId] = true
+      DraftStore._draftsSending[@draft.clientId] = true
       spyOn(FocusedContentStore, "focused").andReturn(null)
-      Actions.draftSendingFailed({errorMessage: "boohoo", draftClientId})
+      Actions.draftSendingFailed({errorMessage: "boohoo", draftClientId: @draft.clientId})
       advanceClock(200)
       expect(Actions.composePopoutDraft).toHaveBeenCalled
       call = Actions.composePopoutDraft.calls[0]
-      expect(call.args[0]).toBe draftClientId
+      expect(call.args[0]).toBe @draft.clientId
       expect(call.args[1]).toEqual {errorMessage: "boohoo"}
 
   describe "session teardown", ->

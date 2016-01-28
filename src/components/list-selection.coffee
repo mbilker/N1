@@ -1,18 +1,30 @@
-Model = require '../models/model'
 _ = require 'underscore'
 
-module.exports =
-class ModelViewSelection
+Model = require '../flux/models/model'
+DatabaseStore = require '../flux/stores/database-store'
 
-  constructor: (@_view, @trigger) ->
-    throw new Error("new ModelViewSelection(): You must provide a view.") unless @_view
+module.exports =
+class ListSelection
+
+  constructor: (@_view, callback) ->
+    throw new Error("new ListSelection(): You must provide a view.") unless @_view
+    @_unlisten = DatabaseStore.listen(@_applyChangeRecord, @)
+    @_caches = {}
     @_items = []
+    @trigger = =>
+      @_caches = {}
+      callback()
+
+  cleanup: ->
+    @_unlisten()
 
   count: ->
     @_items.length
 
   ids: ->
-    _.pluck(@_items, 'id')
+    # ListTabular asks for ids /a lot/. Cache this value and clear it on trigger.
+    @_caches['ids'] ?= _.pluck(@_items, 'id')
+    @_caches['ids']
 
   items: -> _.clone(@_items)
 
@@ -28,17 +40,6 @@ class ModelViewSelection
       throw new Error("set must be called with Models") unless item instanceof Model
       @_items.push(item)
     @trigger(@)
-
-  updateModelReferences: (items = []) ->
-    for newer in items
-      unless newer instanceof Model
-        console.error(JSON.stringify(newer))
-        throw new Error("updateModelReferences must be called with Models")
-
-      for existing, idx in @_items
-        if existing.id is newer.id
-          @_items[idx] = newer
-          break
 
   toggle: (item) ->
     return unless item
@@ -61,11 +62,18 @@ class ModelViewSelection
       @_items = updated
       @trigger(@)
 
-  remove: (item) ->
-    return unless item
-    throw new Error("remove must be called with a Model") unless item instanceof Model
+  remove: (items) ->
+    return unless items
 
-    without = _.reject @_items, (t) -> t.id is item.id
+    items = [items] unless items instanceof Array
+
+    for item in items
+      unless item instanceof Model
+        throw new Error("remove: Must be passed a model or array of models")
+
+    itemIds = _.pluck(items, 'id')
+
+    without = _.reject @_items, (t) -> t.id in itemIds
     if without.length < @_items.length
       @_items = without
       @trigger(@)
@@ -128,3 +136,20 @@ class ModelViewSelection
         @_items.push(next)
 
     @trigger()
+
+  _applyChangeRecord: (change) ->
+    return if @_items.length is 0
+    return if change.objectClass isnt @_items[0].constructor.name
+
+    if change.type is 'unpersist'
+      @remove(change.objects)
+    else if change.type is 'persist'
+      touched = 0
+      for newer in change.objects
+        for existing, idx in @_items
+          if existing.id is newer.id
+            @_items[idx] = newer
+            touched += 1
+            break
+      if touched > 0
+        @trigger(@)

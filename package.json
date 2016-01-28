@@ -57,6 +57,7 @@
     "request-progress": "^0.3",
     "runas": "^3.1",
     "rx-lite": "^4.0.7",
+    "rx-lite-testing": "^4.0.7",
     "sanitize-html": "1.9.0",
     "scoped-property-store": "^0.17.0",
     "season": "^5.3",
@@ -69,7 +70,8 @@
     "temp": "^0.8",
     "theorist": "^1.0",
     "underscore": "^1.8",
-    "underscore.string": "^3.0"
+    "underscore.string": "^3.0",
+    "windows-shortcuts": "emorikawa/windows-shortcuts#05cbb36"
   },
   "packageDependencies": {},
   "private": true,

@@ -330,23 +330,16 @@ describe "ComposerView", ->
         makeComposer.call @
         expect(@composer._shouldShowFromField()).toBe false
 
-      it "disables if account has no aliases", ->
-        spyOn(AccountStore, 'itemWithId').andCallFake -> {id: 1, aliases: []}
-        useDraft.call @, replyToMessageId: null, files: []
-        makeComposer.call @
-        expect(@composer.state.enabledFields).not.toContain Fields.From
-
       it "enables if it's a reply-to message", ->
         aliases = ['A <a@b.c']
-        spyOn(AccountStore, 'itemWithId').andCallFake -> {id: 1, aliases: aliases}
+        spyOn(AccountStore, 'accountForId').andReturn {id: 1, aliases: aliases}
         useDraft.call @, replyToMessageId: "local-123", files: []
         makeComposer.call @
         expect(@composer.state.enabledFields).toContain Fields.From
 
-      it "enables if requirements are met", ->
+      it "enables if it is not a reply-to message", ->
         a1 = new Account()
         a1.aliases = ['a1']
-        spyOn(AccountStore, 'itemWithId').andCallFake -> a1
         useDraft.call @, replyToMessageId: null, files: []
         makeComposer.call @
         expect(@composer.state.enabledFields).toContain Fields.From
@@ -611,27 +604,15 @@ describe "ComposerView", ->
               types:[]
           expect(@composer._shouldAcceptDrop(event)).toBe(true)
 
-        it "should return true if the event is carrying a non-native file URL not on the draft", ->
+        it "should return true if the event is carrying a non-native file URL", ->
           event =
             dataTransfer:
               files:[]
               types:['text/uri-list']
           spyOn(@composer, '_nonNativeFilePathForDrop').andReturn("file://one-file")
-          spyOn(FileUploadStore, 'linkedUpload').andReturn({filePath: "file://other-file"})
 
           expect(@composer.state.files.length).toBe(1)
           expect(@composer._shouldAcceptDrop(event)).toBe(true)
-
-        it "should return false if the event is carrying a non-native file URL already on the draft", ->
-          event =
-            dataTransfer:
-              files:[]
-              types:['text/uri-list']
-          spyOn(@composer, '_nonNativeFilePathForDrop').andReturn("file://one-file")
-          spyOn(FileUploadStore, 'linkedUpload').andReturn({filePath: "file://one-file"})
-
-          expect(@composer.state.files.length).toBe(1)
-          expect(@composer._shouldAcceptDrop(event)).toBe(false)
 
         it "should return false otherwise", ->
           event =
@@ -722,23 +703,7 @@ describe "ComposerView", ->
           filename: "f3.png"
           size: 7890
 
-        @up1 =
-          uploadTaskId: 4
-          messageClientId: DRAFT_CLIENT_ID
-          filePath: "/foo/bar/f4.bmp"
-          fileName: "f4.bmp"
-          fileSize: 1024
-
-        @up2 =
-          uploadTaskId: 5
-          messageClientId: DRAFT_CLIENT_ID
-          filePath: "/foo/bar/f5.zip"
-          fileName: "f5.zip"
-          fileSize: 1024
-
         spyOn(Actions, "fetchFile")
-        spyOn(FileUploadStore, "linkedUpload").andReturn null
-        spyOn(FileUploadStore, "uploadsForMessage").andReturn [@up1, @up2]
 
         useDraft.call @, files: [@file1, @file2]
         makeComposer.call @

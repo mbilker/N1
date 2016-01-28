@@ -15,7 +15,7 @@ DatabaseTransaction = require './database-transaction'
 
 {ipcRenderer} = require 'electron'
 
-DatabaseVersion = 16
+DatabaseVersion = 17
 DatabasePhase =
   Setup: 'setup'
   Ready: 'ready'
@@ -31,7 +31,7 @@ COMMIT = 'COMMIT'
 TXINDEX = 0
 
 class JSONBlobQuery extends ModelQuery
-  formatResultObjects: (objects) =>
+  formatResult: (objects) =>
     return objects[0]?.json || null
 
 
@@ -88,6 +88,9 @@ class DatabaseStore extends NylasStore
     @_inflightTransactions = 0
     @_open = false
     @_waiting = []
+
+    @setupEmitter()
+    @_emitter.setMaxListeners(100)
 
     if NylasEnv.inSpecMode()
       @_databasePath = path.join(NylasEnv.getConfigDirPath(),'edgehill.test.db')
@@ -402,7 +405,7 @@ class DatabaseStore extends NylasStore
   run: (modelQuery, options = {format: true}) =>
     @_query(modelQuery.sql(), []).then (result) =>
       result = modelQuery.inflateResult(result)
-      result = modelQuery.formatResultObjects(result) unless options.format is false
+      result = modelQuery.formatResult(result) unless options.format is false
       Promise.resolve(result)
 
   findJSONBlob: (id) ->

@@ -8,7 +8,6 @@ Reflux = require 'reflux'
 _ = require 'underscore'
 Actions = require '../actions'
 progress = require 'request-progress'
-AccountStore = require '../stores/account-store'
 NylasAPI = require '../nylas-api'
 RegExpUtils = require '../../regexp-utils'
 
@@ -28,7 +27,9 @@ State =
 class Download
   @State: State
 
-  constructor: ({@fileId, @targetPath, @filename, @filesize, @progressCallback}) ->
+  constructor: ({@accountId, @fileId, @targetPath, @filename, @filesize, @progressCallback}) ->
+    if not @accountId
+      throw new Error("Download.constructor: You must provide a non-empty accountId.")
     if not @filename or @filename.length is 0
       throw new Error("Download.constructor: You must provide a non-empty filename.")
     if not @fileId
@@ -58,7 +59,6 @@ class Download
     return @promise if @promise
 
     @promise = new Promise (resolve, reject) =>
-      accountId = AccountStore.current()?.id
       stream = fs.createWriteStream(@targetPath)
 
       # We need to watch the request for `success` or `error`, but not fire
@@ -78,7 +78,7 @@ class Download
       NylasAPI.makeRequest
         json: false
         path: "/files/#{@fileId}/download"
-        accountId: accountId
+        accountId: @accountId
         encoding: null # Tell `request` not to parse the response data
         started: (req) =>
           @request = req
@@ -162,6 +162,7 @@ FileDownloadStore = Reflux.createStore
 
     # create a new download for this file
     download = new Download
+      accountId: file.accountId
       fileId: file.id
       filesize: file.size
       filename: file.displayName()
