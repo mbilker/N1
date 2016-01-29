@@ -69,7 +69,7 @@ class SidebarItem
       dataTransferType: 'nylas-threads-data'
       onDelete: if opts.deletable then onDeleteItem else undefined
       onEdited: if opts.editable then onEditItem else undefined
-      onToggleCollapsed: toggleItemCollapsed
+      onCollapseToggled: toggleItemCollapsed
       onDrop: (item, event) ->
         jsonString = event.dataTransfer.getData(item.dataTransferType)
         data = Utils.jsonParse(jsonString)
@@ -96,8 +96,8 @@ class SidebarItem
   @forCategories: (categories = [], opts = {}) ->
     id = idForCategories(categories)
     perspective = MailboxPerspective.forCategories(categories)
-    opts.deletable = true
-    opts.editable = true
+    opts.deletable ?= true
+    opts.editable ?= true
     @forPerspective(id, perspective, opts)
 
   @forStarred: (accountIds, opts = {}) ->

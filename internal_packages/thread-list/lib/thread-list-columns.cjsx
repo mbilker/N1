@@ -9,6 +9,7 @@ classNames = require 'classnames'
  InjectedComponentSet} = require 'nylas-component-kit'
 
 {Thread,
+ AccountStore,
  CategoryStore,
  FocusedPerspectiveStore} = require 'nylas-exports'
 
@@ -28,7 +29,10 @@ c1 = new ListTabular.Column
   resolver: (thread) =>
     [
       <ThreadListIcon key="thread-list-icon" thread={thread} />
-      <MailImportantIcon key="mail-important-icon" thread={thread} />
+      <MailImportantIcon
+        key="mail-important-icon"
+        thread={thread}
+        showIfAvailableForAnyAccount={true} />
       <InjectedComponentSet
         key="injected-component-set"
         inline={true}
@@ -61,18 +65,19 @@ c3 = new ListTabular.Column
   resolver: (thread) =>
     attachment = []
     labels = []
+
     if thread.hasAttachments
       attachment = <div className="thread-icon thread-icon-attachment"></div>
 
-    currentCategories = FocusedPerspectiveStore.current().categories() ? []
+    if AccountStore.accountForId(thread.accountId).usesLabels()
+      currentCategories = FocusedPerspectiveStore.current().categories() ? []
+      ignored = [].concat(currentCategories, CategoryStore.hiddenCategories(thread.accountId))
+      ignoredIds = _.pluck(ignored, 'id')
 
-    ignored = [].concat(currentCategories, CategoryStore.hiddenCategories(thread.accountId))
-    ignoredIds = _.pluck(ignored, 'id')
-
-    for label in (thread.sortedCategories())
-      continue if label.id in ignoredIds
-      c3LabelComponentCache[label.id] ?= <MailLabel label={label} key={label.id} />
-      labels.push c3LabelComponentCache[label.id]
+      for label in (thread.sortedCategories())
+        continue if label.id in ignoredIds
+        c3LabelComponentCache[label.id] ?= <MailLabel label={label} key={label.id} />
+        labels.push c3LabelComponentCache[label.id]
 
     <span className="details">
       {labels}
@@ -125,7 +130,9 @@ cNarrow = new ListTabular.Column
         {attachment}
         <span className="timestamp">{timestamp(thread.lastMessageReceivedTimestamp)}</span>
       </div>
-      <MailImportantIcon thread={thread} />
+      <MailImportantIcon
+        thread={thread}
+        showIfAvailableForAnyAccount={true} />
       <div className="subject">{subject(thread.subject)}</div>
       <div className="snippet">{thread.snippet}</div>
     </div>
