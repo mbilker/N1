@@ -2,6 +2,10 @@ import CommandInstaller from '../src/command-installer'
 import fs from 'fs-plus'
 
 describe("CommandInstaller", () => {
+  if (process.platform !== 'darwin') {
+    return;
+  }
+
   beforeEach(() => {
     this.resourcePath = "/resourcePath";
     this.callback = jasmine.createSpy('callback')
