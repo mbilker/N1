@@ -14,6 +14,7 @@ class WindowEventHandler
 
   constructor: ->
     @reloadRequested = false
+    @unloadCallbacks = []
 
     _.defer =>
       @showDevModeMessages()
@@ -47,14 +48,14 @@ class WindowEventHandler
       NylasEnv.commands.dispatch(activeElement, command, args[0])
 
     @subscribe $(window), 'beforeunload', =>
-      if NylasEnv.getCurrentWindow().isWebViewFocused() and not @reloadRequested
-        NylasEnv.hide()
+      # Don't hide the window here if we don't want the renderer process to be
+      # throttled in case more work needs to be done before closing
       @reloadRequested = false
-      NylasEnv.storeWindowDimensions()
-      NylasEnv.saveStateAndUnloadWindow()
-      true
+      return @runUnloadCallbacks()
 
     @subscribe $(window), 'unload', =>
+      NylasEnv.storeWindowDimensions()
+      NylasEnv.saveStateAndUnloadWindow()
       NylasEnv.windowEventHandler?.unsubscribe()
 
     @subscribeToCommand $(window), 'window:toggle-full-screen', ->
@@ -110,6 +111,21 @@ class WindowEventHandler
     @subscribe $(document), 'submit', 'form', (e) -> e.preventDefault()
 
     @handleNativeKeybindings()
+
+  addUnloadCallback: (callback) ->
+    @unloadCallbacks.push(callback)
+
+  runUnloadCallbacks: ->
+    continueUnload = true
+    for callback in @unloadCallbacks
+      returnValue = callback()
+      if returnValue is true
+        continue
+      else if returnValue is false
+        continueUnload = false
+      else
+        console.warn "You registered an `onBeforeUnload` callback that does not return either exactly `true` or `false`. It returned #{returnValue}", callback
+    return continueUnload
 
   # Wire commands that should be handled by Chromium for elements with the
   # `.override-key-bindings` class.
@@ -171,7 +187,7 @@ class WindowEventHandler
     return unless event.target.type in ['text', 'password', 'email', 'number', 'range', 'search', 'tel', 'url']
     hasSelectedText = event.target.selectionStart isnt event.target.selectionEnd
 
-    remote = require('remote')
+    {remote} = require('electron')
     Menu = remote.require('menu')
     MenuItem = remote.require('menu-item')
     menu = new Menu()
