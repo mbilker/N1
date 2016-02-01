@@ -9,9 +9,9 @@ class PreferencesAccountList extends Component {
     onAddAccount: PropTypes.func.isRequired,
     onSelectAccount: PropTypes.func.isRequired,
     onRemoveAccount: PropTypes.func.isRequired,
-  }
+  };
 
-  _renderAccount = (account)=> {
+  _renderAccount = (account) => {
     const label = account.label;
     const accountSub = `${account.name || 'No name provided'} <${account.emailAddress}>`;
 
@@ -33,7 +33,7 @@ class PreferencesAccountList extends Component {
         </Flexbox>
       </div>
     );
-  }
+  };
 
   render() {
     if (!this.props.accounts) {
