@@ -116,7 +116,9 @@ class EditableList extends Component {
 
   _createItem = (value) => {
     this._clearCreatingState(()=> {
-      this.props.onItemCreated(value);
+      if (value) {
+        this.props.onItemCreated(value);
+      }
     });
   };
 
