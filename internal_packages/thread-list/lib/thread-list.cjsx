@@ -58,6 +58,7 @@ class ThreadList extends React.Component
     'application:mark-unimportant': => @_onSetImportant(false)
     'application:mark-as-unread': => @_onSetUnread(true)
     'application:mark-as-read': => @_onSetUnread(false)
+    'application:report-as-spam': => @_onMarkAsSpam(false)
     'application:remove-and-previous': =>
       @_shift(offset: -1, afterRunning: @_onRemoveFromView)
     'application:remove-and-next': =>
@@ -176,27 +177,20 @@ class ThreadList extends React.Component
     Actions.queueTask(task)
     Actions.popSheet()
 
+  _onMarkAsSpam: =>
+    threads = @_threadsForKeyboardAction()
+    return unless threads
+    tasks = TaskFactory.tasksForMarkingAsSpam(
+      threads: threads
+    )
+    Actions.queueTasks(tasks)
+
   _onRemoveFromView: =>
     threads = @_threadsForKeyboardAction()
-    backspaceDelete = NylasEnv.config.get('core.reading.backspaceDelete')
     if threads
-      if backspaceDelete
-        if FocusedPerspectiveStore.current().canTrashThreads()
-          removeMethod = TaskFactory.tasksForMovingToTrash
-        else
-          return
-      else
-        if FocusedPerspectiveStore.current().canArchiveThreads()
-          removeMethod = TaskFactory.tasksForArchiving
-        else
-          removeMethod = TaskFactory.tasksForMovingToTrash
-
-      tasks = removeMethod
-        threads: threads
-        fromPerspective: FocusedPerspectiveStore.current()
-      Actions.queueTasks(tasks)
-
-    Actions.popSheet()
+      current = FocusedPerspectiveStore.current()
+      current.removeThreads(threads)
+      Actions.popSheet()
 
   _onArchiveItem: =>
     return unless FocusedPerspectiveStore.current().canArchiveThreads()

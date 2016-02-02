@@ -74,6 +74,8 @@ class CategoryStore extends NylasStore
 
     return _.findWhere(@_standardCategories[asAccountId(accountOrId)], {name})
 
+  # Public: Returns the set of all standard categories that match the given
+  # names for each of the provided accounts
   getStandardCategories: (accountsOrIds, names...) ->
     if Array.isArray(accountsOrIds)
       res = []
@@ -97,7 +99,13 @@ class CategoryStore extends NylasStore
     else
       return @getStandardCategory(account.id, "all")
 
-  # Public: Returns the Folder or Label object taht should be used for
+  # Public: Returns the Folder or Label object that should be used for
+  # the inbox or null if it doesn't exist
+  #
+  getInboxCategory: (accountOrId) ->
+    @getStandardCategory(accountOrId, "inbox")
+
+  # Public: Returns the Folder or Label object that should be used for
   # "Move to Trash", or null if no trash folder exists.
   #
   getTrashCategory: (accountOrId) ->

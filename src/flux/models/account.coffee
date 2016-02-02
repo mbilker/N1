@@ -69,19 +69,22 @@ class Account extends Model
 
   # Returns a {Contact} model that represents the current user.
   me: ->
-    if @defaultAlias
-      return @meUsingAlias(@defaultAlias)
-    else
-      Contact = require './contact'
-      return new Contact
-        accountId: @id
-        name: @name
-        email: @emailAddress
+    Contact = require './contact'
+    return new Contact
+      accountId: @id
+      name: @name
+      email: @emailAddress
 
   meUsingAlias: (alias) ->
     Contact = require './contact'
     return @me() unless alias
     return Contact.fromString(alias, accountId: @id)
+
+  defaultMe: ->
+    if @defaultAlias
+      return @meUsingAlias(@defaultAlias)
+    else
+      return @me()
 
   usesLabels: ->
     @organizationUnit is "label"
@@ -96,6 +99,17 @@ class Account extends Model
       'Labels'
     else
       'Unknown'
+
+  defaultFinishedCategory: ->
+    CategoryStore = require '../stores/category-store'
+    preferDelete = NylasEnv.config.get('core.reading.backspaceDelete')
+    archiveCategory = CategoryStore.getArchiveCategory(@)
+    trashCategory = CategoryStore.getTrashCategory(@)
+
+    if preferDelete or not archiveCategory
+      trashCategory
+    else
+      archiveCategory
 
   categoryIcon: ->
     if @usesFolders()

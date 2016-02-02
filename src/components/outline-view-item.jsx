@@ -61,7 +61,7 @@ const CounterStyles = {
  * @class OutlineViewItem
  */
 class OutlineViewItem extends Component {
-  static displayName = 'OutlineView'
+  static displayName = 'OutlineView';
 
   /**
    * If provided, this function will be called when receiving a drop. It must
@@ -129,7 +129,7 @@ class OutlineViewItem extends Component {
       onDelete: PropTypes.func,
       onEdited: PropTypes.func,
     }).isRequired,
-  }
+  };
 
 
   constructor(props) {
@@ -168,71 +168,71 @@ class OutlineViewItem extends Component {
 
   // Helpers
 
-  _runCallback = (method, ...args)=> {
+  _runCallback = (method, ...args) => {
     const item = this.props.item;
     if (item[method]) {
       return item[method](item, ...args);
     }
     return undefined;
-  }
+  };
 
-  _shouldShowContextMenu = ()=> {
+  _shouldShowContextMenu = () => {
     return this.props.item.onDelete != null || this.props.item.onEdited != null;
-  }
+  };
 
-  _shouldAcceptDrop = (event)=> {
+  _shouldAcceptDrop = (event) => {
     return this._runCallback('shouldAcceptDrop', event);
-  }
+  };
 
-  _clearEditingState = (event)=> {
+  _clearEditingState = (event) => {
     this.setState({editing: false});
     this._runCallback('onInputCleared', event);
-  }
+  };
 
 
   // Handlers
 
-  _onDragStateChange = ({isDropping})=> {
+  _onDragStateChange = ({isDropping}) => {
     this.setState({isDropping});
-  }
+  };
 
-  _onDrop = (event)=> {
+  _onDrop = (event) => {
     this._runCallback('onDrop', event);
-  }
+  };
 
-  _onCollapseToggled = ()=> {
+  _onCollapseToggled = () => {
     this._runCallback('onCollapseToggled');
-  }
+  };
 
-  _onClick = (event)=> {
+  _onClick = (event) => {
     event.preventDefault();
     this._runCallback('onSelect');
-  }
+  };
 
-  _onDelete = ()=> {
+  _onDelete = () => {
     this._runCallback('onDelete');
-  }
+  };
 
-  _onEdited = (value)=> {
+  _onEdited = (value) => {
     this._runCallback('onEdited', value);
-  }
+  };
 
-  _onEdit = ()=> {
+  _onEdit = () => {
     if (this.props.item.onEdited) {
       this.setState({editing: true});
     }
-  }
+  };
 
-  _onInputFocus = (event)=> {
+  _onInputFocus = (event) => {
     const input = event.target;
     input.selectionStart = input.selectionEnd = input.value.length;
-  }
+  };
 
-  _onInputBlur = (event)=> {
+  _onInputBlur = (event) => {
     this._clearEditingState(event);
-  }
+  };
 
-  _onInputKeyDown = (event)=> {
+  _onInputKeyDown = (event) => {
     if (event.key === 'Escape') {
       this._clearEditingState(event);
     }
@@ -240,9 +240,9 @@ class OutlineViewItem extends Component {
       this._onEdited(event.target.value);
       this._clearEditingState(event);
     }
-  }
+  };
 
-  _onShowContextMenu = (event)=> {
+  _onShowContextMenu = (event) => {
     event.stopPropagation()
     const item = this.props.item;
     const name = item.name;
@@ -264,7 +264,7 @@ class OutlineViewItem extends Component {
       }));
     }
     menu.popup(remote.getCurrentWindow());
-  }
+  };
 
 
   // Renderers

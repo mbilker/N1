@@ -28,7 +28,7 @@ import {ScrollRegion, Contenteditable} from 'nylas-component-kit';
  */
 
 class ComposerEditor extends Component {
-  static displayName = 'ComposerEditor'
+  static displayName = 'ComposerEditor';
 
   /**
    * This function will return the {DOMRect} for the parent component
@@ -78,7 +78,7 @@ class ComposerEditor extends Component {
       scrollTo: PropTypes.func,
       getComposerBoundingRect: PropTypes.func,
     }),
-  }
+  };
 
   constructor(props) {
     super(props);
@@ -188,12 +188,12 @@ class ComposerEditor extends Component {
 
   // Helpers
 
-  _scrollToBottom = ()=> {
+  _scrollToBottom = () => {
     this.props.parentActions.scrollTo({
       clientId: this.props.draftClientId,
       position: ScrollRegion.ScrollPosition.Bottom,
     });
-  }
+  };
 
   /**
    * @private
@@ -204,11 +204,11 @@ class ComposerEditor extends Component {
    * of the contenteditable. props.parentActions.scrollToBottom moves to the bottom of
    * the "send" button.
    */
-  _bottomIsNearby = (editableNode)=> {
+  _bottomIsNearby = (editableNode) => {
     const parentRect = this.props.parentActions.getComposerBoundingRect();
     const selfRect = editableNode.getBoundingClientRect();
     return Math.abs(parentRect.bottom - selfRect.bottom) <= 250;
-  }
+  };
 
   /**
    * @private
@@ -236,7 +236,7 @@ class ComposerEditor extends Component {
    * container is a direct parent of the requested element. In this case
    * the scroll container may be many levels up.
   */
-  _ensureSelectionVisible = (selection, editableNode)=> {
+  _ensureSelectionVisible = (selection, editableNode) => {
     // If our parent supports scroll, check for that
     if (this._shouldScrollToBottom(selection, editableNode)) {
       this._scrollToBottom();
@@ -253,14 +253,14 @@ class ComposerEditor extends Component {
         this.props.parentActions.scrollTo({rect});
       }
     }
-  }
+  };
 
 
   // Handlers
 
-  _onExtensionsChanged = ()=> {
+  _onExtensionsChanged = () => {
     this.setState({extensions: ExtensionRegistry.Composer.extensions()});
-  }
+  };
 
 
   // Renderers

@@ -8,7 +8,7 @@ class PreferencesAccountDetails extends Component {
   static propTypes = {
     account: PropTypes.object,
     onAccountUpdated: PropTypes.func.isRequired,
-  }
+  };
 
   constructor(props) {
     super(props);
@@ -39,7 +39,7 @@ class PreferencesAccountDetails extends Component {
     const emailRegex = RegExpUtils.emailRegex();
     const match = emailRegex.exec(str);
     if (!match) {
-      return `${str} <${account.emailAddress}>`;
+      return `${str || account.name} <${account.emailAddress}>`;
     }
     const email = match[0];
     let name = str.slice(0, Math.max(0, match.index - 1));
@@ -58,26 +58,26 @@ class PreferencesAccountDetails extends Component {
     return defaultAlias;
   }
 
-  _saveChanges = ()=> {
+  _saveChanges = () => {
     this.props.onAccountUpdated(this.props.account, this.state);
-  }
+  };
 
 
   // Handlers
 
-  _onAccountLabelUpdated = (event)=> {
+  _onAccountLabelUpdated = (event) => {
     this.setState({label: event.target.value});
-  }
+  };
 
-  _onAccountAliasCreated = (newAlias)=> {
+  _onAccountAliasCreated = (newAlias) => {
     const coercedAlias = this._makeAlias(newAlias);
     const aliases = this.state.aliases.concat([coercedAlias]);
     this.setState({aliases}, ()=> {
       this._saveChanges();
     });
-  }
+  };
 
-  _onAccountAliasUpdated = (newAlias, alias, idx)=> {
+  _onAccountAliasUpdated = (newAlias, alias, idx) => {
     const coercedAlias = this._makeAlias(newAlias);
     const aliases = this.state.aliases.slice();
     let defaultAlias = this.state.defaultAlias;
@@ -85,29 +85,29 @@ class PreferencesAccountDetails extends Component {
       defaultAlias = coercedAlias;
     }
     aliases[idx] = coercedAlias;
-    this.setState({aliases, defaultAlias}, ()=> {
+    this.setState({aliases, defaultAlias}, () => {
       this._saveChanges();
     });
-  }
+  };
 
-  _onAccountAliasRemoved = (alias, idx)=> {
+  _onAccountAliasRemoved = (alias, idx) => {
     const aliases = this.state.aliases.slice();
     let defaultAlias = this.state.defaultAlias;
     if (defaultAlias === alias) {
       defaultAlias = null;
     }
     aliases.splice(idx, 1);
-    this.setState({aliases, defaultAlias}, ()=> {
+    this.setState({aliases, defaultAlias}, () => {
       this._saveChanges();
     });
-  }
+  };
 
-  _onDefaultAliasSelected = (event)=> {
+  _onDefaultAliasSelected = (event) => {
     const defaultAlias = event.target.value === 'None' ? null : event.target.value;
     this.setState({defaultAlias}, ()=> {
       this._saveChanges();
     });
-  }
+  };
 
 
   // Renderers

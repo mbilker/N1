@@ -286,7 +286,7 @@ class DraftStore
     account = AccountStore.accountForId(thread.accountId)
     throw new Error("Cannot find #{thread.accountId}") unless account
     return new Message _.extend {}, attributes,
-      from: [account.me()]
+      from: [account.defaultMe()]
       date: (new Date)
       draft: true
       pristine: true
@@ -371,8 +371,9 @@ class DraftStore
 
   _getAccountForNewMessage: =>
     defAccountId = NylasEnv.config.get('core.sending.defaultAccountIdForSend')
-    if defAccountId?
-      AccountStore.accountForId(defAccountId)
+    account = AccountStore.accountForId(defAccountId)
+    if account
+      account
     else
       focusedAccountId = FocusedPerspectiveStore.current().accountIds[0]
       if focusedAccountId
@@ -385,7 +386,7 @@ class DraftStore
 
     draft = new Message
       body: ""
-      from: [account.me()]
+      from: [account.defaultMe()]
       date: (new Date)
       draft: true
       pristine: true
@@ -424,6 +425,9 @@ class DraftStore
 
     [whole, to, queryString] = /mailto:\/*([^\?\&]*)((.|\n|\r)*)/.exec(urlString)
 
+    if to.length > 0 and to.indexOf('@') is -1
+      to = decodeURIComponent(to)
+
     # /many/ mailto links are malformed and do things like:
     #   &body=https://github.com/atom/electron/issues?utf8=&q=is%3Aissue+is%3Aopen+123&subject=...
     #   (note the unescaped ? and & in the URL).
@@ -460,7 +464,7 @@ class DraftStore
     draft = new Message
       body: query.body || ''
       subject: query.subject || '',
-      from: [account.me()]
+      from: [account.defaultMe()]
       date: (new Date)
       draft: true
       pristine: true
