@@ -436,7 +436,7 @@ class EditableList extends Component {
     );
   };
 
-  _renderDropInsertion = ()i => {
+  _renderDropInsertion = () => {
     return (
       <div className="insertion-point"><div></div></div>
     )
