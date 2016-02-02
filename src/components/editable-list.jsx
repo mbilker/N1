@@ -435,15 +435,12 @@ class EditableList extends Component {
       </div>
     );
   };
-<<<<<<< HEAD
-=======
 
-  _renderDropInsertion = ()=> {
+  _renderDropInsertion = ()i => {
     return (
       <div className="insertion-point"><div></div></div>
     )
   };
->>>>>>> github/master
 
   render() {
     let items = this.props.items.map( (item, idx)=> this._renderItem(item, idx));
