@@ -153,6 +153,15 @@ class AccountSettingsPage extends React.Component
         errorFields = _.uniq(_.without(@state.errorFieldNames, field))
       @setState({errorFieldNames: errorFields})
 
+    if providerField.type == "email" and event.target.value
+      if event.target.value.endsWith('@gmail.com')
+        # set a state that contains a "this is a gmail account" message
+        @setState({errorMessage: "This looks like a Gmail account. You should go back and sign in to Gmail instead."})
+        @_resize()
+      else
+        @setState({errorMessage: null})
+        @_resize()
+
     @setState({fields})
 
   _onFieldKeyPress: (event) =>
@@ -316,7 +325,7 @@ class AccountSettingsPage extends React.Component
     try
       OnboardingActions.accountJSONReceived(json)
     catch e
-      NylasEnv.emitError(e)
+      NylasEnv.reportError(e)
       @setState
         tryingToAuthenticate: false
         errorMessage: "Sorry, something went wrong on the Nylas server. Please try again. If you're still having issues, contact us at support@nylas.com."
