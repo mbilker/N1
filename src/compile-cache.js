@@ -117,6 +117,7 @@ var INLINE_SOURCE_MAP_REGEXP = /\/\/[#@]\s*sourceMappingURL=([^'"\n]+)\s*$/mg
 
 require('source-map-support').install({
   handleUncaughtExceptions: false,
+  environment: 'node',
 
   // Most of this logic is the same as the default implementation in the
   // source-map-support module, but we've overridden it to read the javascript
