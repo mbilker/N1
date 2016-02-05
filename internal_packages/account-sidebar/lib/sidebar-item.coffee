@@ -1,4 +1,5 @@
 _ = require 'underscore'
+_str = require 'underscore.string'
 {WorkspaceStore,
  MailboxPerspective,
  FocusedPerspectiveStore,
@@ -15,7 +16,7 @@ idForCategories = (categories) ->
 countForItem = (perspective) ->
   unreadCountEnabled = NylasEnv.config.get('core.workspace.showUnreadForAllCategories')
   if perspective.isInbox() or unreadCountEnabled
-    return perspective.threadUnreadCount()
+    return perspective.unreadCount()
   return 0
 
 isItemSelected = (perspective) ->
@@ -58,6 +59,7 @@ class SidebarItem
     return _.extend({
       id: id
       name: perspective.name
+      contextMenuLabel: perspective.name
       count: countForItem(perspective)
       iconName: perspective.iconName
       children: []
@@ -95,9 +97,12 @@ class SidebarItem
 
   @forCategories: (categories = [], opts = {}) ->
     id = idForCategories(categories)
+    contextMenuLabel = _str.capitalize(categories[0]?.displayType())
     perspective = MailboxPerspective.forCategories(categories)
+
     opts.deletable ?= true
     opts.editable ?= true
+    opts.contextMenuLabel = contextMenuLabel
     @forPerspective(id, perspective, opts)
 
   @forStarred: (accountIds, opts = {}) ->
