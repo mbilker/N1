@@ -18,14 +18,15 @@ RUN /usr/bin/touch /etc/init.d/systemd-logind
 # Install dependencies (NodeSource setup runs `apt-get update` for us)
 RUN apt-get -y install \
     build-essential \
-    git \
     fakeroot \
+    git \
+    libgnome-keyring-dev \
+    python \
     rpm \
     nodejs
 
 # For when Linux testing is re-enabled
 #    libgconf2-4 \
-#    libgnome-keyring-dev \
 #    libgtk2.0-0 \
 #    libnotify4 \
 #    xvfb
