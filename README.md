@@ -3,13 +3,11 @@
 [![Build Status](https://travis-ci.org/mbilker/N1.svg?branch=master)](https://travis-ci.org/mbilker/N1)
 [![Dependency Status](https://david-dm.org/mbilker/N1.svg)](https://david-dm.org/mbilker/N1)
 [![Slack Invite Button](http://slack-invite.nylas.com/badge.svg)](http://slack-invite.nylas.com)
+[![GitHub issues On Deck](https://badge.waffle.io/nylas/N1.png?label=on deck&title=On Deck)](https://waffle.io/nylas/N1)
 
 This is a **fork** of the main [N1 project](https://github.com/nylas/N1).
 
 **N1 is an open-source mail client built on the modern web with [Electron](https://github.com/atom/electron), [React](https://facebook.github.io/react/), and [Flux](https://facebook.github.io/flux/).** It is designed to be extensible, so it's easy to create new experiences and workflows around email. N1 is built on the Nylas Sync Engine which is also [open source free software](https://github.com/nylas/sync-engine).
-[![Build Status](https://travis-ci.org/nylas/N1.svg?branch=master)](https://travis-ci.org/nylas/N1)
-[![Slack Invite Button](http://slack-invite.nylas.com/badge.svg)](http://slack-invite.nylas.com)
-[![GitHub issues On Deck](https://badge.waffle.io/nylas/N1.png?label=on deck&title=On Deck)](https://waffle.io/nylas/N1)
 
 # Download N1
 
