@@ -20,6 +20,7 @@ ThreadListScrollTooltip = require './thread-list-scroll-tooltip'
 ThreadListStore = require './thread-list-store'
 FocusContainer = require './focus-container'
 EmptyState = require './empty-state'
+ThreadListContextMenu = require './thread-list-context-menu'
 
 
 class ThreadList extends React.Component
@@ -36,10 +37,12 @@ class ThreadList extends React.Component
 
   componentDidMount: =>
     window.addEventListener('resize', @_onResize, true)
+    React.findDOMNode(@).addEventListener('contextmenu', @_onShowContextMenu)
     @_onResize()
 
   componentWillUnmount: =>
     window.removeEventListener('resize', @_onResize, true)
+    React.findDOMNode(@).removeEventListener('contextmenu', @_onShowContextMenu)
 
   _shift: ({offset, afterRunning}) =>
     dataSource = ThreadListStore.dataSource()
@@ -96,27 +99,54 @@ class ThreadList extends React.Component
     </FluxContainer>
 
   _threadPropsProvider: (item) ->
-    className: classNames
-      'unread': item.unread
+    props =
+      className: classNames
+        'unread': item.unread
 
-  _onDragStart: (event) =>
+    perspective = FocusedPerspectiveStore.current()
+    account = AccountStore.accountForId(item.accountId)
+    finishedName = account.defaultFinishedCategory()?.name
+
+    if finishedName is 'trash' and perspective.canTrashThreads()
+      props.onSwipeRightClass = 'swipe-trash'
+      props.onSwipeRight = -> perspective.removeThreads([item])
+
+    else if finishedName in ['archive', 'all'] and perspective.canArchiveThreads()
+      props.onSwipeRightClass = 'swipe-archive'
+      props.onSwipeRight = -> perspective.removeThreads([item])
+
+    props
+
+  _threadMouseManipulateData: (event) ->
     itemThreadId = @refs.list.itemIdAtPoint(event.clientX, event.clientY)
     unless itemThreadId
-      event.preventDefault()
-      return
+      return null
 
     dataSource = ThreadListStore.dataSource()
     if itemThreadId in dataSource.selection.ids()
-      dragThreadIds = dataSource.selection.ids()
-      dragAccountIds = _.uniq(_.pluck(dataSource.selection.items(), 'accountId'))
+      threadIds = dataSource.selection.ids()
+      accountIds = _.uniq(_.pluck(dataSource.selection.items(), 'accountId'))
     else
-      dragThreadIds = [itemThreadId]
-      dragAccountIds = [dataSource.getById(itemThreadId).accountId]
+      threadIds = [itemThreadId]
+      accountIds = [dataSource.getById(itemThreadId).accountId]
 
-    dragData = {
-      accountIds: dragAccountIds,
-      threadIds: dragThreadIds
+    return {
+      accountIds: accountIds,
+      threadIds: threadIds
     }
+
+  _onShowContextMenu: (event) =>
+    data = @_threadMouseManipulateData(event)
+    if not data
+      event.preventDefault()
+      return
+    (new ThreadListContextMenu(data)).displayMenu()
+
+  _onDragStart: (event) =>
+    dragData = @_threadMouseManipulateData(event)
+    if not dragData
+      event.preventDefault()
+      return
 
     event.dataTransfer.effectAllowed = "move"
     event.dataTransfer.dragEffect = "move"
