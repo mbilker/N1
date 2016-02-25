@@ -58,6 +58,7 @@ class EmojisComposerExtension extends ContenteditableExtension {
           locationRefNode: locationRefNode,
           width: EmojisComposerExtension._emojiPickerWidth(emojiOptions),
           height: EmojisComposerExtension._emojiPickerHeight(emojiOptions),
+          hidePointer: true,
         }
       }
     }
@@ -170,16 +171,17 @@ class EmojisComposerExtension extends ContenteditableExtension {
         maxLength = emojiOption.length;
       }
     }
+    // TODO: Calculate width of words more accurately for a closer fit.
     const WIDTH_PER_CHAR = 8;
     return (maxLength + 10) * WIDTH_PER_CHAR;
   }
 
   static _emojiPickerHeight(emojiOptions) {
-    const HEIGHT_PER_EMOJI = 28;
+    const HEIGHT_PER_EMOJI = 25;
     if (emojiOptions.length < 5) {
       return emojiOptions.length * HEIGHT_PER_EMOJI + 20;
     }
-    return 5 * HEIGHT_PER_EMOJI + 20;
+    return 5 * HEIGHT_PER_EMOJI + 23;
   }
 
   static _getTextUntilSpace(node, offset) {

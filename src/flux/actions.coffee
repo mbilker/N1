@@ -126,8 +126,7 @@ class Actions
   @longPollOffline: ActionScopeWorkWindow
   @willMakeAPIRequest: ActionScopeWorkWindow
   @didMakeAPIRequest: ActionScopeWorkWindow
-  @sendFeedback: ActionScopeWindow
-
+  
   ###
   Public: Retry the initial sync
 
@@ -510,6 +509,10 @@ class Actions
   @deleteMailRule: ActionScopeWindow
   @disableMailRule: ActionScopeWindow
 
+
+  @openPopover: ActionScopeWindow
+  @closePopover: ActionScopeWindow
+
   ###
   Public: Set metadata for a specified model and pluginId.
 
@@ -519,6 +522,8 @@ class Actions
   represents the metadata value.
   ###
   @setMetadata: ActionScopeWindow
+
+  @draftParticipantsChanged: ActionScopeWindow
 
 # Read the actions we declared on the dummy Actions object above
 # and translate them into Reflux Actions

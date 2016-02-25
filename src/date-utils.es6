@@ -1,6 +1,51 @@
 /** @babel */
 import moment from 'moment'
 import chrono from 'chrono-node'
+import _ from 'underscore'
+
+function isPastDate({year, month, day}, ref) {
+  const refDay = ref.getDate();
+  const refMonth = ref.getMonth() + 1;
+  const refYear = ref.getFullYear();
+  if (refYear > year) {
+    return true;
+  }
+  if (refMonth > month) {
+    return true;
+  }
+  if (refDay > day) {
+    return true;
+  }
+  return false;
+}
+
+const EnforceFutureDate = new chrono.Refiner();
+EnforceFutureDate.refine = (text, results)=> {
+  results.forEach((result)=> {
+    const current = _.extend({}, result.start.knownValues, result.start.impliedValues);
+
+    if (result.start.isCertain('weekday') && !result.start.isCertain('day')) {
+      if (isPastDate(current, result.ref)) {
+        result.start.imply('day', result.start.impliedValues.day + 7);
+      }
+    }
+
+    if (result.start.isCertain('day') && !result.start.isCertain('month')) {
+      if (isPastDate(current, result.ref)) {
+        result.start.imply('month', result.start.impliedValues.month + 1);
+      }
+    }
+    if (result.start.isCertain('month') && !result.start.isCertain('year')) {
+      if (isPastDate(current, result.ref)) {
+        result.start.imply('year', result.start.impliedValues.year + 1);
+      }
+    }
+  });
+  return results;
+};
+
+const chronoFuture = new chrono.Chrono(chrono.options.casualOption());
+chronoFuture.refiners.push(EnforceFutureDate);
 
 const Hours = {
   Morning: 9,
@@ -12,16 +57,16 @@ const Days = {
   ThisWeekend: 6,
 }
 
-moment.prototype.oclock = function oclock() {
-  return this.minute(0).second(0)
+function oclock(momentDate) {
+  return momentDate.minute(0).second(0)
 }
 
-moment.prototype.morning = function morning(morningHour = Hours.Morning) {
-  return this.hour(morningHour).oclock()
+function morning(momentDate, morningHour = Hours.Morning) {
+  return oclock(momentDate.hour(morningHour))
 }
 
-moment.prototype.evening = function evening(eveningHour = Hours.Evening) {
-  return this.hour(eveningHour).oclock()
+function evening(momentDate, eveningHour = Hours.Evening) {
+  return oclock(momentDate.hour(eveningHour))
 }
 
 
@@ -45,45 +90,49 @@ const DateUtils = {
     return DateUtils.minutesFromNow(60);
   },
 
+  in2Hours() {
+    return DateUtils.minutesFromNow(120);
+  },
+
   laterToday(now = moment()) {
-    return now.add(3, 'hours').oclock();
+    return oclock(now.add(3, 'hours'));
   },
 
   tonight(now = moment()) {
     if (now.hour() >= Hours.Evening) {
       return DateUtils.tomorrowEvening();
     }
-    return now.evening();
+    return evening(now)
   },
 
   tomorrow(now = moment()) {
-    return now.add(1, 'day').morning();
+    return morning(now.add(1, 'day'));
   },
 
   tomorrowEvening(now = moment()) {
-    return now.add(1, 'day').evening()
+    return evening(now.add(1, 'day'));
   },
 
   thisWeekend(now = moment()) {
-    return now.day(Days.ThisWeekend).morning()
+    return morning(now.day(Days.ThisWeekend))
   },
 
   nextWeek(now = moment()) {
-    return now.day(Days.NextMonday).morning()
+    return morning(now.day(Days.NextMonday))
   },
 
   nextMonth(now = moment()) {
-    return now.add(1, 'month').date(1).morning()
+    return morning(now.add(1, 'month').date(1))
   },
 
   /**
    * Can take almost any string.
-   * e.g. "Next monday at 2pm"
+   * e.g. "Next Monday at 2pm"
    * @param {string} dateLikeString - a string representing a date.
    * @return {moment} - moment object representing date
    */
-  fromString(dateLikeString) {
-    const date = chrono.parseDate(dateLikeString)
+  futureDateFromString(dateLikeString) {
+    const date = chronoFuture.parseDate(dateLikeString)
     if (!date) {
       return null
     }

@@ -1,19 +1,9 @@
 /** @babel */
-import _ from 'underscore';
 import React, {Component, PropTypes} from 'react';
-import {DateUtils} from 'nylas-exports'
+import {Actions} from 'nylas-exports';
 import {Popover} from 'nylas-component-kit';
-import SnoozeActions from './snooze-actions'
+import SnoozePopoverBody from './snooze-popover-body';
 
-
-const SnoozeOptions = {
-  'Later Today': DateUtils.laterToday,
-  'Tonight': DateUtils.tonight,
-  'Tomorrow': DateUtils.tomorrow,
-  'This Weekend': DateUtils.thisWeekend,
-  'Next Week': DateUtils.nextWeek,
-  'Next Month': DateUtils.nextMonth,
-}
 
 class SnoozePopover extends Component {
   static displayName = 'SnoozePopover';
@@ -21,38 +11,30 @@ class SnoozePopover extends Component {
   static propTypes = {
     threads: PropTypes.array.isRequired,
     buttonComponent: PropTypes.object.isRequired,
+    direction: PropTypes.string,
+    pointerStyle: PropTypes.object,
+    popoverStyle: PropTypes.object,
   };
 
-  onSnooze(dateGenerator) {
-    const utcDate = dateGenerator().utc()
-    const formatted = DateUtils.format(utcDate)
-    SnoozeActions.snoozeThreads(this.props.threads, formatted)
-  }
-
-  renderItem = (label, dateGenerator)=> {
-    return (
-      <div
-        key={label}
-        className="snooze-item"
-        onMouseDown={this.onSnooze.bind(this, dateGenerator)}>
-        {label}
-      </div>
-    )
+  closePopover = ()=> {
+    this.refs.popover.close();
   };
 
   render() {
-    const {buttonComponent} = this.props
-    const items = _.map(SnoozeOptions, (dateGenerator, label)=> this.renderItem(label, dateGenerator))
+    const {buttonComponent, direction, popoverStyle, pointerStyle, threads} = this.props
 
     return (
       <Popover
-        style={{order: -103}}
+        ref="popover"
         className="snooze-popover"
-        direction="down-align-left"
-        buttonComponent={buttonComponent}>
-        <div className="snooze-container">
-          {items}
-        </div>
+        direction={direction || 'down-align-left'}
+        buttonComponent={buttonComponent}
+        popoverStyle={popoverStyle}
+        pointerStyle={pointerStyle}
+        onOpened={()=> Actions.closePopover()}>
+        <SnoozePopoverBody
+          threads={threads}
+          closePopover={this.closePopover}/>
       </Popover>
     );
   }

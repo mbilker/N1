@@ -113,6 +113,7 @@ class ThreadList extends React.Component
         tasks = TaskFactory.tasksForMovingToTrash
           threads: [item]
           fromPerspective: FocusedPerspectiveStore.current()
+        Actions.closePopover()
         Actions.queueTasks(tasks)
         callback(true)
 
@@ -122,8 +123,29 @@ class ThreadList extends React.Component
         tasks = TaskFactory.tasksForArchiving
           threads: [item]
           fromPerspective: FocusedPerspectiveStore.current()
+        Actions.closePopover()
         Actions.queueTasks(tasks)
         callback(true)
+
+    if perspective.isInbox()
+      props.onSwipeLeftClass = 'swipe-snooze'
+      props.onSwipeCenter = =>
+        Actions.closePopover()
+      props.onSwipeLeft = (callback) =>
+        # TODO this should be grabbed from elsewhere
+        {PopoverStore} = require 'nylas-exports'
+        SnoozePopoverBody = require '../../thread-snooze/lib/snooze-popover-body'
+
+        element = document.querySelector("[data-item-id=\"#{item.id}\"]")
+        rect = element.getBoundingClientRect()
+        Actions.openPopover(
+          <SnoozePopoverBody
+            threads={[item]}
+            swipeCallback={callback}
+            closePopover={Actions.closePopover}/>,
+          rect,
+          "right"
+        )
 
     props
 

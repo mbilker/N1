@@ -53,8 +53,8 @@ export function whenCategoriesReady() {
 export function getSnoozeCategory(accountId, categoryName = SNOOZE_CATEGORY_NAME) {
   return whenCategoriesReady()
   .then(()=> {
-    const userCategories = CategoryStore.userCategories(accountId)
-    const category = _.findWhere(userCategories, {displayName: categoryName})
+    const allCategories = CategoryStore.categories(accountId)
+    const category = _.findWhere(allCategories, {displayName: categoryName})
     if (category) {
       return Promise.resolve(category);
     }
@@ -73,6 +73,26 @@ export function getSnoozeCategoriesByAccount(accounts = AccountStore.accounts())
 }
 
 
+export function groupProcessedThreadsByAccountId(categoriesByAccountId, threads) {
+  return DatabaseStore.modelify(Thread, _.pluck(threads, 'id')).then((updatedThreads)=> {
+    const threadsByAccountId = {}
+    updatedThreads.forEach((thread)=> {
+      const accId = thread.accountId
+      if (!threadsByAccountId[accId]) {
+        threadsByAccountId[accId] = {
+          updatedThreads: [thread],
+          snoozeCategoryId: categoriesByAccountId[accId].serverId,
+          returnCategoryId: CategoryStore.getInboxCategory(accId).serverId,
+        }
+      } else {
+        threadsByAccountId[accId].updatedThreads.push(thread);
+      }
+    });
+    return Promise.resolve(threadsByAccountId);
+  })
+}
+
+
 export function moveThreads(threads, categoriesByAccountId, {snooze} = {}) {
   const inbox = CategoryStore.getInboxCategory
   const snoozeCat = (accId)=> categoriesByAccountId[accId]
@@ -86,8 +106,9 @@ export function moveThreads(threads, categoriesByAccountId, {snooze} = {}) {
   const promises = tasks.map(task => TaskQueueStatusStore.waitForPerformRemote(task))
   // Resolve with the updated threads
   return (
-    Promise.all(promises)
-    .then(()=> DatabaseStore.modelify(Thread, _.pluck(threads, 'id')))
+    Promise.all(promises).then(()=> {
+      return groupProcessedThreadsByAccountId(categoriesByAccountId, threads)
+    })
   )
 }
 

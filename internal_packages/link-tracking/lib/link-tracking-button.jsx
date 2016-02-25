@@ -1,7 +1,7 @@
-import {DraftStore, React, Actions, NylasAPI, DatabaseStore, Message, Rx} from 'nylas-exports'
-import {RetinaImg} from 'nylas-component-kit'
-import plugin from '../package.json'
-const PLUGIN_ID = plugin.appId;
+// import {DraftStore, React, Actions, NylasAPI, DatabaseStore, Message, Rx} from 'nylas-exports'
+import {React, APIError, NylasAPI} from 'nylas-exports'
+import {MetadataComposerToggleButton} from 'nylas-component-kit'
+import {PLUGIN_ID, PLUGIN_NAME} from './link-tracking-constants'
 
 export default class LinkTrackingButton extends React.Component {
   static displayName = 'LinkTrackingButton';
@@ -10,50 +10,29 @@ export default class LinkTrackingButton extends React.Component {
     draftClientId: React.PropTypes.string.isRequired,
   };
 
-  constructor(props) {
-    super(props);
-    this.state = {enabled: false};
+  _title(enabled) {
+    const dir = enabled ? "Disable" : "Enable";
+    return `${dir} link tracking`
   }
 
-  componentDidMount() {
-    const query = DatabaseStore.findBy(Message, {clientId: this.props.draftClientId});
-    this._subscription = Rx.Observable.fromQuery(query).subscribe(this.setStateFromDraft)
+  _errorMessage(error) {
+    if (error instanceof APIError && error.statusCode === NylasAPI.TimeoutErrorCode) {
+      return `Link tracking does not work offline. Please re-enable when you come back online.`
+    }
+    return `Unfortunately, link tracking servers are currently not available. Please try again later. Error: ${error.message}`
   }
-
-  componentWillUnmount() {
-    this._subscription.dispose();
-  }
-
-  setStateFromDraft =(draft)=> {
-    if (!draft) return;
-    const metadata = draft.metadataForPluginId(PLUGIN_ID);
-    this.setState({enabled: metadata ? metadata.tracked : false});
-  };
-
-  _onClick=()=> {
-    const currentlyEnabled = this.state.enabled;
-
-    // write metadata into the draft to indicate tracked state
-    DraftStore.sessionForClientId(this.props.draftClientId)
-      .then(session => session.draft())
-      .then(draft => {
-        return NylasAPI.authPlugin(PLUGIN_ID, plugin.title, draft.accountId).then(() => {
-          Actions.setMetadata(draft, PLUGIN_ID, currentlyEnabled ? null : {tracked: true});
-        });
-      });
-  };
 
   render() {
     return (
-      <button
-        title="Link Tracking"
-        className={`btn btn-toolbar ${this.state.enabled ? "btn-action" : ""}`}
-        onClick={this._onClick}>
-        <RetinaImg
-          url="nylas://link-tracking/assets/linktracking-icon@2x.png"
-          mode={RetinaImg.Mode.ContentIsMask} />
-      </button>
+      <MetadataComposerToggleButton
+        title={this._title}
+        iconName="icon-composer-linktracking.png"
+        pluginId={PLUGIN_ID}
+        pluginName={PLUGIN_NAME}
+        metadataKey="tracked"
+        stickyToggle
+        errorMessage={this._errorMessage}
+        draftClientId={this.props.draftClientId} />
     )
   }
 }
-
