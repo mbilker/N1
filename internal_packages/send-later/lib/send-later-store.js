@@ -1,6 +1,6 @@
 /** @babel */
 import NylasStore from 'nylas-store'
-import {NylasAPI, Actions, Message, Rx, DatabaseStore} from 'nylas-exports'
+import {NylasAPI, Actions, Message, DatabaseStore} from 'nylas-exports'
 import SendLaterActions from './send-later-actions'
 import {PLUGIN_ID, PLUGIN_NAME} from './send-later-constants'
 
@@ -42,11 +42,29 @@ class SendLaterStore extends NylasStore {
     });
   };
 
-  onSendLater = (draftClientId, sendLaterDate)=> {
+  recordAction(sendLaterDate, label) {
+    try {
+      if (sendLaterDate) {
+        const min = Math.round(((new Date(sendLaterDate)).valueOf() - Date.now()) / 1000 / 60);
+        Actions.recordUserEvent("Send Later", {
+          sendLaterTime: min,
+          optionLabel: label,
+        });
+      } else {
+        Actions.recordUserEvent("Send Later Cancel");
+      }
+    } catch (e) {
+      // Do nothing
+    }
+  }
+
+  onSendLater = (draftClientId, sendLaterDate, label)=> {
+    this.recordAction(sendLaterDate, label)
     this.setMetadata(draftClientId, {sendLaterDate});
   };
 
   onCancelSendLater = (draftClientId)=> {
+    this.recordAction(null)
     this.setMetadata(draftClientId, {sendLaterDate: null});
   };
 

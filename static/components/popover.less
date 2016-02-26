@@ -1,14 +1,19 @@
 @import "ui-variables";
+@header-color: #afafaf;
 
 .popover-container {
   display:inline-block;
   position:relative;
+  white-space: nowrap; // prevent dropdown arrow from wrapping when space constrained
 }
 
 .popover {
   background-color: @background-secondary;
   border-radius: @border-radius-base;
   box-shadow: 0 0.5px 0 rgba(0, 0, 0, 0.15), 0 -0.5px 0 rgba(0, 0, 0, 0.15), 0.5px 0 0 rgba(0, 0, 0, 0.15), -0.5px 0 0 rgba(0, 0, 0, 0.15), 0 4px 7px rgba(0,0,0,0.15);
+
+  min-width: 200px;
+
   .menu {
     z-index:1;
     position: relative;
@@ -19,6 +24,11 @@
       border-top-left-radius: @border-radius-base;
       border-top-right-radius: @border-radius-base;
       background: none;
+      color: @header-color;
+      font-weight: bold;
+      border-bottom: none;
+      overflow: hidden;
+      padding: @padding-base-vertical * 1.5  @padding-base-horizontal;
     }
     .footer-container {
       border-bottom-left-radius: @border-radius-base;

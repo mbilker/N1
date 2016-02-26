@@ -334,7 +334,7 @@ class ComposerView extends React.Component
       onComponentDidRender={@_onEditorBodyDidRender}
       requiredMethods={[
         'focus'
-        'nativeFocus'
+        'focusAbsoluteEnd'
         'getCurrentSelection'
         'getPreviousSelection'
         '_onDOMMutated'
@@ -429,10 +429,10 @@ class ComposerView extends React.Component
 
   _renderActionsRegion: =>
     return <div></div> unless @props.draftClientId
-
-    <InjectedComponentSet className="composer-action-bar-content"
+    <div className="composer-action-bar-content">
+      <InjectedComponentSet className="composer-action-bar-plugins"
                       matching={role: "Composer:ActionButton"}
-                      exposedProps={draftClientId:@props.draftClientId, threadId: @props.threadId}>
+                      exposedProps={draftClientId:@props.draftClientId, threadId: @props.threadId}></InjectedComponentSet>
 
       <button className="btn btn-toolbar btn-trash" style={order: 100}
               title="Delete draft"
@@ -448,7 +448,7 @@ class ComposerView extends React.Component
                         ref="sendActionButton"
                         isValidDraft={@_isValidDraft} />
 
-    </InjectedComponentSet>
+    </div>
 
   isForwardedMessage: =>
     return false if not @_proxy
@@ -473,7 +473,7 @@ class ComposerView extends React.Component
       # We don't set state directly here because we want the native
       # contenteditable focus behavior. When the contenteditable gets focused
       # the focused field state will be properly set via editor.onFocus
-      @refs[Fields.Body].nativeFocus()
+      @refs[Fields.Body].focusAbsoluteEnd()
     @_mouseDownTarget = null
 
   # When a user focuses the composer, it's possible that no input is
