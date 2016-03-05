@@ -469,7 +469,7 @@
 
 .welcome-page {
   width: 675px;
-  height: 480px;
+  height: 470px;
   display: flex;
   flex-direction: column;
 
@@ -501,6 +501,7 @@
 
   .step-wrap {
     position: absolute;
+    overflow: hidden;
     top: 0;
     left: 0;
     right: 0;
@@ -518,7 +519,18 @@
   .footer {
     text-align: center;
     background: #ececec;
-    border-top: 1px solid #d4d4d4;
+    border-top: 1px solid rgba(0,0,0,0.10);
+    box-shadow: 0 1px 1px solid rgba(255,255,255,0.25);
+
+    &.step-0 {
+      background-image: linear-gradient(to right, rgba(167,214,134,1) 0%,rgba(122,201,201,1) 100%);
+    }
+    &.step-1 {
+      background: #4e575c;
+    }
+    &.step-2 {
+      background-image: linear-gradient(to right, rgba(136,208,184,1) 0%,rgba(105,199,210,1) 100%);
+    }
 
     .btn-continue {
       font-size: 17px;
@@ -561,7 +573,7 @@
   }
 
   .nylas-static-wash-bg {
-    background-image: linear-gradient(to right, rgba(162,210,128,1) 0%,rgba(113,193,154,1) 50%,rgba(89,187,187,1) 100%);
+    background-image: linear-gradient(to right, rgba(149,205,107,1) 0%,rgba(60,176,176,1) 100%);
     color: white;
   }
 
@@ -574,7 +586,7 @@
   }
 
   .nylas-blue-wash-bg {
-    background-image: linear-gradient(to right, rgba(79,186,151,1) 0%,rgba(113,193,154,1) 50%,rgba(34,172,187,1) 100%);
+    background-image: linear-gradient(to right, rgba(79,186,151,1) 0%, rgba(34,172,187,1) 100%);
     color: white;
   }
 
@@ -602,7 +614,7 @@
       border: 1px solid #161f25;
       width: 210px;
       height: 210px;
-      margin: 20px auto;
+      margin: 20px auto 15px auto;
       border-radius: 105px;
     }
     .gear-container {
@@ -643,11 +655,12 @@
     }
 
     .gear-large-0 {
-      left: 50%;
-      top: 50%;
-      margin-left: -150px;
-      margin-top: -150px;
+      left: 51%;
+      top: 51%;
+      margin-left: -148px;
+      margin-top: -149px;
       transform: rotate(7deg);
+      zoom: 0.525 !important;
     }
     .gear-large-1 {
       left: -147px;
@@ -659,8 +672,8 @@
     }
     .gear-large-3 {
       left: 50%;
-      margin-left: -148px;
-      bottom: -226px;
+      margin-left: -143px;
+      bottom: -223px;
     }
 
     .gear-small {
@@ -701,13 +714,14 @@
     }
 
     .hero-text {
-      font-size: 27px;
+      font-size: 39px;
+      opacity: 0.7;
     }
   }
 
   .nav-bubbles {
     position: absolute;
-    bottom: 14px;
+    bottom: 7px;
     left: 50%;
     margin-left: -24px;
     display: flex;
