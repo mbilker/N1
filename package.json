@@ -37,7 +37,7 @@
     "jasmine-tagged": "^1.1.4",
     "jquery": "^2.1.1",
     "juice": "^1.4",
-    "less-cache": "0.22",
+    "less-cache": "~0.23.0",
     "mkdirp": "^0.5",
     "moment": "^2.8",
     "moment-timezone": "^0.3",
