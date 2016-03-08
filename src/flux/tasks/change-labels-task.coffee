@@ -24,6 +24,10 @@ class ChangeLabelsTask extends ChangeMailTask
 
   label: -> "Applying labels…"
 
+  categoriesToAdd: => @labelsToAdd
+
+  categoriesToRemove: => @labelsToRemove
+
   description: ->
     return @taskDescription if @taskDescription
     type = "thread"
@@ -35,7 +39,7 @@ class ChangeLabelsTask extends ChangeMailTask
       return "Removed #{@labelsToRemove[0].displayName} from #{@threads.length} #{type}"
     return "Changed labels on #{@threads.length} #{type}"
 
-  isDependentTask: (other) -> other instanceof SyncbackCategoryTask
+  isDependentOnTask: (other) -> other instanceof SyncbackCategoryTask
 
   performLocal: ->
     if @messages.length

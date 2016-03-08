@@ -13,7 +13,9 @@ import {
   TaskFactory,
   DateUtils,
 } from 'nylas-exports';
-import {SNOOZE_CATEGORY_NAME, DATE_FORMAT_SHORT} from './snooze-constants'
+import {SNOOZE_CATEGORY_NAME} from './snooze-constants'
+
+const {DATE_FORMAT_SHORT} = DateUtils
 
 
 const SnoozeUtils = {
@@ -96,7 +98,7 @@ const SnoozeUtils = {
     const tasks = TaskFactory.tasksForApplyingCategories({
       threads,
       categoriesToRemove: snooze ? getInboxCategory : getSnoozeCategory,
-      categoryToAdd: snooze ? getSnoozeCategory : getInboxCategory,
+      categoriesToAdd: snooze ? getSnoozeCategory : getInboxCategory,
       taskDescription: description,
     })
 
@@ -113,8 +115,8 @@ const SnoozeUtils = {
   moveThreadsToSnooze(threads, snoozeCategoriesByAccountPromise, snoozeDate) {
     return snoozeCategoriesByAccountPromise
     .then((snoozeCategoriesByAccountId)=> {
-      const getSnoozeCategory = (accId)=> snoozeCategoriesByAccountId[accId]
-      const {getInboxCategory} = CategoryStore
+      const getSnoozeCategory = (accId) => [snoozeCategoriesByAccountId[accId]]
+      const getInboxCategory = (accId) => [CategoryStore.getInboxCategory[accId]]
       const description = SnoozeUtils.snoozedUntilMessage(snoozeDate)
       return SnoozeUtils.moveThreads(
         threads,
@@ -126,8 +128,8 @@ const SnoozeUtils = {
   moveThreadsFromSnooze(threads, snoozeCategoriesByAccountPromise) {
     return snoozeCategoriesByAccountPromise
     .then((snoozeCategoriesByAccountId)=> {
-      const getSnoozeCategory = (accId)=> snoozeCategoriesByAccountId[accId]
-      const {getInboxCategory} = CategoryStore
+      const getSnoozeCategory = (accId) => [snoozeCategoriesByAccountId[accId]]
+      const getInboxCategory = (accId) => [CategoryStore.getInboxCategory[accId]]
       const description = 'Unsnoozed';
       return SnoozeUtils.moveThreads(
         threads,

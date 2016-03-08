@@ -35,14 +35,14 @@ describe('Snooze Utils', ()=> {
         const now9AM = moment().hour(9).minute(0)
         const tomorrowAt8 = moment(now9AM).add(1, 'day').hour(8)
         const result = snoozedUntilMessage(tomorrowAt8, now9AM)
-        expect(result).toEqual('Snoozed until 8AM')
+        expect(result).toEqual('Snoozed until 8 AM')
       });
 
       it('returns correct message if snoozeDate otherwise', ()=> {
         const now9AM = moment().hour(9).minute(0)
         const snooze10AM = moment(now9AM).hour(10).minute(5)
         const result = snoozedUntilMessage(snooze10AM, now9AM)
-        expect(result).toEqual('Snoozed until 10:05AM')
+        expect(result).toEqual('Snoozed until 10:05 AM')
       });
     });
 
@@ -52,7 +52,7 @@ describe('Snooze Utils', ()=> {
         const now9AM = moment().month(0).date(1).hour(9).minute(0)
         const tomorrowAt10 = moment(now9AM).add(1, 'day').hour(10)
         const result = snoozedUntilMessage(tomorrowAt10, now9AM)
-        expect(result).toEqual('Snoozed until Jan 2, 10AM')
+        expect(result).toEqual('Snoozed until Jan 2, 10 AM')
       });
 
       it('returns correct message if snoozeDate otherwise', ()=> {
@@ -60,7 +60,7 @@ describe('Snooze Utils', ()=> {
         const now9AM = moment().month(0).date(1).hour(9).minute(0)
         const tomorrowAt930 = moment(now9AM).add(1, 'day').minute(30)
         const result = snoozedUntilMessage(tomorrowAt930, now9AM)
-        expect(result).toEqual('Snoozed until Jan 2, 9:30AM')
+        expect(result).toEqual('Snoozed until Jan 2, 9:30 AM')
       });
     });
   });
@@ -179,8 +179,8 @@ describe('Snooze Utils', ()=> {
         new Thread({accountId: 123}),
         new Thread({accountId: 321}),
       ]
-      this.getInboxCat = (accId) => this.inboxCatsByAccount[accId]
-      this.getSnoozeCat = (accId) => this.snoozeCatsByAccount[accId]
+      this.getInboxCat = (accId) => [this.inboxCatsByAccount[accId]]
+      this.getSnoozeCat = (accId) => [this.snoozeCatsByAccount[accId]]
 
       spyOn(DatabaseStore, 'modelify').andReturn(Promise.resolve(this.threads))
       spyOn(TaskFactory, 'tasksForApplyingCategories').andReturn([])
@@ -197,13 +197,13 @@ describe('Snooze Utils', ()=> {
         .then(()=> {
           expect(TaskFactory.tasksForApplyingCategories).toHaveBeenCalled()
           expect(Actions.queueTasks).toHaveBeenCalled()
-          const taskArgs = TaskFactory.tasksForApplyingCategories.calls[0].args[0]
-          expect(taskArgs.threads).toBe(this.threads)
-          expect(taskArgs.categoriesToRemove('123')).toBe(this.inboxCatsByAccount['123'])
-          expect(taskArgs.categoriesToRemove('321')).toBe(this.inboxCatsByAccount['321'])
-          expect(taskArgs.categoryToAdd('123')).toBe(this.snoozeCatsByAccount['123'])
-          expect(taskArgs.categoryToAdd('321')).toBe(this.snoozeCatsByAccount['321'])
-          expect(taskArgs.taskDescription).toEqual(description)
+          const {threads, categoriesToAdd, categoriesToRemove, taskDescription} = TaskFactory.tasksForApplyingCategories.calls[0].args[0]
+          expect(threads).toBe(this.threads)
+          expect(categoriesToRemove('123')[0]).toBe(this.inboxCatsByAccount['123'])
+          expect(categoriesToRemove('321')[0]).toBe(this.inboxCatsByAccount['321'])
+          expect(categoriesToAdd('123')[0]).toBe(this.snoozeCatsByAccount['123'])
+          expect(categoriesToAdd('321')[0]).toBe(this.snoozeCatsByAccount['321'])
+          expect(taskDescription).toEqual(description)
         })
       })
     });
@@ -217,13 +217,13 @@ describe('Snooze Utils', ()=> {
         .then(()=> {
           expect(TaskFactory.tasksForApplyingCategories).toHaveBeenCalled()
           expect(Actions.queueTasks).toHaveBeenCalled()
-          const taskArgs = TaskFactory.tasksForApplyingCategories.calls[0].args[0]
-          expect(taskArgs.threads).toBe(this.threads)
-          expect(taskArgs.categoryToAdd('123')).toBe(this.inboxCatsByAccount['123'])
-          expect(taskArgs.categoryToAdd('321')).toBe(this.inboxCatsByAccount['321'])
-          expect(taskArgs.categoriesToRemove('123')).toBe(this.snoozeCatsByAccount['123'])
-          expect(taskArgs.categoriesToRemove('321')).toBe(this.snoozeCatsByAccount['321'])
-          expect(taskArgs.taskDescription).toEqual(description)
+          const {threads, categoriesToAdd, categoriesToRemove, taskDescription} = TaskFactory.tasksForApplyingCategories.calls[0].args[0]
+          expect(threads).toBe(this.threads)
+          expect(categoriesToAdd('123')[0]).toBe(this.inboxCatsByAccount['123'])
+          expect(categoriesToAdd('321')[0]).toBe(this.inboxCatsByAccount['321'])
+          expect(categoriesToRemove('123')[0]).toBe(this.snoozeCatsByAccount['123'])
+          expect(categoriesToRemove('321')[0]).toBe(this.snoozeCatsByAccount['321'])
+          expect(taskDescription).toEqual(description)
         })
       })
     });
