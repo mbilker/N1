@@ -10,8 +10,16 @@ var appPackageJSON = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', 'p
 var targetElectronVersion = appPackageJSON['electronVersion'];
 var targetPlatform = require('os').platform();
 
+var t0, t1;
+
 // Executes an array of commands in series
 function executeCommands(commands, done, index) {
+  if (index != undefined) {
+    t1 = Date.now();
+    console.log("=> Took " + (t1 - t0) + "ms.");
+    console.log();
+  }
+
   index = (index == undefined ? 0 : index);
   if (index < commands.length) {
     var command = commands[index];
@@ -22,18 +30,11 @@ function executeCommands(commands, done, index) {
       options = command.options;
       command = command.command;
     }
+    t0 = Date.now();
     safeExec(command, options, executeCommands.bind(this, commands, done, index + 1));
   }
   else
     done(null);
-}
-
-function printArgs(args) {
-  out = "";
-  for(key in args) {
-    out += "--"+key+"="+args[key]+" ";
-  }
-  return out;
 }
 
 function makeSqlite3Command() {
@@ -52,62 +53,76 @@ function makeSqlite3Command() {
 }
 
 function bootstrap() {
-  var apmDestinationPath = path.resolve(__dirname, '..', 'apm');
-  if (!fs.existsSync(apmDestinationPath))
-    fs.mkdirSync(apmDestinationPath);
-  if (!fs.existsSync(path.join(apmDestinationPath, 'node_modules')))
-    fs.mkdirSync(path.join(apmDestinationPath, 'node_modules'));
+  var apmInstallPath = path.resolve(__dirname, '..', 'apm');
+  if (!fs.existsSync(apmInstallPath))
+    fs.mkdirSync(apmInstallPath);
+  if (!fs.existsSync(path.join(apmInstallPath, 'node_modules')))
+    fs.mkdirSync(path.join(apmInstallPath, 'node_modules'));
 
-  var apmPath = '"' + path.resolve(__dirname, '..', 'apm', 'node_modules', 'atom-package-manager', 'bin', 'apm') + '"';
+  var apmPath = path.resolve(__dirname, '..', 'apm', 'node_modules', 'atom-package-manager', 'bin', 'apm');
   var apmFlags = process.env.JANKY_SHA1 || process.argv.indexOf('--no-color') !== -1 ? ' --no-color' : '';
 
-  var npmFlags = ' --userconfig=' + '"' + path.resolve('.npmrc') + '" ';
+  // use the system version of npm to install build folder dependencies, including our
+  // own copy of NPM 3.x, which we'll use for subsequent command
+  var npmPath = path.resolve(__dirname, '..', 'build', 'node_modules', '.bin', 'npm');
+  var initialNpmCommand = fs.existsSync(npmPath) ? npmPath : 'npm';
+  var npmFlags = ' --userconfig=' + path.resolve(__dirname, '..', 'build', '.npmrc') + ' ';
 
   var gruntPath = '"' + path.resolve(__dirname, '..', 'build', 'node_modules', '.bin', 'grunt') + '"';
 
-  var packagesToDedupe = ['fs-plus', 'humanize-plus', 'roaster', 'season', 'grim'];
+  var packagesToDedupe = [
+    'abbrev',
+    'amdefine',
+    'atom-space-pen-views',
+    'cheerio',
+    'domelementtype',
+    'fs-plus',
+    'grim',
+    'highlights',
+    'humanize-plus',
+    'iconv-lite',
+    'inherits',
+    'loophole',
+    'oniguruma',
+    'q',
+    'request',
+    'rimraf',
+    'roaster',
+    'season',
+    'sigmund',
+    'semver',
+    'through',
+    'temp'
+  ];
 
-  // use the system version of npm to install build folder dependencies, including our
-  // own copy of NPM 3.x, which we'll use for subsequent commands
-  var buildInstallCommand = 'npm' + npmFlags + 'install';
+  var buildInstallCommand = initialNpmCommand + npmFlags + 'install';
   var buildInstallOptions = {cwd: path.resolve(__dirname, '..', 'build')};
-  var npmPath = '"' + path.resolve(__dirname, '..', 'build', 'node_modules', '.bin', 'npm') + '"';
-
-  // Use our local version of npm in ./build to install apm. This ensures it gets a
-  // flat dependency tree.
-  var npmInstallApmCommand = npmPath + npmFlags + '--target=0.10.40 ' + 'install';
-  var npmInstallApmOptions = {cwd: apmDestinationPath};
-
-  var npmDedupeNpmCommand = npmPath + npmFlags + '--target=0.10.40 ' + 'dedupe';
-  var npmDedupeNpmOptions = {cwd: path.join(apmDestinationPath, 'node_modules', 'npm')};
+  var apmInstallCommand = npmPath + npmFlags + '--target=0.10.40 ' + 'install';
+  var apmInstallOptions = {cwd: apmInstallPath};
+  var moduleInstallCommand = apmPath + ' install' + apmFlags;
+  var dedupeApmCommand = apmPath + ' dedupe' + apmFlags;
 
   var sqlite3Command = makeSqlite3Command();
-
-  var apmInstallCommand = apmPath + ' install' + apmFlags;
 
   var apmEnv = JSON.parse(JSON.stringify(process.env))
   apmEnv['ATOM_ELECTRON_VERSION'] = targetElectronVersion;
   apmEnv['ATOM_HOME'] = path.join(userHomeDirectory, '.nylas');
 
-  var apmDedupeCommand = apmPath + ' dedupe' + apmFlags;
-
   var integrationCommand = npmPath + npmFlags + 'install';
   var integrationOptions = {cwd: path.resolve(__dirname, '..', 'spec_integration')};
 
-  var gruntCmd = ""
-  var downloadElectronCmd = gruntPath + " download-electron --gruntfile build/Gruntfile.coffee"
+  var gruntCmd = "";
+  var downloadElectronCmd = gruntPath + " download-electron --gruntfile build/Gruntfile.coffee";
 
   if (process.argv.indexOf('--no-quiet') === -1) {
     buildInstallCommand  += ' --loglevel error';
-    npmInstallApmCommand    += ' --loglevel error';
-    apmInstallCommand += ' --loglevel error';
-    integrationCommand += ' --loglevel error';
-    apmDedupeCommand     += ' --quiet';
+    apmInstallCommand    += ' --loglevel error';
+    moduleInstallCommand += ' --loglevel error';
+    integrationCommand   += ' --loglevel error';
+    dedupeApmCommand     += ' --quiet';
 
-    npmDedupeNpmOptions.ignoreStderr = true;
-    npmDedupeNpmOptions.ignoreStdout = true;
     buildInstallOptions.ignoreStdout = true;
-    npmInstallApmOptions.ignoreStdout = true;
+    apmInstallOptions.ignoreStdout = true;
     integrationOptions.ignoreStdout = true;
   }
 
@@ -116,127 +131,73 @@ function bootstrap() {
   if (process.env.JANKY_SHA1 && process.platform === 'win32')
     npmInstallApmCommand += ' --arch=ia32';
 
-  m1  = "\n---> Installing N1 build tools\n"
-  m1 += "     This goes inside the `build` folder and runs `npm install`\n"
-  m1 += "     It will use the system `npm` to bootstrap our own N1 npm.\n"
-  m1 += "     Our build tools (like Grunt) need to be compiled against Node via `npm`.\n"
-  m1 += "     Everything else needs to be compiled against Chromium with `apm`.\n\n"
-  m1 += "     $ "+buildInstallCommand+" "+printArgs(buildInstallOptions)+"\n"
-
-  m2  = "\n\n---> Installing apm\n"
-  m2 += "     This installs apm via N1's `npm`\n"
-  m2 += "     We use this local apm copy to install all N1 dependencies & packages\n\n"
-  m2 += "     $ "+npmInstallApmCommand+" "+printArgs(npmInstallApmOptions)+"\n"
-
-  m2a  = "\n\n---> Flattening apm package tree\n"
-  m2a += "     This runs `npm dedupe` on apm's `npm` dependency.\n"
-  m2a += "     We use this to prevent paths over 260 characters on Windows.\n\n"
-  m2a += "     $ "+npmDedupeNpmCommand+" "+printArgs(npmDedupeNpmOptions)+"\n"
-
-  m3  = "\n\n---> Cleaning apm via `apm clean`\n"
-
-  m4  = "\n\n---> Installing N1 dependencies & packages via `apm install`\n\n"
-  m4 += "     $ "+apmInstallCommand+"\n"
-
-  m5  = "\n\n---> De-duping packages `apm dedupe`\n\n"
-  m5 += "     $ "+apmDedupeCommand+" "+packagesToDedupe.join(' ')+"\n"
-
-  m6  = "\n\n---> Getting latest Electron\n\n"
-  m6 += "     $ "+downloadElectronCmd
-
-  m7  = "\n\n---> Installing integration test modules\n\n"
-  m7 += "     $ "+integrationCommand+" "+printArgs(integrationOptions)+"\n"
+  var internalPackageCommands = [];
+  // we need this because we don't put our modules in node_modules and npm
+  // install doesn't find them. Run APM install on each package directory manually.
+  [
+    path.resolve(__dirname, '..', 'internal_packages')
+  ].forEach(function(packagesDir) {
+    fs.readdirSync(packagesDir).forEach(function(dir) {
+      var dirPackageJSONPath = path.join(packagesDir, dir, 'package.json');
+      // On windows and linux, invoking the apm command is very slow even when there are no
+      // dependencies. Make it faster by not calling unless we find there are deps.
+      if (fs.existsSync(dirPackageJSONPath)) {
+        var dirPackageJSON = JSON.parse(fs.readFileSync(dirPackageJSONPath));
+        if (dirPackageJSON.dependencies && (Object.keys(dirPackageJSON.dependencies).length > 0)) {
+          internalPackageCommands.push({
+            command: apmInstallCommand,
+            message: "Installing dependencies for " + dir,
+            options: {
+              cwd: path.join(packagesDir, dir),
+              env: apmEnv
+            }
+          });
+        }
+      }
+    });
+  });
 
   var commands = [
     {
       command: buildInstallCommand,
-      message: m1,
+      message: 'Installing build modules...',
       options: buildInstallOptions
     },
     {
       command: gruntPath + " add-nylas-build-resources --gruntfile build/Gruntfile.coffee",
-      message: "",
+      message: 'Adding custom Nylas resources...',
       options: {}
+    },
+    {
+      command: apmInstallCommand,
+      message: 'Installing apm...',
+      options: apmInstallOptions
+    },
+    {
+      command: apmPath + ' clean' + apmFlags,
+      message: 'Deleting old packages...'
+    },
+  ];
+  //  moduleInstallCommand,
+  var afterPackageInstallCommands = [
+    dedupeApmCommand + ' ' + packagesToDedupe.join(' '),
+    {
+      command: downloadElectronCmd,
+      message: 'Getting Electron v' + targetElectronVersion
+    },
+    {
+      command: integrationCommand,
+      message: 'Installing integration test modules...',
+      options: integrationOptions
+    },
+    {
+      command: sqlite3Command,
+      message: "Building sqlite3 with command: "+sqlite3Command
     }
-  ]
-  process.chdir(path.dirname(__dirname));
-  executeCommands(commands, function() {
-    var commands = [
-      {
-        command: npmInstallApmCommand,
-        message: m2,
-        options: npmInstallApmOptions
-      },
-      {
-        command: npmDedupeNpmCommand,
-        message: m2a,
-        options: npmDedupeNpmOptions
-      },
-      {
-        command: apmPath + ' clean' + apmFlags,
-        options: { env: apmEnv },
-        message: m3
-      }
-    ];
+  ];
 
-    // we need this because we don't put our modules in node_modules and npm
-    // install doesn't find them. Run APM install on each package directory manually.
-    [
-      path.resolve(__dirname, '..', 'internal_packages')
-    ].forEach(function(packagesDir) {
-      fs.readdirSync(packagesDir).forEach(function(dir) {
-        var dirPackageJSONPath = path.join(packagesDir, dir, 'package.json');
-        // On windows and linux, invoking the apm command is very slow even when there are no
-        // dependencies. Make it faster by not calling unless we find there are deps.
-        if (fs.existsSync(dirPackageJSONPath)) {
-          var dirPackageJSON = JSON.parse(fs.readFileSync(dirPackageJSONPath));
-          if (dirPackageJSON.dependencies && (Object.keys(dirPackageJSON.dependencies).length > 0)) {
-            commands.push({
-              command: apmInstallCommand,
-              message: "Installing dependencies for "+dir,
-              options: {
-                cwd: path.join(packagesDir, dir),
-                env: apmEnv
-              }
-            });
-          }
-        }
-      });
-    });
-
-    commands = commands.concat([
-      {
-        command: apmInstallCommand,
-        options: { env: apmEnv },
-        message: m4
-      },
-      {
-        command: apmDedupeCommand + ' ' + packagesToDedupe.join(' '),
-        options: { env: apmEnv },
-        message: m5
-      },
-      {
-        command: downloadElectronCmd,
-        message: m6
-      },
-      {
-        command: integrationCommand,
-        options: integrationOptions,
-        message: m7
-      },
-      {
-        command: sqlite3Command,
-        message: "Building sqlite3 with command: "+sqlite3Command
-      }
-    ]);
-
-    process.chdir(path.dirname(__dirname));
-    executeCommands(commands, function() {
-      console.log("---------------------------------------------");
-      console.log("script/bootstrap completed successfully. You can start\nN1 via ./N1.sh --dev, or run tests with ./N1.sh --test");
-      process.exit();
-    });
-  });
+  commands = commands.concat(internalPackageCommands, afterPackageInstallCommands);
+  executeCommands(commands, process.exit);
 }
 
 verifyRequirements(function(error, successMessage) {
