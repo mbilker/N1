@@ -177,8 +177,8 @@ function bootstrap() {
       command: apmPath + ' clean' + apmFlags,
       message: 'Deleting old packages...'
     },
+    moduleInstallCommand,
   ];
-  //  moduleInstallCommand,
   var afterPackageInstallCommands = [
     dedupeApmCommand + ' ' + packagesToDedupe.join(' '),
     {
