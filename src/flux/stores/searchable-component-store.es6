@@ -2,6 +2,8 @@ import _ from 'underscore'
 import DOMUtils from '../../dom-utils'
 import NylasStore from 'nylas-store'
 import Actions from '../actions'
+import {MAX_MATCHES, CHAR_THRESHOLD} from '../../searchable-components/search-constants'
+import FocusedContentStore from './focused-content-store'
 
 class SearchableComponentStore extends NylasStore {
   constructor() {
@@ -18,9 +20,18 @@ class SearchableComponentStore extends NylasStore {
 
     this.searchRegions = {}
 
+    this._lastThread = FocusedContentStore.focused('thread')
+
     this.listenTo(Actions.findInThread, this._findInThread)
     this.listenTo(Actions.nextSearchResult, this._nextSearchResult)
     this.listenTo(Actions.previousSearchResult, this._previousSearchResult)
+    this.listenTo(FocusedContentStore, () => {
+      const newThread = FocusedContentStore.focused('thread')
+      if (newThread !== this._lastThread) {
+        this._findInThread(null);
+        this._lastThread = newThread
+      }
+    })
   }
 
   getCurrentRegionIndex(regionId) {
@@ -74,8 +85,11 @@ class SearchableComponentStore extends NylasStore {
     // root document.
     const searchNodes = []
 
-    if (this.searchTerm && this.searchTerm.length > 0) {
+    if (this.searchTerm && this.searchTerm.length >= CHAR_THRESHOLD) {
       _.each(this.searchRegions, (node) => {
+        if (this.matches.length >= MAX_MATCHES) {
+          return;
+        }
         let refNode;
         let topOffset = 0;
         let leftOffset = 0;
@@ -104,6 +118,9 @@ class SearchableComponentStore extends NylasStore {
             left: rect.left + leftOffset,
             height: rect.height,
           });
+          if (this.matches.length >= MAX_MATCHES) {
+            break;
+          }
         }
       });
       this.matches.sort((nodeA, nodeB) => {

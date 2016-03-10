@@ -119,6 +119,7 @@ function bootstrap() {
     apmInstallCommand    += ' --loglevel error';
     moduleInstallCommand += ' --loglevel error';
     integrationCommand   += ' --loglevel error';
+    moduleInstallCommand += ' --loglevel error';
     dedupeApmCommand     += ' --quiet';
 
     buildInstallOptions.ignoreStdout = true;
@@ -145,7 +146,7 @@ function bootstrap() {
         var dirPackageJSON = JSON.parse(fs.readFileSync(dirPackageJSONPath));
         if (dirPackageJSON.dependencies && (Object.keys(dirPackageJSON.dependencies).length > 0)) {
           internalPackageCommands.push({
-            command: apmInstallCommand,
+            command: moduleInstallCommand,
             message: "Installing dependencies for " + dir,
             options: {
               cwd: path.join(packagesDir, dir),

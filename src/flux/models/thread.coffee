@@ -66,6 +66,8 @@ class Thread extends ModelWithMetadata
       itemClass: Category
 
     'participants': Attributes.Collection
+      queryable: true
+      joinOnField: 'email'
       modelKey: 'participants'
       itemClass: Contact
 
@@ -76,6 +78,11 @@ class Thread extends ModelWithMetadata
       queryable: true
       modelKey: 'lastMessageReceivedTimestamp'
       jsonKey: 'last_message_received_timestamp'
+
+    'lastMessageSentTimestamp': Attributes.DateTime
+      queryable: true
+      modelKey: 'lastMessageSentTimestamp'
+      jsonKey: 'last_message_sent_timestamp'
 
   Object.defineProperty @prototype, "labels",
     enumerable: false
