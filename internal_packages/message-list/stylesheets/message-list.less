@@ -61,6 +61,10 @@ body.platform-win32 {
       border-radius: 0;
     }
   }
+
+  .sidebar-section {
+    border-radius: 0;
+  }
 }
 
 .sheet-toolbar {
@@ -108,12 +112,18 @@ body.platform-win32 {
   img { background: @text-color-subtle; }
 }
 
+#message-list.height-fix {
+  height: calc(~"100% - 35px");
+  min-height: calc(~"100% - 35px");
+}
+
 #message-list {
   display: flex;
   flex-direction: column;
   position: relative;
   background: @background-secondary;
 
+  transition: all 125ms ease-in-out;
   width: 100%;
   height: 100%;
   min-height: 100%;
@@ -138,6 +148,23 @@ body.platform-win32 {
     cursor: default;
     padding: @padding-base-vertical @padding-base-horizontal;
     a { float: right; }
+  }
+
+  .message-body-error {
+    background-color: @background-secondary;
+    border: 1px solid darken(@background-secondary, 8%);
+    color: @text-color-very-subtle;
+    margin-top: @padding-large-vertical;
+    cursor: default;
+    padding: @padding-base-vertical @padding-base-horizontal;
+    a { float: right; }
+  }
+
+  .message-body-loading {
+    height: 1em;
+    align-content: center;
+    margin-top: @padding-large-vertical;
+    margin-bottom: @padding-large-vertical;
   }
 
   .message-subject-wrap {
@@ -625,8 +652,13 @@ body.platform-win32 {
 ///////////////////////////////
 .sidebar-section {
   opacity: 0;
-  padding: @spacing-standard;
+  margin: 5px;
   cursor: default;
+  border: 1px solid @border-primary-bg;
+  border-radius: @border-radius-large;
+  background: @background-primary;
+  padding: 15px;
+
   &.visible {
     transition: opacity 0.1s ease-out;
     opacity: 1;
@@ -643,22 +675,17 @@ body.platform-win32 {
 
   .sidebar-contact-card {
   }
-  .sidebar-contact-list {
-    min-height:120px;
-
-    .contact {
-      color: @text-color-subtle;
-      font-size: @font-size-smaller;
-      &.selected {
-        font-weight: @font-weight-semi-bold;
-      }
-    }
+}
+.sidebar-participant-picker {
+  padding: 10px 5px 20px 5px;
+  text-align: right;
+  select {
+    max-width: 100%;
   }
 }
 
-
 .column-MessageListSidebar {
-  background-color: @background-off-primary;
+  background-color: @background-secondary;
   overflow: auto;
   border-left: 1px solid @border-color-divider;
   color: @text-color-subtle;
