@@ -24,11 +24,15 @@ class ParticipantProfileStore extends NylasStore {
     }
 
     if (this.inCache(contact)) {
-      return this.getCache(contact)
+      const data = this.getCache(contact);
+      if (data.cacheDate) {
+        return data
+      }
+      return {}
     }
 
     this.dataSource.find({email: contact.email}).then((data) => {
-      if (data.email === contact.email) {
+      if (data && data.email === contact.email) {
         this.setCache(contact, data);
         this.trigger()
       }

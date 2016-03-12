@@ -1,43 +1,70 @@
 # This file is in coffeescript just to use the existential operator!
 {AccountStore, EdgehillAPI} = require 'nylas-exports'
 
+MAX_RETRY = 10
+
 module.exports = class ClearbitDataSource
   clearbitAPI: ->
     return "https://person.clearbit.com/v2/combined"
 
-  find: ({email}) ->
+  find: ({email, tryCount}) ->
+    if (tryCount ? 0) >= MAX_RETRY
+      return Promise.resolve(null)
     tok = AccountStore.tokenForAccountId(AccountStore.accounts()[0].id)
     new Promise (resolve, reject) =>
       EdgehillAPI.request
-        path: "/proxy/clearbit/#{@clearbitAPI()}/find?email=#{email}&api_token=#{tok}",
-        success: (body) =>
-          resolve(@parseResponse(body))
+        auth:
+          user: tok
+          pass: ""
+        path: "/proxy/clearbit/#{@clearbitAPI()}/find?email=#{email}",
+        success: (body, response) =>
+          @parseResponse(body, response, email, tryCount).then(resolve).catch(reject)
         error: reject
 
   # The clearbit -> Nylas adapater
-  parseResponse: (resp={}) ->
-    person = resp.person
-    return null unless person
-    cacheDate: Date.now()
-    email: person.email # Used as checksum
-    bio: person.bio ? person.twitter?.bio ? person.aboutme?.bio,
-    location: person.location ? person.geo?.city
-    currentTitle: person.employment?.title,
-    currentEmployer: person.employment?.name,
-    profilePhotoUrl: person.avatar,
-    socialProfiles: @_socialProfiles(person)
+  parseResponse: (body={}, response, requestedEmail, tryCount=0) =>
+    new Promise (resolve, reject) =>
+      # This means it's in the process of fetching. Return null so we don't
+      # cache and try again.
+      if response.statusCode is 202
+        setTimeout =>
+          @find({email: requestedEmail, tryCount: tryCount+1}).then(resolve).catch(reject)
+        , 1000
+        return
+      else if response.statusCode isnt 200
+        resolve(null)
+        return
+
+      person = body.person
+
+      # This means there was no data about the person available. Return a
+      # valid, but empty object for us to cache. This can happen when we
+      # have company data, but no personal data.
+      if not person
+        person = {email: requestedEmail}
+
+      resolve({
+        cacheDate: Date.now()
+        email: requestedEmail # Used as checksum
+        bio: person.bio ? person.twitter?.bio ? person.aboutme?.bio,
+        location: person.location ? person.geo?.city
+        currentTitle: person.employment?.title,
+        currentEmployer: person.employment?.name,
+        profilePhotoUrl: person.avatar,
+        socialProfiles: @_socialProfiles(person)
+      })
 
   _socialProfiles: (person={}) ->
     profiles = {}
-    if person.twitter
+    if (person.twitter?.handle ? "").length > 0
       profiles.twitter =
         handle: person.twitter.handle
         url: "https://twitter.com/#{person.twitter.handle}"
-    if person.facebook
+    if (person.facebook?.handle ? "").length > 0
       profiles.facebook =
         handle: person.facebook.handle
         url: "https://facebook.com/#{person.facebook.handle}"
-    if person.linkedin
+    if (person.linkedin?.handle ? "").length > 0
       profiles.linkedin =
         handle: person.linkedin.handle
         url: "https://linkedin.com/#{person.linkedin.handle}"

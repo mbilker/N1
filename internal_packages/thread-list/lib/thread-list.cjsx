@@ -56,7 +56,8 @@ class ThreadList extends React.Component
     Actions.setFocus(collection: 'thread', item: item)
 
   _keymapHandlers: ->
-    'application:remove-from-view': => @_onRemoveFromView
+    'application:remove-from-view': =>
+      @_onRemoveFromView()
     'application:gmail-remove-from-view': =>
       @_onRemoveFromView(CategoryRemovalTargetRulesets.Gmail)
     'application:archive-item': @_onArchiveItem
@@ -253,7 +254,6 @@ class ThreadList extends React.Component
     return unless threads
     tasks = TaskFactory.tasksForMarkingAsSpam
       threads: threads
-      fromPerspective: FocusedPerspectiveStore.current()
     Actions.queueTasks(tasks)
 
   _onRemoveFromView: (ruleset = CategoryRemovalTargetRulesets.Default) =>
@@ -269,7 +269,6 @@ class ThreadList extends React.Component
     if threads
       tasks = TaskFactory.tasksForArchiving
         threads: threads
-        fromPerspective: FocusedPerspectiveStore.current()
       Actions.queueTasks(tasks)
     Actions.popSheet()
 
@@ -278,7 +277,6 @@ class ThreadList extends React.Component
     if threads
       tasks = TaskFactory.tasksForMovingToTrash
         threads: threads
-        fromPerspective: FocusedPerspectiveStore.current()
       Actions.queueTasks(tasks)
     Actions.popSheet()
 

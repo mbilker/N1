@@ -23,9 +23,13 @@ guide](https://github.com/nylas/N1/blob/master/CONTRIBUTING.md).
 # Plugin List
 We're working on building a plugin index that makes it super easy to add them to N1. For now, check out the list below! (Feel free to submit a PR if you build a plugin and want it featured here.)
 
-##### Themes
+#### Bundled Themes
 - [Dark](https://github.com/nylas/N1/tree/master/internal_packages/ui-dark)
-- [Taiga](http://noahbuscher.github.io/N1-Taiga/) — Mailbox-inspired light theme
+- [Darkside](https://github.com/nylas/N1/tree/master/internal_packages/ui-darkside) (designed by [Jamie Wilson](https://github.com/jamiewilson))
+- [Taiga](https://github.com/nylas/N1/tree/master/internal_packages/ui-taiga) (designed by [Noah Buscher](https://github.com/noahbuscher))
+
+#### Community Themes
+[Create your own theme!](http://github.com/nylas/N1-theme-starter)
 - [Predawn](https://github.com/adambmedia/N1-Predawn)
 - [ElementaryOS](https://github.com/edipox/elementary-nylas)
 - [Ubuntu](https://github.com/ahmedlhanafy/Ubuntu-Ui-Theme-for-Nylas-N1)
@@ -33,15 +37,13 @@ We're working on building a plugin index that makes it super easy to add them to
 - [Solarized Dark](https://github.com/NSHenry/N1-Solarized-Dark)
 - [Berend](https://github.com/Frique/N1-Berend)
 - [LevelUp](https://github.com/stolinski/level-up-nylas-n1-theme)
-- [Darkside](http://jamiewilson.io/darkside/)
 - [Sunrise](https://github.com/jackiehluo/n1-sunrise)
 - [Less Is More](https://github.com/P0WW0W/less-is-more/)
 - [ToogaBooga](https://github.com/brycedorn/N1-ToogaBooga)
 - [Material](https://github.com/jackiehluo/n1-material)
 
-[Create your own theme!](http://github.com/nylas/N1-theme-starter)
-
-##### Composer
+#### Bundled Plugins
+Great starting points for creating your own plugins!
 - [Translate](https://github.com/nylas/N1/tree/master/internal_packages/composer-translate) — Works with 10 languages
 - [Quick Schedule](https://github.com/nylas/N1/tree/master/internal_packages/quick-schedule) — Show your availability to schedule a meeting with someone
 - [Quick Replies](https://github.com/nylas/N1/tree/master/internal_packages/composer-templates) — Send emails faster with templates
@@ -49,24 +51,18 @@ We're working on building a plugin index that makes it super easy to add them to
 - [Open Tracking](https://github.com/nylas/N1/tree/master/internal_packages/open-tracking) — See if your emails have been read
 - [Link Tracking](https://github.com/nylas/N1/tree/master/internal_packages/link-tracking) — See if your links have been clicked
 - [Emoji Keyboard](https://github.com/nylas/N1/tree/master/internal_packages/composer-emojis) — Insert emojis by typing a colon (:) followed by the name of an emoji symbol
-- [Jiffy](http://noahbuscher.github.io/N1-Jiffy/) — Insert animated GIFs
-- In Development: [Cypher](https://github.com/mbilker/cypher) (PGP Encryption)
-
-##### Sidebar
 - [GitHub Sidebar Info](https://github.com/nylas/N1/tree/master/internal_packages/github-contact-card)
+- [View on GitHub](https://github.com/nylas/N1/tree/master/internal_packages/message-view-on-github)
+- [Personal Level Indicators](https://github.com/nylas/N1/tree/master/internal_packages/personal-level-indicators)
+- [Phishing Detection](https://github.com/nylas/N1/tree/master/internal_packages/phishing-detection)
+
+#### Community Plugins
+- [Jiffy](http://noahbuscher.github.io/N1-Jiffy/) — Insert animated GIFs
 - [Weather](https://github.com/jackiehluo/n1-weather)
 - [Todoist](https://github.com/anopensourceguy/TodoistN1)
-
-##### Navbar
-- [View on GitHub](https://github.com/nylas/N1/tree/master/internal_packages/message-view-on-github)
-
-##### Threadlist
-- [Personal-level Indicators](https://github.com/nylas/N1/tree/master/internal_packages/personal-level-indicators)
 - [Unsubscribe](https://github.com/colinking/n1-unsubscribe)
-
-##### Messages
-- [Phishing Detection](https://github.com/nylas/N1/tree/master/internal_packages/phishing-detection)
 - [Squirt Speed Reader](https://github.com/HarleyKwyn/squirt-reader-N1-plugin/)
+- In Development: [Cypher](https://github.com/mbilker/cypher) (PGP Encryption)
 
 # Running Locally
 By default the N1 source points to our hosted version of the Nylas Sync Engine; however, the Sync Engine is open source and you can [run it yourself](https://github.com/nylas/N1/blob/master/CONTRIBUTING.md#running-against-open-source-sync-engine).

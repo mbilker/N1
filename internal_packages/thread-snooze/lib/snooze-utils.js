@@ -58,8 +58,8 @@ const SnoozeUtils = {
     })
   },
 
-  whenCategoriesReady() {
-    const categoriesReady = ()=> CategoryStore.categories().length > 0
+  whenCategoriesReady(accountId) {
+    const categoriesReady = ()=> CategoryStore.categories(accountId).length > 0;
     if (!categoriesReady()) {
       return new Promise((resolve)=> {
         const unsubscribe = CategoryStore.listen(()=> {
@@ -74,7 +74,7 @@ const SnoozeUtils = {
   },
 
   getSnoozeCategory(accountId, categoryName = SNOOZE_CATEGORY_NAME) {
-    return SnoozeUtils.whenCategoriesReady()
+    return SnoozeUtils.whenCategoriesReady(accountId)
     .then(()=> {
       const allCategories = CategoryStore.categories(accountId)
       const category = _.findWhere(allCategories, {displayName: categoryName})
@@ -116,7 +116,7 @@ const SnoozeUtils = {
     return snoozeCategoriesByAccountPromise
     .then((snoozeCategoriesByAccountId)=> {
       const getSnoozeCategory = (accId) => [snoozeCategoriesByAccountId[accId]]
-      const getInboxCategory = (accId) => [CategoryStore.getInboxCategory[accId]]
+      const getInboxCategory = (accId) => [CategoryStore.getInboxCategory(accId)]
       const description = SnoozeUtils.snoozedUntilMessage(snoozeDate)
       return SnoozeUtils.moveThreads(
         threads,
@@ -129,7 +129,7 @@ const SnoozeUtils = {
     return snoozeCategoriesByAccountPromise
     .then((snoozeCategoriesByAccountId)=> {
       const getSnoozeCategory = (accId) => [snoozeCategoriesByAccountId[accId]]
-      const getInboxCategory = (accId) => [CategoryStore.getInboxCategory[accId]]
+      const getInboxCategory = (accId) => [CategoryStore.getInboxCategory(accId)]
       const description = 'Unsnoozed';
       return SnoozeUtils.moveThreads(
         threads,
