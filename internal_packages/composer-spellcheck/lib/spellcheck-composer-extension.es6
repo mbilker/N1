@@ -5,7 +5,6 @@ const MenuItem = remote.require('menu-item');
 const SpellcheckCache = {};
 
 export default class SpellcheckComposerExtension extends ComposerExtension {
-
   static isMisspelled(word) {
     if (SpellcheckCache[word] === undefined) {
       SpellcheckCache[word] = NylasSpellchecker.isMisspelled(word);
@@ -17,7 +16,7 @@ export default class SpellcheckComposerExtension extends ComposerExtension {
     SpellcheckComposerExtension.update(editor);
   }
 
-  static onShowContextMenu = ({editor, menu})=> {
+  static onShowContextMenu({editor, menu}) {
     const selection = editor.currentSelection();
     const range = DOMUtils.Mutating.getRangeAtAndSelectWord(selection, 0);
     const word = range.toString();
@@ -25,14 +24,14 @@ export default class SpellcheckComposerExtension extends ComposerExtension {
     if (SpellcheckComposerExtension.isMisspelled(word)) {
       const corrections = NylasSpellchecker.getCorrectionsForMisspelling(word);
       if (corrections.length > 0) {
-        corrections.forEach((correction)=> {
+        corrections.forEach((correction) => {
           menu.append(new MenuItem({
             label: correction,
             click: SpellcheckComposerExtension.applyCorrection.bind(SpellcheckComposerExtension, editor, range, selection, correction),
           }));
         });
       } else {
-        menu.append(new MenuItem({ label: 'No Guesses Found', enabled: false}));
+        menu.append(new MenuItem({ label: 'No Suggestions Found', enabled: false}));
       }
 
       menu.append(new MenuItem({ type: 'separator' }));
@@ -67,7 +66,7 @@ export default class SpellcheckComposerExtension extends ComposerExtension {
   // Note: This is different from ExposedSelection because the nodes are not cloned.
   // In the callback functions, we need to check whether the anchor/focus nodes
   // are INSIDE the nodes we're adjusting.
-  static _whileApplyingSelectionChanges = (cb)=> {
+  static _whileApplyingSelectionChanges(cb) {
     const selection = document.getSelection();
     const selectionSnapshot = {
       anchorNode: selection.anchorNode,
@@ -87,7 +86,7 @@ export default class SpellcheckComposerExtension extends ComposerExtension {
   // Removes all of the <spelling> nodes found in the provided `editor`.
   // It normalizes the DOM after removing spelling nodes to ensure that words
   // are not split between text nodes. (ie: doesn, 't => doesn't)
-  static _unwrapWords = (editor)=> {
+  static _unwrapWords(editor) {
     SpellcheckComposerExtension._whileApplyingSelectionChanges((selectionSnapshot)=> {
       const spellingNodes = editor.rootNode.querySelectorAll('spelling');
       for (let ii = 0; ii < spellingNodes.length; ii++) {
@@ -113,7 +112,7 @@ export default class SpellcheckComposerExtension extends ComposerExtension {
   // Traverses all of the text nodes within the provided `editor`. If it finds a
   // text node with a misspelled word, it splits it, wraps the misspelled word
   // with a <spelling> node and updates the selection to account for the change.
-  static _wrapMisspelledWords = (editor) => {
+  static _wrapMisspelledWords(editor) {
     SpellcheckComposerExtension._whileApplyingSelectionChanges((selectionSnapshot)=> {
       const treeWalker = document.createTreeWalker(editor.rootNode, NodeFilter.SHOW_TEXT);
       const nodeList = [];
@@ -179,7 +178,7 @@ export default class SpellcheckComposerExtension extends ComposerExtension {
     });
   }
 
-  static finalizeSessionBeforeSending = ({session}) => {
+  static finalizeSessionBeforeSending({session}) {
     const body = session.draft().body;
     const clean = body.replace(/<\/?spelling[^>]*>/g, '');
 
