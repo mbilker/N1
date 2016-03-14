@@ -40,11 +40,10 @@ export default class SidebarParticipantPicker extends React.Component {
 
   _renderSortedContacts() {
     return this.state.sortedContacts.map((contact) => {
-      const selected = contact.email === (this.state.focusedContact || {}).email
       const key = contact.email + SPLIT_KEY + contact.name;
 
       return (
-        <option selected={selected} value={key} key={key}>
+        <option value={key} key={key}>
           {contact.displayName({includeAccountLabel: true, forceAccountLabel: true})}
         </option>
       )
@@ -60,9 +59,12 @@ export default class SidebarParticipantPicker extends React.Component {
   }
 
   render() {
+    const focusedContact = (this.state.focusedContact || {});
+    const key = focusedContact.email + SPLIT_KEY + focusedContact.name;
+
     return (
       <div className="sidebar-participant-picker">
-        <select onChange={this._onSelectContact}>
+        <select onChange={this._onSelectContact} value={key}>
         {this._renderSortedContacts()}
         </select>
       </div>

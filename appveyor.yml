@@ -47,7 +47,6 @@ build_script:
 environment:
   matrix:
   - NODE_VERSION: 0.12
-    PUBLISH_BUILD: true
 
 cache:
 - 'C:\projects\n1\build\node_modules'
