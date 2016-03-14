@@ -154,13 +154,29 @@ export default class DictionaryManager {
   }
 
   /**
+   * @private
+   * Runs fs.statSync on a target directory, but does not throw an exception
+   */
+  static statSyncNoException(fsPath) {
+    if ('statSyncNoException' in fs) {
+      return fs.statSyncNoException(fsPath);
+    }
+
+    try {
+      return fs.statSync(fsPath);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
    * @public
    * Returns the root local dictionary directory
    * @return fully-qualified path to the dictionary directory
    */
   static getDictionaryDirectory() {
     if (process.platform === 'linux') {
-      return _.find(possibleLinuxDictionaryPaths, (x) => fs.statSyncNoException(x));
+      return _.find(possibleLinuxDictionaryPaths, (x) => DictionaryManager.statSyncNoException(x));
     }
 
     return path.join(path.dirname(process.execPath), '..', 'dictionaries');
