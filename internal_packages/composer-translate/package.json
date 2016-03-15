@@ -22,7 +22,5 @@
     "default": true,
     "composer": true
   },
-  "dependencies": {
-    "request": "^2.53"
-  }
+  "dependencies": {}
 }
