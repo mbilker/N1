@@ -44,7 +44,7 @@ describe "the `NylasEnv` global", ->
         expect(actualWidth).toBe inputMinWidth
 
     describe '::getDefaultWindowDimensions', ->
-      electronScreen = require('electron').screen
+      electronScreen = require('remote').require('screen')
 
       it "returns primary display's work area size if it's small enough", ->
         spyOn(electronScreen, 'getPrimaryDisplay').andReturn workAreaSize: width: 1440, height: 900
