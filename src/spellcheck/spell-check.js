@@ -68,7 +68,7 @@ class NylasSpellcheck {
         corrections.forEach((correction) => {
           menu.append(new MenuItem({
             label: correction,
-            click: -> onCorrect(correction)
+            click: () => onCorrect(correction)
           }));
         });
       } else {
@@ -83,6 +83,7 @@ class NylasSpellcheck {
           if (onDidLearn) {
             onDidLearn(word);
           }
+        }
       }));
       menu.append(new MenuItem({ type: 'separator' }));
     }
