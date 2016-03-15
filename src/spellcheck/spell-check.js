@@ -32,6 +32,16 @@ class NylasSpellcheck {
   }
 
   /**
+   * Add a word to the current spellcheck dictionary. Not persisted between
+   * app restarts
+   */
+  add(word) {
+    if (this.current) {
+      this.current.add(word);
+    }
+  }
+
+  /**
    * @return if the word provided is misspelled
    */
    isMisspelled(word) {
@@ -49,6 +59,33 @@ class NylasSpellcheck {
       return [];
     }
     return this.current.getCorrectionsForMisspelling(word);
+  }
+
+  appendSpellingItemsToMenu({menu, word, onCorrect, onDidLearn}) {
+    if (this.isMisspelled(word)) {
+      const corrections = this.getCorrectionsForMisspelling(word);
+      if (corrections.length > 0) {
+        corrections.forEach((correction) => {
+          menu.append(new MenuItem({
+            label: correction,
+            click: -> onCorrect(correction)
+          }));
+        });
+      } else {
+        menu.append(new MenuItem({ label: 'No Guesses Found', enabled: false}))
+      }
+
+      menu.append(new MenuItem({ type: 'separator' }));
+      menu.append(new MenuItem({
+        label: 'Learn Spelling',
+        click: () => {
+          this.add(word);
+          if (onDidLearn) {
+            onDidLearn(word);
+          }
+      }));
+      menu.append(new MenuItem({ type: 'separator' }));
+    }
   }
 
   /**

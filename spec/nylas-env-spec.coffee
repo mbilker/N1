@@ -44,34 +44,34 @@ describe "the `NylasEnv` global", ->
         expect(actualWidth).toBe inputMinWidth
 
     describe '::getDefaultWindowDimensions', ->
-      screen = require('remote').require 'screen'
+      electronScreen = require('electron').screen
 
       it "returns primary display's work area size if it's small enough", ->
-        spyOn(screen, 'getPrimaryDisplay').andReturn workAreaSize: width: 1440, height: 900
+        spyOn(electronScreen, 'getPrimaryDisplay').andReturn workAreaSize: width: 1440, height: 900
 
         out = NylasEnv.getDefaultWindowDimensions()
         expect(out).toEqual x: 0, y: 0, width: 1440, height: 900
 
       it "caps width at 1440 and centers it, if wider", ->
-        spyOn(screen, 'getPrimaryDisplay').andReturn workAreaSize: width: 1840, height: 900
+        spyOn(electronScreen, 'getPrimaryDisplay').andReturn workAreaSize: width: 1840, height: 900
 
         out = NylasEnv.getDefaultWindowDimensions()
         expect(out).toEqual x: 200, y: 0, width: 1440, height: 900
 
       it "caps height at 900 and centers it, if taller", ->
-        spyOn(screen, 'getPrimaryDisplay').andReturn workAreaSize: width: 1440, height: 1100
+        spyOn(electronScreen, 'getPrimaryDisplay').andReturn workAreaSize: width: 1440, height: 1100
 
         out = NylasEnv.getDefaultWindowDimensions()
         expect(out).toEqual x: 0, y: 100, width: 1440, height: 900
 
       it "returns only the max viewport size if it's smaller than the defaults", ->
-        spyOn(screen, 'getPrimaryDisplay').andReturn workAreaSize: width: 1000, height: 800
+        spyOn(electronScreen, 'getPrimaryDisplay').andReturn workAreaSize: width: 1000, height: 800
 
         out = NylasEnv.getDefaultWindowDimensions()
         expect(out).toEqual x: 0, y: 0, width: 1000, height: 800
 
       it "always rounds X and Y", ->
-        spyOn(screen, 'getPrimaryDisplay').andReturn workAreaSize: width: 1845, height: 955
+        spyOn(electronScreen, 'getPrimaryDisplay').andReturn workAreaSize: width: 1845, height: 955
 
         out = NylasEnv.getDefaultWindowDimensions()
         expect(out).toEqual x: 202, y: 27, width: 1440, height: 900

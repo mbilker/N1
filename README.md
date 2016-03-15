@@ -8,6 +8,7 @@
 This is a **fork** of the main [N1 project](https://github.com/nylas/N1).
 
 **N1 is an open-source mail client built on the modern web with [Electron](https://github.com/atom/electron), [React](https://facebook.github.io/react/), and [Flux](https://facebook.github.io/flux/).** It is designed to be extensible, so it's easy to create new experiences and workflows around email. N1 is built on the Nylas Sync Engine which is also [open source free software](https://github.com/nylas/sync-engine).
+#### Want help build the future of email? [Nylas is hiring](https://jobs.lever.co/nylas)!
 
 # Download N1
 
@@ -65,7 +66,7 @@ Great starting points for creating your own plugins!
 - In Development: [Cypher](https://github.com/mbilker/cypher) (PGP Encryption)
 
 # Running Locally
-By default the N1 source points to our hosted version of the Nylas Sync Engine; however, the Sync Engine is open source and you can [run it yourself](https://github.com/nylas/N1/blob/master/CONTRIBUTING.md#running-against-open-source-sync-engine).
+By default the N1 source points to our hosted version of the Nylas Sync Engine; however, the Sync Engine is open source and you can [run it yourself](https://github.com/nylas/N1/blob/master/CONFIGURATION.md).
 
 # Feature Requests / Plugin Ideas
 
