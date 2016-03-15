@@ -6,7 +6,7 @@ AutoUpdateManager = require './auto-update-manager'
 NylasProtocolHandler = require './nylas-protocol-handler'
 SharedFileManager = require './shared-file-manager'
 
-{BrowserWindow, Menu, app, ipcMain, dialog} = require 'electron'
+{BrowserWindow, Menu, app, clipboard, ipcMain, dialog, shell} = require 'electron'
 
 _ = require 'underscore'
 fs = require 'fs-plus'
@@ -276,7 +276,7 @@ class Application
     @on 'application:new-message', => @windowManager.sendToMainWindow('new-message')
     @on 'application:view-help', =>
       url = 'https://nylas.zendesk.com/hc/en-us/sections/203638587-N1'
-      require('electron').shell.openExternal(url)
+      shell.openExternal(url)
     @on 'application:open-preferences', => @windowManager.sendToMainWindow('open-preferences')
     @on 'application:show-main-window', => @openWindowsForTokenState()
     @on 'application:show-work-window', => @windowManager.showWorkWindow()
@@ -425,7 +425,7 @@ class Application
 
     clipboard = null
     ipcMain.on 'write-text-to-selection-clipboard', (event, selectedText) ->
-      clipboard ?= require('electron').clipboard
+      clipboard ?= electron.clipboard
       clipboard.writeText(selectedText, 'selection')
 
     ipcMain.on 'account-setup-successful', (event) =>
