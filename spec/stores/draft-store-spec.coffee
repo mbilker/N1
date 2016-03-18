@@ -4,6 +4,7 @@
  Actions,
  Contact,
  Message,
+ Account,
  DraftStore,
  AccountStore,
  DatabaseStore,
@@ -16,6 +17,7 @@
  FocusedContentStore,
  DatabaseTransaction,
  SanitizeTransformer,
+ SyncbackDraftFilesTask,
  InlineStyleTransformer} = require 'nylas-exports'
 
 ModelQuery = require '../../src/flux/models/query'
@@ -326,8 +328,9 @@ describe "DraftStore", ->
         runs ->
           @model = DatabaseTransaction.prototype.persistModel.mostRecentCall.args[0]
 
-      it "should include quoted text", ->
-        expect(@model.body.indexOf('blockquote') > 0).toBe(true)
+      it "should include quoted text, but in a div rather than a blockquote", ->
+        expect(@model.body.indexOf('gmail_quote') > 0).toBe(true)
+        expect(@model.body.indexOf('blockquote') > 0).toBe(false)
         expect(@model.body.indexOf(fakeMessage1.body) > 0).toBe(true)
 
       it "should not address the message to anyone", ->
@@ -496,12 +499,12 @@ describe "DraftStore", ->
             expect(model.body.indexOf('gmail_quote') > 0).toBe(true)
             expect(model.body.indexOf('Fake Message 1') > 0).toBe(true)
 
-        it "should include the `Begin forwarded message:` line", ->
+        it "should include the `---------- Forwarded message ---------:` line", ->
           @_callNewMessageWithContext {threadId: fakeThread.id}
           , (thread, message) ->
             forwardMessage: fakeMessage1
           , (model) ->
-            expect(model.body.indexOf('Begin forwarded message') > 0).toBe(true)
+            expect(model.body.indexOf('---------- Forwarded message ---------') > 0).toBe(true)
 
         it "should make the subject the subject of the message, not the thread", ->
           fakeMessage1.subject = "OLD SUBJECT"
@@ -685,6 +688,7 @@ describe "DraftStore", ->
 
       DraftStore._draftSessions[@draft.clientId] = proxy
       spyOn(DraftStore, "_doneWithSession").andCallThrough()
+      spyOn(DraftStore, "_prepareForSyncback").andReturn(Promise.resolve())
       spyOn(DraftStore, "trigger")
       spyOn(SoundRegistry, "playSound")
       spyOn(Actions, "queueTask")
@@ -692,18 +696,21 @@ describe "DraftStore", ->
     it "plays a sound immediately when sending draft", ->
       spyOn(NylasEnv.config, "get").andReturn true
       DraftStore._onSendDraft(@draft.clientId)
+      advanceClock()
       expect(NylasEnv.config.get).toHaveBeenCalledWith("core.sending.sounds")
       expect(SoundRegistry.playSound).toHaveBeenCalledWith("hit-send")
 
     it "doesn't plays a sound if the setting is off", ->
       spyOn(NylasEnv.config, "get").andReturn false
       DraftStore._onSendDraft(@draft.clientId)
+      advanceClock()
       expect(NylasEnv.config.get).toHaveBeenCalledWith("core.sending.sounds")
       expect(SoundRegistry.playSound).not.toHaveBeenCalled()
 
     it "sets the sending state when sending", ->
       spyOn(NylasEnv, "isMainWindow").andReturn true
       DraftStore._onSendDraft(@draft.clientId)
+      advanceClock()
       expect(DraftStore.isSendingDraft(@draft.clientId)).toBe true
 
     # Since all changes haven't been applied yet, we want to ensure that
@@ -753,27 +760,19 @@ describe "DraftStore", ->
       runs ->
         expect(NylasEnv.close).not.toHaveBeenCalled()
 
-    it "queues the correct SendDraftTask", ->
+    it "queues tasks to upload files and send the draft", ->
       runs ->
         DraftStore._onSendDraft(@draft.clientId)
       waitsFor ->
         DraftStore._doneWithSession.calls.length > 0
       runs ->
         expect(Actions.queueTask).toHaveBeenCalled()
-        task = Actions.queueTask.calls[0].args[0]
-        expect(task instanceof SendDraftTask).toBe true
-        expect(task.draft).toBe @draft
-
-    it "queues a SendDraftTask", ->
-      runs ->
-        DraftStore._onSendDraft(@draft.clientId)
-      waitsFor ->
-        DraftStore._doneWithSession.calls.length > 0
-      runs ->
-        expect(Actions.queueTask).toHaveBeenCalled()
-        task = Actions.queueTask.calls[0].args[0]
-        expect(task instanceof SendDraftTask).toBe true
-        expect(task.draft).toBe(@draft)
+        saveAttachments = Actions.queueTask.calls[0].args[0]
+        expect(saveAttachments instanceof SyncbackDraftFilesTask).toBe true
+        expect(saveAttachments.draftClientId).toBe(@draft.clientId)
+        sendDraft = Actions.queueTask.calls[1].args[0]
+        expect(sendDraft instanceof SendDraftTask).toBe true
+        expect(sendDraft.draftClientId).toBe(@draft.clientId)
 
     it "resets the sending state if there's an error", ->
       spyOn(NylasEnv, "isMainWindow").andReturn false
@@ -995,3 +994,27 @@ describe "DraftStore", ->
                   expect(actual instanceof Contact).toBe(true)
                   expect(actual.email).toEqual(expected.email)
                   expect(actual.name).toEqual(expected.name)
+
+  describe "mailfiles handling", ->
+    it "should popout a new draft", ->
+      defaultMe = new Contact()
+      spyOn(DraftStore, '_onPopoutDraftClientId')
+      spyOn(DatabaseTransaction.prototype, 'persistModel')
+      spyOn(Account.prototype, 'defaultMe').andReturn(defaultMe)
+      spyOn(Actions, 'addAttachment')
+      DraftStore._onHandleMailFiles({}, ['/Users/ben/file1.png', '/Users/ben/file2.png'])
+      waitsFor ->
+        DatabaseTransaction.prototype.persistModel.callCount > 0
+      runs ->
+        {body, subject, from} = DatabaseTransaction.prototype.persistModel.calls[0].args[0]
+        expect({body, subject, from}).toEqual({body:'', subject:'', from: [defaultMe]})
+        expect(DraftStore._onPopoutDraftClientId).toHaveBeenCalled()
+
+    it "should call addAttachment for each provided file path", ->
+      spyOn(Actions, 'addAttachment')
+      DraftStore._onHandleMailFiles({}, ['/Users/ben/file1.png', '/Users/ben/file2.png'])
+      waitsFor ->
+        Actions.addAttachment.callCount is 2
+      runs ->
+        expect(Actions.addAttachment.calls[0].args[0].filePath).toEqual('/Users/ben/file1.png')
+        expect(Actions.addAttachment.calls[1].args[0].filePath).toEqual('/Users/ben/file2.png')
