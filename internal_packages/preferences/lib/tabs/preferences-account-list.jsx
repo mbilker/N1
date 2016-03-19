@@ -1,6 +1,5 @@
 import React, {Component, PropTypes} from 'react';
 import {RetinaImg, Flexbox, EditableList} from 'nylas-component-kit';
-import {Account} from 'nylas-exports';
 import classnames from 'classnames';
 
 class PreferencesAccountList extends Component {
@@ -26,7 +25,7 @@ class PreferencesAccountList extends Component {
   _renderAccount = (account) => {
     const label = account.label;
     const accountSub = `${account.name || 'No name provided'} <${account.emailAddress}>`;
-    const syncError = account.syncState !== Account.SYNC_STATE_RUNNING;
+    const syncError = account.hasSyncStateError();
 
     return (
       <div
