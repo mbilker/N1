@@ -105,6 +105,7 @@ class NylasExports
   @require "SyncbackCategoryTask", 'flux/tasks/syncback-category-task'
   @require "DestroyCategoryTask", 'flux/tasks/destroy-category-task'
   @require "ChangeUnreadTask", 'flux/tasks/change-unread-task'
+  @require "SyncbackDraftFilesTask", 'flux/tasks/syncback-draft-files-task'
   @require "SyncbackDraftTask", 'flux/tasks/syncback-draft-task'
   @require "ChangeStarredTask", 'flux/tasks/change-starred-task'
   @require "DestroyModelTask", 'flux/tasks/destroy-model-task'
@@ -156,7 +157,7 @@ class NylasExports
   @get "React", -> require 'react' # Our version of React for 3rd party use
   @get "Reflux", -> require 'reflux'
   @get "Rx", -> require 'rx-lite'
-  @get "Keychain", -> require 'keytar' # Keychain access through native module
+  @get "Keytar", -> require 'keytar' # atom-keytar access through native module
 
   # React Components
   @load "ReactRemote", 'react-remote/react-remote-parent'
