@@ -2,14 +2,16 @@
 // Coffeescript interpreter. Note that it runs in both browser and
 // renderer processes.
 
-var ErrorLogger, _, fs, path, app, os, remote;
 var os = require('os');
 var fs = require('fs-plus');
 var path = require('path');
+var electron = require('electron');
+
+var app;
 if (process.type === 'renderer') {
-  app = require('electron').remote.app;
+  app = electron.remote.app;
 } else {
-  app = require('app');
+  app = electron.app;
 }
 
 // A globally available ErrorLogger that can report errors to various
@@ -27,7 +29,7 @@ if (process.type === 'renderer') {
 //
 // The errorLogger will report errors to a log file as well as to 3rd
 // party reporting services if enabled.
-module.exports = ErrorLogger = (function() {
+module.exports = (function() {
 
   function ErrorLogger(args) {
     this.reportError = this.reportError.bind(this);
@@ -46,7 +48,7 @@ module.exports = ErrorLogger = (function() {
     this._cleanOldLogFiles();
     this._setupNewLogFile();
     this._hookProcessOutputsToLogFile();
-  }
+  };
 
   /////////////////////////////////////////////////////////////////////
   /////////////////////////// PUBLIC METHODS //////////////////////////
@@ -55,7 +57,7 @@ module.exports = ErrorLogger = (function() {
   ErrorLogger.prototype.reportError = function(error, extra) {
     var nslog = require('nslog');
     if (!error) {
-      error = { stack: "" } };
+      error = { stack: "" };
     }
 
     this._appendLog(error.stack);
@@ -67,7 +69,7 @@ module.exports = ErrorLogger = (function() {
     if (process.type === 'browser') {
       nslog(error.stack);
     }
-  }
+  };
 
   ErrorLogger.prototype.openLogs = function() {
     var shell = require('shell');
@@ -77,7 +79,7 @@ module.exports = ErrorLogger = (function() {
   ErrorLogger.prototype.apiDebug = function(error) {
     this._appendLog(error, error.statusCode, error.message);
     this._notifyExtensions("onDidLogAPIError", error);
-  }
+  };
 
 
   /////////////////////////////////////////////////////////////////////
@@ -144,7 +146,7 @@ module.exports = ErrorLogger = (function() {
 
     var logpid = process.pid;
     if (process.type === 'renderer') {
-      logpid = remote.process.pid + "." +  process.pid;
+      logpid = electron.remote.process.pid + "." +  process.pid;
     }
     return path.join(tmpPath, 'Nylas-N1-' + logpid + '.log');
   }
