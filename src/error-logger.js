@@ -3,12 +3,11 @@
 // renderer processes.
 
 var ErrorLogger, _, fs, path, app, os, remote;
-os = require('os');
-fs = require('fs-plus');
-path = require('path');
+var os = require('os');
+var fs = require('fs-plus');
+var path = require('path');
 if (process.type === 'renderer') {
-  remote = require('electron').remote;
-  app = remote.require('app');
+  app = require('electron').remote.app;
 } else {
   app = require('app');
 }
@@ -31,18 +30,18 @@ if (process.type === 'renderer') {
 module.exports = ErrorLogger = (function() {
 
   function ErrorLogger(args) {
-    this.reportError = this.reportError.bind(this)
-    this.inSpecMode = args.inSpecMode
-    this.inDevMode = args.inDevMode
-    this.resourcePath = args.resourcePath
+    this.reportError = this.reportError.bind(this);
+    this.inSpecMode = args.inSpecMode;
+    this.inDevMode = args.inDevMode;
+    this.resourcePath = args.resourcePath;
 
-    this._extendErrorObject()
+    this._extendErrorObject();
+    this._extendNativeConsole();
+    this.extensions = this._setupErrorLoggerExtensions(args);
 
-    this._extendNativeConsole()
-
-    this.extensions = this._setupErrorLoggerExtensions(args)
-
-    if (this.inSpecMode) { return }
+    if (this.inSpecMode) {
+      return;
+    }
 
     this._cleanOldLogFiles();
     this._setupNewLogFile();
@@ -55,11 +54,19 @@ module.exports = ErrorLogger = (function() {
 
   ErrorLogger.prototype.reportError = function(error, extra) {
     var nslog = require('nslog');
-    if (!error) { error = {stack: ""} }
-    this._appendLog(error.stack)
-    if (extra) { this._appendLog(extra) }
-    this._notifyExtensions("reportError", error, extra)
-    if (process.type === 'browser') { nslog(error.stack) }
+    if (!error) {
+      error = { stack: "" } };
+    }
+
+    this._appendLog(error.stack);
+    if (extra) {
+      this._appendLog(extra);
+    }
+
+    this._notifyExtensions("reportError", error, extra);
+    if (process.type === 'browser') {
+      nslog(error.stack);
+    }
   }
 
   ErrorLogger.prototype.openLogs = function() {
@@ -143,11 +150,12 @@ module.exports = ErrorLogger = (function() {
   }
 
   // If we're the browser process, remove log files that are more than
-  // two days old. These log files get pretty big because we're logging
+  // one day old. These log files get pretty big because we're logging
   // so verbosely.
   ErrorLogger.prototype._cleanOldLogFiles = function() {
     if (process.type === 'browser') {
       var tmpPath = app.getPath('temp');
+
       fs.readdir(tmpPath, function(err, files) {
         if (err) {
           console.error(err);
@@ -161,7 +169,7 @@ module.exports = ErrorLogger = (function() {
             fs.stat(filepath, function(err, stats) {
               var lastModified = new Date(stats['mtime']);
               var fileAge = Date.now() - lastModified.getTime();
-              if (fileAge > (1000 * 60 * 60 * 24 * 2)) { // two days
+              if (fileAge > (1000 * 60 * 60 * 24 * 1)) { // one day
                 fs.unlink(filepath);
               }
             });
