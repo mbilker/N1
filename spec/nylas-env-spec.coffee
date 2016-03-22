@@ -1,5 +1,6 @@
 {$, $$}  = require '../src/space-pen-extensions'
 Exec = require('child_process').exec
+{remote} = require 'electron'
 path = require 'path'
 Package = require '../src/package'
 ThemeManager = require '../src/theme-manager'
@@ -23,28 +24,26 @@ describe "the `NylasEnv` global", ->
         expect(NylasEnv.getSize()).toEqual width: 100, height: 400
 
     describe '::setMinimumWidth', ->
-      win = NylasEnv.getCurrentWindow()
-
       it "sets the minimum width", ->
         inputMinWidth = 500
-        win.setMinimumSize(1000, 1000)
+        NylasEnv.getCurrentWindow().setMinimumSize(1000, 1000)
 
         NylasEnv.setMinimumWidth(inputMinWidth)
 
-        [actualMinWidth, h] = win.getMinimumSize()
+        [actualMinWidth, h] = NylasEnv.getCurrentWindow().getMinimumSize()
         expect(actualMinWidth).toBe inputMinWidth
 
       it "sets the current size if minWidth > current width", ->
         inputMinWidth = 1000
-        win.setSize(500, 500)
+        NylasEnv.getCurrentWindow().setSize(500, 500)
 
         NylasEnv.setMinimumWidth(inputMinWidth)
 
-        [actualWidth, h] = win.getMinimumSize()
+        [actualWidth, h] = NylasEnv.getCurrentWindow().getMinimumSize()
         expect(actualWidth).toBe inputMinWidth
 
     describe '::getDefaultWindowDimensions', ->
-      electronScreen = require('remote').require('screen')
+      electronScreen = remote.screen
 
       it "returns primary display's work area size if it's small enough", ->
         spyOn(electronScreen, 'getPrimaryDisplay').andReturn workAreaSize: width: 1440, height: 900
