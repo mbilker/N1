@@ -27,25 +27,54 @@ RegExpUtils =
 
   # Test cases: https://regex101.com/r/pD7iS5/3
   urlRegex: ({matchEntireString} = {}) ->
+    commonTlds = ['com', 'org', 'edu', 'gov', 'uk', 'net', 'ca', 'de', 'jp', 'fr', 'au', 'us', 'ru', 'ch', 'it', 'nl', 'se', 'no', 'es', 'mil']
+
     parts = [
       '('
         # one of:
         '('
-          # optional scheme, ala https://
-          '([A-Za-z]{3,9}:(?:\\/\\/))?'
-
-          # optional username:password
-          '(?:[\\-;:&=\\+\\$,\\w]+@)?'
-
-          # one of:
+          # This OR block matches any TLD if the URL includes a scheme, and only
+          # the top ten TLDs if the scheme is omitted.
+          # YES - https://nylas.ai
+          # YES - https://10.2.3.1
+          # YES - nylas.com
+          # NO  - nylas.ai
           '('
-            # domain
-            '([a-zA-Z0-9-_]+\\.)*[a-zA-Z0-9][a-zA-Z0-9-_]+\\.[a-zA-Z]{2,11}'
+            # scheme, ala https:// (mandatory)
+            '([A-Za-z]{3,9}:(?:\\/\\/))'
+
+            # username:password (optional)
+            '(?:[\\-;:&=\\+\\$,\\w]+@)?'
+
+            # one of:
+            '('
+              # domain with any tld
+              '([a-zA-Z0-9-_]+\\.)*[a-zA-Z0-9][a-zA-Z0-9-_]+\\.[a-zA-Z]{2,11}'
+
+              '|'
+
+              # ip address
+              '(?:[0-9]{1,3}\\.){3}[0-9]{1,3}'
+            ')'
 
             '|'
 
-            # ip address
-            '(?:[0-9]{1,3}\.){3}[0-9]{1,3}'
+            # scheme, ala https:// (optional)
+            '([A-Za-z]{3,9}:(?:\\/\\/))?'
+
+            # username:password (optional)
+            '(?:[\\-;:&=\\+\\$,\\w]+@)?'
+
+            # one of:
+            '('
+              # domain with common tld
+              '([a-zA-Z0-9-_]+\\.)*[a-zA-Z0-9][a-zA-Z0-9-_]+\\.(?:' + commonTlds.join('|') + ')'
+
+              '|'
+
+              # ip address
+              '(?:[0-9]{1,3}\\.){3}[0-9]{1,3}'
+            ')'
           ')'
 
           '|'
@@ -57,18 +86,18 @@ RegExpUtils =
         # optionally followed by:
         '('
           # URL components
-          '(?:\\/[\\+~%\\/\\.\\w\\-_]*)?'
-          # optionally followed by a ?
-          '\\??'
+          # (last character must not be puncation, hence two groups)
+          '(?:[\\+~%\\/\\.\\w\\-_]*[\\+~%\\/\\w\\-_]+)?'
           # optionally followed by a query string
-          '(?:[\\-\\+=&;%@\\.\\w_]*)#?(?:[\\.\\!\\/\\\\\\w]*)'
+          # (last character must not be puncation, hence two groups)
+          '(?:(\\?[\\-\\+=&;%@\\.\\w_]*[\\-\\+=&;%@\\w_\\/]+)#?(?:[\\.\\!\\/\\\\\\w]*[\\/\\\\\\w]+)?)?'
         ')?'
       ')'
     ]
     if matchEntireString
       parts.unshift('^')
 
-    return new RegExp(parts.join(''), 'g')
+    return new RegExp(parts.join(''), 'gi')
 
   # Test cases: https://regex101.com/r/jD5zC7/2
   # Returns the following capturing groups:

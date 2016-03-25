@@ -45,6 +45,7 @@ class FixedPopover extends Component {
 
   constructor(props) {
     super(props);
+    this.mounted = false;
     this.updateCount = 0
     this.fallback = this.props.fallbackDirection;
     this.state = {
@@ -55,6 +56,7 @@ class FixedPopover extends Component {
   }
 
   componentDidMount() {
+    this.mounted = true;
     window.addEventListener('resize', this.onWindowResize)
     this.focusElementWithTabIndex();
     _.defer(this.onPopoverRendered)
@@ -78,6 +80,7 @@ class FixedPopover extends Component {
   }
 
   componentWillUnmount() {
+    this.mounted = false;
     window.removeEventListener('resize', this.onWindowResize)
   }
 
@@ -86,6 +89,10 @@ class FixedPopover extends Component {
   }
 
   onPopoverRendered = ()=> {
+    if (!this.mounted) {
+      return;
+    }
+
     const {direction} = this.state
     const currentRect = this.getCurrentRect()
     const windowDimensions = this.getWindowDimensions()
@@ -168,7 +175,7 @@ class FixedPopover extends Component {
 
   computeAdjustedOffsetAndDirection = ({direction, currentRect, windowDimensions, fallback = this.fallback, offsetPadding = OFFSET_PADDING})=> {
     const {overflows, overflowValues} = this.computeOverflows({currentRect, windowDimensions})
-    const overflowCount = _.keys(_.pick(overflows, (val)=> val === true)).length
+    const overflowCount = Object.keys(_.pick(overflows, (val)=> val === true)).length
 
     if (overflowCount > 0) {
       if (fallback) {
