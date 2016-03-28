@@ -265,14 +265,11 @@ class EmojiButtonPopover extends React.Component {
     }
     position.x = 18;
     position.y += 48;
-    ctx.font = "32px Arial";
+    ctx.font = "32px Noto Color Emoji";
     ctx.fillStyle = 'black';
     if (this.state.categorizedEmoji[category].length === 0) return;
     this.state.categorizedEmoji[category].forEach((emojiName, j) => {
       if (process.platform === "darwin" && missingEmojiList.indexOf(emojiName) === -1) {
-        const emojiChar = emoji.get(emojiName);
-        ctx.fillText(emojiChar, position.x, position.y);
-      } else {
         const img = new Image();
         img.src = `images/composer-emoji/missing-emoji/${emojiName}.png`;
         const x = position.x;
@@ -280,6 +277,9 @@ class EmojiButtonPopover extends React.Component {
         img.onload = () => {
           ctx.drawImage(img, x, y - 30, 32, 32);
         }
+      } else {
+        const emojiChar = emoji.get(emojiName);
+        ctx.fillText(emojiChar, position.x, position.y);
       }
       if (position.x > 325 && j < this.state.categorizedEmoji[category].length - 1) {
         position.x = 18;
