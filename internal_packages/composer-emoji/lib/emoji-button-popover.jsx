@@ -13,9 +13,12 @@ class EmojiButtonPopover extends React.Component {
 
   constructor() {
     super();
-    const {categoryNames,
+
+    const {
+      categoryNames,
       categorizedEmoji,
-      categoryPositions} = this.getStateFromStore();
+      categoryPositions,
+    } = this.getStateFromStore();
     this.state = {
       emojiName: "Emoji Picker",
       categoryNames,
@@ -280,7 +283,11 @@ class EmojiButtonPopover extends React.Component {
     if (this.state.categorizedEmoji[category].length === 0) return;
 
     this.state.categorizedEmoji[category].forEach((emojiName, j) => {
+<<<<<<< HEAD
       if (process.platform === "darwin" && missingEmojiList.indexOf(emojiName) === -1) {
+=======
+      if (process.platform === "darwin" && missingEmojiList.indexOf(emojiName) !== -1) {
+>>>>>>> github/master
         const img = new Image();
         img.src = `images/composer-emoji/missing-emoji/${emojiName}.png`;
         const x = position.x;
