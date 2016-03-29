@@ -29,16 +29,16 @@ describe('TemplateStore', ()=> {
   });
 
   it('should create the templates folder if it does not exist', ()=> {
-    spyOn(fs, 'exists').andCallFake((path, callback)=> callback(false) );
+    spyOn(fs, 'exists').andCallFake((path, callback) => callback(false));
     TemplateStore._init(stubTemplatesDir);
     expect(fs.mkdir).toHaveBeenCalled();
   });
 
   it('should expose templates in the templates directory', ()=> {
     let watchCallback;
-    spyOn(fs, 'exists').andCallFake((path, callback)=> { callback(true); });
-    spyOn(fs, 'watch').andCallFake((path, callback)=> watchCallback = callback);
-    spyOn(fs, 'readdir').andCallFake((path, callback)=> { callback(null, Object.keys(stubTemplateFiles)); });
+    spyOn(fs, 'exists').andCallFake((path, callback) => { callback(true); });
+    spyOn(fs, 'watch').andCallFake((path, callback) => { watchCallback = callback });
+    spyOn(fs, 'readdir').andCallFake((path, callback) => { callback(null, Object.keys(stubTemplateFiles)); });
     TemplateStore._init(stubTemplatesDir);
     watchCallback();
     expect(TemplateStore.items()).toEqual(stubTemplates);
@@ -48,9 +48,9 @@ describe('TemplateStore', ()=> {
     let watchCallback = null;
     let watchFired = false;
 
-    spyOn(fs, 'exists').andCallFake((path, callback)=> callback(true));
-    spyOn(fs, 'watch').andCallFake((path, callback)=> watchCallback = callback);
-    spyOn(fs, 'readdir').andCallFake((path, callback)=> {
+    spyOn(fs, 'exists').andCallFake((path, callback) => callback(true));
+    spyOn(fs, 'watch').andCallFake((path, callback) => { watchCallback = callback });
+    spyOn(fs, 'readdir').andCallFake((path, callback) => {
       if (watchFired) {
         callback(null, Object.keys(stubTemplateFiles));
       } else {
@@ -68,9 +68,9 @@ describe('TemplateStore', ()=> {
   describe('insertTemplateId', ()=> {
     xit('should insert the template with the given id into the draft with the given id', ()=> {
       let watchCallback;
-      spyOn(fs, 'exists').andCallFake((path, callback)=> { callback(true); });
-      spyOn(fs, 'watch').andCallFake((path, callback)=> watchCallback = callback);
-      spyOn(fs, 'readdir').andCallFake((path, callback)=> { callback(null, Object.keys(stubTemplateFiles)); });
+      spyOn(fs, 'exists').andCallFake((path, callback) => { callback(true); });
+      spyOn(fs, 'watch').andCallFake((path, callback) => { watchCallback = callback });
+      spyOn(fs, 'readdir').andCallFake((path, callback) => { callback(null, Object.keys(stubTemplateFiles)); });
       TemplateStore._init(stubTemplatesDir);
       watchCallback();
       const add = jasmine.createSpy('add');
@@ -117,19 +117,19 @@ describe('TemplateStore', ()=> {
       expect(item.path.split('/').pop()).toBe('123.html');
     });
 
-    xit('should display an error if no name is provided', ()=> {
+    xit('should display an error if no name is provided', () => {
       spyOn(TemplateStore, '_displayError');
       TemplateStore._onCreateTemplate({contents: 'bla'});
       expect(TemplateStore._displayError).toHaveBeenCalled();
     });
 
-    xit('should display an error if no content is provided', ()=> {
+    xit('should display an error if no content is provided', () => {
       spyOn(TemplateStore, '_displayError');
       TemplateStore._onCreateTemplate({name: 'bla'});
       expect(TemplateStore._displayError).toHaveBeenCalled();
     });
 
-    xit('should save the template file to the templates folder', ()=> {
+    xit('should save the template file to the templates folder', () => {
       TemplateStore._onCreateTemplate({name: '123', contents: 'bla'});
       const path = `${stubTemplatesDir}/123.html`;
       expect(fs.writeFile).toHaveBeenCalled();
@@ -137,32 +137,32 @@ describe('TemplateStore', ()=> {
       expect(fs.writeFile.mostRecentCall.args[1]).toEqual('bla');
     });
 
-    xit('should open the template so you can see it', ()=> {
+    xit('should open the template so you can see it', () => {
       TemplateStore._onCreateTemplate({name: '123', contents: 'bla'});
       expect(shell.showItemInFolder).toHaveBeenCalled();
     });
 
-    describe('when given a draft id', ()=> {
-      xit('should create a template from the name and contents of the given draft', ()=> {
+    describe('when given a draft id', () => {
+      xit('should create a template from the name and contents of the given draft', () => {
         spyOn(TemplateStore, 'trigger');
         spyOn(TemplateStore, '_populate');
-        runs(()=> {
+        runs(() => {
           TemplateStore._onCreateTemplate({draftClientId: 'localid-b'});
         });
-        waitsFor(()=> TemplateStore.trigger.callCount > 0 );
-        runs(()=> {
+        waitsFor(() => TemplateStore.trigger.callCount > 0);
+        runs(() => {
           expect(TemplateStore.items().length).toEqual(1);
         });
       });
 
-      it('should display an error if the draft has no subject', ()=> {
+      it('should display an error if the draft has no subject', () => {
         spyOn(TemplateStore, '_displayError');
         spyOn(fs, 'watch');
-        runs(()=> {
+        runs(() => {
           TemplateStore._onCreateTemplate({draftClientId: 'localid-nosubject'});
         });
-        waitsFor(()=> TemplateStore._displayError.callCount > 0 );
-        runs(()=> {
+        waitsFor(() => TemplateStore._displayError.callCount > 0);
+        runs(() => {
           expect(TemplateStore._displayError).toHaveBeenCalled();
         });
       });
@@ -170,7 +170,7 @@ describe('TemplateStore', ()=> {
   });
 
   describe('onShowTemplates', ()=> {
-    xit('should open the templates folder in the Finder', ()=> {
+    xit('should open the templates folder in the Finder', () => {
       TemplateStore._onShowTemplates();
       expect(shell.showItemInFolder).toHaveBeenCalled();
     });

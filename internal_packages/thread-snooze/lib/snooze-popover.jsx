@@ -81,15 +81,17 @@ class SnoozePopover extends Component {
     }
   };
 
-  renderItem = (itemLabel)=> {
+  renderItem = (itemLabel) => {
     const date = SnoozeDatesFactory[itemLabel]();
     const iconName = SnoozeIconNames[itemLabel];
     const iconPath = `nylas://thread-snooze/assets/ic-snoozepopover-${iconName}@2x.png`;
+    const onClick = this.onSnooze.bind(this, date, itemLabel);
+
     return (
       <div
         key={itemLabel}
         className="snooze-item"
-        onClick={this.onSnooze.bind(this, date, itemLabel)}>
+        onClick={onClick}>
         <RetinaImg
           url={iconPath}
           mode={RetinaImg.Mode.ContentIsMask} />

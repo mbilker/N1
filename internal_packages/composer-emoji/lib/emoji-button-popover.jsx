@@ -18,9 +18,9 @@ class EmojiButtonPopover extends React.Component {
       categoryPositions} = this.getStateFromStore();
     this.state = {
       emojiName: "Emoji Picker",
-      categoryNames: categoryNames,
-      categorizedEmoji: categorizedEmoji,
-      categoryPositions: categoryPositions,
+      categoryNames,
+      categorizedEmoji,
+      categoryPositions,
       searchValue: "",
       activeTab: Object.keys(categorizedEmoji)[0],
     };
@@ -38,8 +38,11 @@ class EmojiButtonPopover extends React.Component {
   onMouseDown = (event) => {
     const emojiName = this.calcEmojiByPosition(this.calcPosition(event));
     if (!emojiName) return null;
+
     EmojiActions.selectEmoji({emojiName, replaceSelection: false});
     Actions.closePopover();
+
+    return true;
   }
 
   onScroll = () => {
@@ -67,14 +70,14 @@ class EmojiButtonPopover extends React.Component {
   onHover = (event) => {
     const emojiName = this.calcEmojiByPosition(this.calcPosition(event));
     if (emojiName) {
-      this.setState({emojiName: emojiName});
+      this.setState({ emojiName });
     } else {
-      this.setState({emojiName: "Emoji Picker"});
+      this.setState({ emojiName: "Emoji Picker" });
     }
   }
 
   onMouseOut = () => {
-    this.setState({emojiName: "Emoji Picker"});
+    this.setState({ emojiName: "Emoji Picker" });
   }
 
   onChange = (event) => {

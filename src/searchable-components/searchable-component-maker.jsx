@@ -53,8 +53,10 @@ class SearchableComponent {
         const matchNodeMap = parser.getElementsWithNewMatchNodes(normalizedDOM, searchTerm, this.state.__searchIndex);
         return parser.highlightSearch(normalizedDOM, matchNodeMap)
       }
-      return vDOM
+      return vDOM;
     }
+
+    return null;
   }
 }
 
@@ -80,4 +82,3 @@ export default class SearchableComponentMaker {
     return contentDocument;
   }
 }
-

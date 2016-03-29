@@ -76,8 +76,9 @@ export default class ThreadListContextMenu {
           },
         }
       }
-      return null
-    })
+      return null;
+    });
+    return null;
   }
 
   forwardItem() {

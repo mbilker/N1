@@ -16,12 +16,12 @@ class AttachmentComponent extends Component {
     messageClientId: PropTypes.string,
   };
 
-  constructor() {
-    super()
-    this.state = {progressPercent: 0}
-  }
-
   static containerRequired = false;
+
+  constructor() {
+    super();
+    this.state = { progressPercent: 0 };
+  }
 
   _isDownloading() {
     const {download} = this.props
@@ -30,24 +30,25 @@ class AttachmentComponent extends Component {
   }
 
   _canClickToView() {
-    return !this.props.removable
+    return !this.props.removable;
   }
 
   _canAbortDownload() {
-    return true
+    return true;
   }
 
   _downloadProgressStyle() {
-    const {download} = this.props
+    const {download} = this.props;
     const percent = download ? download.percent || 0 : 0;
     return {
       width: `${percent}%`,
-    }
+    };
   }
 
   _onDragStart = (event) => {
-    const {file} = this.props
-    const filePath = FileDownloadStore.pathForFile(file)
+    const {file} = this.props;
+    const filePath = FileDownloadStore.pathForFile(file);
+
     if (fs.existsSync(filePath)) {
       // Note: From trial and error, it appears that the second param /MUST/ be the
       // same as the last component of the filePath URL, or the download fails.
@@ -89,7 +90,7 @@ class AttachmentComponent extends Component {
         name="remove-attachment.png"
         mode={RetinaImg.Mode.ContentIsMask}
       />
-    )
+    );
   }
 
   _renderDownloadButton() {
@@ -98,7 +99,7 @@ class AttachmentComponent extends Component {
         name="icon-attachment-download.png"
         mode={RetinaImg.Mode.ContentIsMask}
       />
-    )
+    );
   }
 
   _renderFileActionIcon() {
@@ -107,19 +108,19 @@ class AttachmentComponent extends Component {
         <div className="file-action-icon" onClick={this._onClickRemove}>
           {this._renderRemoveIcon()}
         </div>
-      )
+      );
     } else if (this._isDownloading() && this._canAbortDownload()) {
       return (
         <div className="file-action-icon" onClick={this._onClickAbort}>
           {this._renderRemoveIcon()}
         </div>
-      )
+      );
     }
     return (
       <div className="file-action-icon" onClick={this._onClickDownload}>
         {this._renderDownloadButton()}
       </div>
-    )
+    );
   }
 
   render() {
@@ -127,7 +128,12 @@ class AttachmentComponent extends Component {
     const downloadState = download ? download.state || "" : "";
 
     return (
-      <div className="inner" onDoubleClick={this._onClickView} onDragStart={this._onDragStart} draggable="true">
+      <div
+        className="inner"
+        onDoubleClick={this._onClickView}
+        onDragStart={this._onDragStart}
+        draggable="true"
+      >
         <span className={`progress-bar-wrap state-${downloadState}`}>
           <span className="progress-background" />
           <span className="progress-foreground" style={this._downloadProgressStyle()} />
@@ -147,7 +153,7 @@ class AttachmentComponent extends Component {
           {this._renderFileActionIcon()}
         </Flexbox>
       </div>
-    )
+    );
   }
 }
 

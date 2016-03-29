@@ -9,6 +9,10 @@ export default class OpenTrackingMessageStatus extends React.Component {
     message: React.PropTypes.object.isRequired,
   };
 
+  static containerStyles = {
+    paddingTop: 4,
+  };
+
   constructor(props) {
     super(props);
     this.state = this._getStateFromMessage(props.message)
@@ -29,10 +33,6 @@ export default class OpenTrackingMessageStatus extends React.Component {
     };
   }
 
-  static containerStyles = {
-    paddingTop: 4,
-  };
-
   renderImage() {
     return (
       <RetinaImg
@@ -52,4 +52,3 @@ export default class OpenTrackingMessageStatus extends React.Component {
     )
   }
 }
-

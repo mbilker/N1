@@ -4,15 +4,14 @@ import {RetinaImg} from 'nylas-component-kit';
 
 import EmojiButtonPopover from './emoji-button-popover';
 
-
 class EmojiButton extends React.Component {
   static displayName = 'EmojiButton';
 
-  constructor() {
-    super();
-  }
+  static containerStyles = {
+    order: 2,
+  };
 
-  onClick = ()=> {
+  onClick = () => {
     const buttonRect = React.findDOMNode(this).getBoundingClientRect();
     Actions.openPopover(
       <EmojiButtonPopover />,
@@ -28,9 +27,5 @@ class EmojiButton extends React.Component {
     );
   }
 }
-
-EmojiButton.containerStyles = {
-  order: 2,
-};
 
 export default EmojiButton;

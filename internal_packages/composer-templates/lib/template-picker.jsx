@@ -11,6 +11,7 @@ class TemplatePicker extends React.Component {
 
   constructor() {
     super();
+
     this.state = {
       searchValue: '',
       templates: TemplateStore.items(),
@@ -63,11 +64,11 @@ class TemplatePicker extends React.Component {
   };
 
   _onClickButton = ()=> {
-    const buttonRect = React.findDOMNode(this).getBoundingClientRect()
+    const buttonRect = React.findDOMNode(this).getBoundingClientRect();
     Actions.openPopover(
       this._renderPopover(),
       {originRect: buttonRect, direction: 'up'}
-    )
+    );
   };
 
   _renderPopover() {
@@ -92,9 +93,9 @@ class TemplatePicker extends React.Component {
         headerComponents={headerComponents}
         footerComponents={footerComponents}
         items={this.state.templates}
-        itemKey={ (item)=> item.id }
-        itemContent={ (item)=> item.name }
-        onSelect={this._onChooseTemplate.bind(this)}
+        itemKey={(item) => item.id}
+        itemContent={(item) => item.name}
+        onSelect={this._onChooseTemplate}
       />
     );
   }

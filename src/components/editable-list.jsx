@@ -446,7 +446,7 @@ class EditableList extends Component {
   };
 
   render() {
-    let items = this.props.items.map( (item, idx)=> this._renderItem(item, idx));
+    let items = this.props.items.map((item, idx) => this._renderItem(item, idx));
     if (this.state.creatingItem === true) {
       items = items.concat(this._renderCreateInput());
     }

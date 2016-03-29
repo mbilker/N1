@@ -129,6 +129,7 @@ class EmojiComposerExtension extends ComposerExtension {
         EmojiComposerExtension._onSelectEmoji(args);
       }
     }
+    return true;
   };
 
   static applyTransformsToDraft = ({draft}) => {
@@ -216,6 +217,8 @@ class EmojiComposerExtension extends ComposerExtension {
       editor.insertText(emojiChar);
     }
     EmojiActions.useEmoji({emojiName: emojiName, emojiChar: emojiChar});
+
+    return true;
   };
 
   static _emojiPickerWidth(emojiOptions) {

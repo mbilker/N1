@@ -7,19 +7,21 @@ import EmojiActions from './emoji-actions';
 
 const EmojiJSONBlobKey = 'emoji';
 
-
 class EmojiStore extends NylasStore {
   constructor(props) {
     super(props);
+
     this._emoji = [];
   }
 
   activate = () => {
     const query = DatabaseStore.findJSONBlob(EmojiJSONBlobKey);
+
     this._subscription = Rx.Observable.fromQuery(query).subscribe((emoji) => {
-      this._emoji = emoji ? emoji : [];
+      this._emoji = emoji || [];
       this.trigger();
     });
+
     this.listenTo(EmojiActions.useEmoji, this._onUseEmoji);
   }
 

@@ -7,6 +7,12 @@ class TemplateStatusBar extends React.Component {
     draftClientId: React.PropTypes.string,
   };
 
+  static containerStyles = {
+    textAlign: 'center',
+    width: 580,
+    margin: 'auto',
+  };
+
   constructor() {
     super();
     this.state = { draft: null };
@@ -30,12 +36,6 @@ class TemplateStatusBar extends React.Component {
     if (this.unsubscribe) this.unsubscribe();
   }
 
-  static containerStyles = {
-    textAlign: 'center',
-    width: 580,
-    margin: 'auto',
-  };
-
   _onDraftChange() {
     this.setState({draft: this._proxy.draft()});
   }
@@ -44,6 +44,8 @@ class TemplateStatusBar extends React.Component {
     if (this.state.draft) {
       return this.state.draft.body.search(/<code[^>]*class="var[^>]*>/i) > 0;
     }
+
+    return null;
   }
 
   render() {

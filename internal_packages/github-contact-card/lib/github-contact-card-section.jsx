@@ -58,6 +58,10 @@ class GithubProfile extends React.Component {
 export default class GithubContactCardSection extends React.Component {
   static displayName = 'GithubContactCardSection';
 
+  static containerStyles = {
+    order: 10,
+  }
+
   constructor(props) {
     super(props);
     this.state = this._getStateFromStores();
@@ -74,7 +78,7 @@ export default class GithubContactCardSection extends React.Component {
     this._unsubscribe();
   }
 
-  _getStateFromStores = ()=> {
+  _getStateFromStores = () => {
     return {
       profile: GithubUserStore.profileForFocusedContact(),
       loading: GithubUserStore.loading(),
@@ -83,7 +87,7 @@ export default class GithubContactCardSection extends React.Component {
 
   // The data vended by the GithubUserStore has changed. Calling `setState:`
   // will cause React to re-render our view to reflect the new values.
-  _onChange = ()=> {
+  _onChange = () => {
     this.setState(this._getStateFromStores())
   }
 
@@ -100,10 +104,6 @@ export default class GithubContactCardSection extends React.Component {
     return (
       <GithubProfile profile={this.state.profile} />
     );
-  }
-
-  static containerStyles = {
-    order: 10,
   }
 
   render() {

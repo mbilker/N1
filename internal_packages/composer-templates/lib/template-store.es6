@@ -105,8 +105,8 @@ class TemplateStore extends NylasStore {
     if (draftClientId) {
       DraftStore.sessionForClientId(draftClientId).then((session) => {
         const draft = session.draft();
-        const draftName = name ? name : draft.subject.replace(TemplateStore.INVALID_TEMPLATE_NAME_REGEX, '');
-        let draftContents = contents ? contents : QuotedHTMLTransformer.removeQuotedHTML(draft.body);
+        const draftName = name || draft.subject.replace(TemplateStore.INVALID_TEMPLATE_NAME_REGEX, '');
+        let draftContents = contents || QuotedHTMLTransformer.removeQuotedHTML(draft.body);
 
         const sigIndex = draftContents.indexOf('<signature>');
         draftContents = sigIndex > -1 ? draftContents.slice(0, sigIndex) : draftContents;
@@ -203,7 +203,9 @@ class TemplateStore extends NylasStore {
 
   deleteTemplate(name, callback) {
     const template = this._getTemplate(name);
-    if (!template) { return undefined; }
+    if (!template) {
+      return;
+    }
 
     if (this._displayDialog(
         'Delete this template?',

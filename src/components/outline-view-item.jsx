@@ -15,7 +15,6 @@ const CounterStyles = {
   Alt: 'alt',
 };
 
-
 /**
  * Renders an item that may contain more arbitrarily nested items
  * This component resembles OS X's default OutlineView or Sourcelist
@@ -132,6 +131,7 @@ class OutlineViewItem extends Component {
     }).isRequired,
   };
 
+  static CounterStyles = CounterStyles;
 
   constructor(props) {
     super(props);
@@ -163,9 +163,6 @@ class OutlineViewItem extends Component {
       React.findDOMNode(this).removeEventListener('contextmenu', this._onShowContextMenu);
     }
   }
-
-  static CounterStyles = CounterStyles;
-
 
   // Helpers
 

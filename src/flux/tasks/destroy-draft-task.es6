@@ -7,10 +7,6 @@ import NylasAPI from '../nylas-api';
 import BaseDraftTask from './base-draft-task';
 
 export default class DestroyDraftTask extends BaseDraftTask {
-  constructor(draftClientId) {
-    super(draftClientId);
-  }
-
   shouldDequeueOtherTask(other) {
     return (other instanceof BaseDraftTask && other.draftClientId === this.draftClientId);
   }

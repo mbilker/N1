@@ -43,6 +43,8 @@ class FixedPopover extends Component {
     }),
   };
 
+  static Directions = Directions;
+
   constructor(props) {
     super(props);
     this.mounted = false;
@@ -135,8 +137,6 @@ class FixedPopover extends Component {
       height: document.body.clientHeight,
     }
   };
-
-  static Directions = Directions;
 
   focusElementWithTabIndex = ()=> {
     // Automatically focus the element inside us with the lowest tab index

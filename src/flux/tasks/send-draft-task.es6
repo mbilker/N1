@@ -58,7 +58,7 @@ export default class SendDraftTask extends BaseDraftTask {
       return Promise.reject(new Error("Files have been added since you started sending this draft. Double-check the draft and click 'Send' again.."));
     }
     return Promise.resolve();
-  }
+  };
 
   // This function returns a promise that resolves to the draft when the draft has
   // been sent successfully.
@@ -87,7 +87,7 @@ export default class SendDraftTask extends BaseDraftTask {
 
       return Promise.reject(err)
     });
-  }
+  };
 
   onSuccess = () => {
     // Queue a task to save metadata on the message
@@ -105,7 +105,7 @@ export default class SendDraftTask extends BaseDraftTask {
     }
 
     return Promise.resolve(Task.Status.Success);
-  }
+  };
 
   onError = (err) => {
     if (err instanceof BaseDraftTask.DraftNotFoundError) {
@@ -122,7 +122,8 @@ export default class SendDraftTask extends BaseDraftTask {
       message = `Sorry, this message could not be sent. Please try again, and make sure your message is addressed correctly and is not too large.`;
       if (err.statusCode === 402 && err.body.message) {
         if (err.body.message.indexOf('at least one recipient') !== -1) {
-          message = `This message could not be delivered to at least one recipient. (Note: other recipients may have received this message - you should check Sent Mail before re-sending this message.)`;
+          message = 'This message could not be delivered to at least one recipient. ' +
+            '(Note: other recipients may have received this message - you should check Sent Mail before re-sending this message.)';
         } else {
           message = `Sorry, this message could not be sent because it was rejected by your mail provider. (${err.body.message})`;
           if (err.body.server_error) {
@@ -140,5 +141,5 @@ export default class SendDraftTask extends BaseDraftTask {
     NylasEnv.reportError(err);
 
     return Promise.resolve([Task.Status.Failed, err]);
-  }
+  };
 }

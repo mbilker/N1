@@ -2,7 +2,8 @@ import OpenTrackingComposerExtension from '../lib/open-tracking-composer-extensi
 import {PLUGIN_ID, PLUGIN_URL} from '../lib/open-tracking-constants';
 import {Message, QuotedHTMLTransformer} from 'nylas-exports';
 
-const quote = `<blockquote class="gmail_quote" style="margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex;"> On Feb 25 2016, at 3:38 pm, Drew &lt;drew@nylas.com&gt; wrote: <br> twst </blockquote>`;
+const quote = '<blockquote class="gmail_quote" style="margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex;"> ' +
+  'On Feb 25 2016, at 3:38 pm, Drew &lt;drew@nylas.com&gt; wrote: <br> twst </blockquote>';
 
 describe("Open tracking composer extension", () => {
   // Set up a draft, session that returns the draft, and metadata

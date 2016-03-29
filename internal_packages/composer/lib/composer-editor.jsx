@@ -135,10 +135,10 @@ class ComposerEditor extends Component {
     // the body. Be sure to choose the last node /above/ the signature and any
     // quoted text that is visible. (as in forwarded messages.)
     //
-    this.refs.contenteditable.atomicEdit( ({editor})=> {
+    this.refs.contenteditable.atomicEdit(({editor}) => {
       editor.rootNode.focus();
-      const lastNode = this._findLastNodeBeforeQuoteOrSignature(editor)
-      this._selectEndOfNode(lastNode)
+      const lastNode = this._findLastNodeBeforeQuoteOrSignature(editor);
+      this._selectEndOfNode(lastNode);
     });
   }
 
@@ -189,10 +189,10 @@ class ComposerEditor extends Component {
   }
 
   focusAbsoluteEnd() {
-    this.refs.contenteditable.atomicEdit( ({editor})=> {
+    this.refs.contenteditable.atomicEdit(({editor}) => {
       editor.rootNode.focus();
-      const lastNode = this._findAbsoluteLastNode(editor)
-      this._selectEndOfNode(lastNode)
+      const lastNode = this._findAbsoluteLastNode(editor);
+      this._selectEndOfNode(lastNode);
     });
   }
 

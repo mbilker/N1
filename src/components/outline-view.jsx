@@ -108,11 +108,12 @@ class OutlineView extends Component {
 
   _renderCreateButton() {
     const title = this.props.title;
+    const onMouseUp = this._onCreateButtonClicked.bind(this, title);
     return (
       <span
         className="add-item-button"
         onMouseDown={this._onCreateButtonMouseDown}
-        onMouseUp={this._onCreateButtonClicked.bind(this, title)}>
+        onMouseUp={onMouseUp}>
         <RetinaImg
           url="nylas://account-sidebar/assets/icon-sidebar-addcategory@2x.png"
           style={{height: 14, width: 14}}

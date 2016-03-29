@@ -37,9 +37,9 @@ class SearchableComponentStore extends NylasStore {
   getCurrentRegionIndex(regionId) {
     let regionOffset = null;
     if (regionId && this.currentMatch && this.currentMatch.node.getAttribute('data-region-id') === regionId) {
-      regionOffset = +this.currentMatch.node.getAttribute('data-render-index')
+      regionOffset = +this.currentMatch.node.getAttribute('data-render-index');
     }
-    return regionOffset
+    return regionOffset;
   }
 
   getCurrentSearchData() {
@@ -146,7 +146,7 @@ class SearchableComponentStore extends NylasStore {
         // We save the position relative to the top of the scrollAncestor
         // instead of the current getBoudingClientRect (which is dependent
         // on the current scroll position)
-        this.matches.map((match) => {
+        this.matches.forEach((match) => {
           match.top -= scrollTop
         });
       }

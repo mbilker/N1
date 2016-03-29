@@ -1,4 +1,6 @@
-import React from 'react'
+/* eslint react/prefer-stateless-function: 0 */
+
+import React from 'react';
 
 export default class SearchMatch extends React.Component {
   static displayName = "SearchMatch";
@@ -13,8 +15,9 @@ export default class SearchMatch extends React.Component {
     return (
       <span data-region-id={this.props.regionId}
             data-render-index={this.props.renderIndex}
-            className={`search-match ${this.props.className}`}>{this.props.children}</span>
-    )
+            className={`search-match ${this.props.className}`}>
+        {this.props.children}
+      </span>
+    );
   }
 }
-

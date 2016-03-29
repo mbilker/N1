@@ -47,7 +47,11 @@ export default class FindInThread extends React.Component {
 
   _onFindKeyDown = (event) => {
     if (event.key === "Enter") {
-      return event.shiftKey ? this._onPrevResult() : this._onNextResult()
+      if (event.shiftKey) {
+        this._onPrevResult();
+      } else {
+        this._onNextResult();
+      }
     } else if (event.key === "Escape") {
       this._clearSearch()
       React.findDOMNode(this.refs.searchBox).blur()
@@ -131,8 +135,6 @@ export default class FindInThread extends React.Component {
         </div>
         </KeyCommandsRegion>
       </div>
-    )
+    );
   }
-
 }
-

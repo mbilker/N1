@@ -15,11 +15,18 @@ class PreferencesAccountList extends Component {
 
   _renderAccountStateIcon(account) {
     if (account.syncState !== "running") {
-      return (<div className="sync-error-icon"><RetinaImg
-        className="sync-error-icon"
-        name="ic-settings-account-error.png"
-        mode={RetinaImg.Mode.ContentIsMask} /></div>)
+      return (
+        <div className="sync-error-icon">
+          <RetinaImg
+            className="sync-error-icon"
+            name="ic-settings-account-error.png"
+            mode={RetinaImg.Mode.ContentIsMask}
+          />
+        </div>
+      );
     }
+
+    return null;
   }
 
   _renderAccount = (account) => {

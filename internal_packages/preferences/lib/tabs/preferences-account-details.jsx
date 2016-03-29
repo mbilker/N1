@@ -12,11 +12,12 @@ class PreferencesAccountDetails extends Component {
 
   constructor(props) {
     super(props);
-    this.state = {account: _.clone(props.account)};
+
+    this.state = { account: _.clone(props.account) };
   }
 
   componentWillReceiveProps(nextProps) {
-    this.setState({account: _.clone(nextProps.account)});
+    this.setState({ account: _.clone(nextProps.account) });
   }
 
   componentWillUnmount() {
@@ -131,35 +132,45 @@ class PreferencesAccountDetails extends Component {
         </div>
       );
     }
+
+    return null;
   }
 
 
   _renderErrorDetail(message, buttonText, buttonAction) {
-    return (<div className="account-error-detail">
-      <div className="message">{message}</div>
-      <a className="action" onClick={buttonAction}>{buttonText}</a>
-    </div>)
+    return (
+      <div className="account-error-detail">
+        <div className="message">{message}</div>
+        <a className="action" onClick={buttonAction}>{buttonText}</a>
+      </div>
+    );
   }
+
   _renderSyncErrorDetails() {
     const {account} = this.state;
     if (account.hasSyncStateError()) {
       switch (account.syncState) {
-      case Account.SYNC_STATE_AUTH_FAILED:
-        return this._renderErrorDetail(
-          `Nylas N1 can no longer authenticate with ${account.emailAddress}. The password or
-          authentication may have changed.`,
-          "Reconnect",
-          ()=>this._reconnect());
-      case Account.SYNC_STATE_STOPPED:
-        return this._renderErrorDetail(
-          `The cloud sync for ${account.emailAddress} has been disabled. Please contact Nylas support.`,
-          "Contact support",
-          ()=>this._contactSupport());
-      default:
-        return this._renderErrorDetail(
-          `Nylas encountered an error while syncing mail for ${account.emailAddress}. Contact Nylas support for details.`,
-          "Contact support",
-          ()=>this._contactSupport());
+        case Account.SYNC_STATE_AUTH_FAILED:
+          this._renderErrorDetail(
+            `Nylas N1 can no longer authenticate with ${account.emailAddress}. The password or
+            authentication may have changed.`,
+            "Reconnect",
+            () => this._reconnect());
+          break;
+
+        case Account.SYNC_STATE_STOPPED:
+          this._renderErrorDetail(
+            `The cloud sync for ${account.emailAddress} has been disabled. Please contact Nylas support.`,
+            "Contact support",
+            () => this._contactSupport());
+          break;
+
+        default:
+          this._renderErrorDetail(
+            `Nylas encountered an error while syncing mail for ${account.emailAddress}. Contact Nylas support for details.`,
+            "Contact support",
+            () => this._contactSupport());
+          break;
       }
     }
   }
