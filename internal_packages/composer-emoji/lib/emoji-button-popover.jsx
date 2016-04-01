@@ -1,6 +1,7 @@
 import React from 'react';
+import {findDOMNode} from 'react-dom';
 import {Actions} from 'nylas-exports';
-import {RetinaImg} from 'nylas-component-kit';
+import {RetinaImg, ScrollRegion} from 'nylas-component-kit';
 
 import EmojiStore from './emoji-store';
 import EmojiActions from './emoji-actions';
@@ -41,7 +42,6 @@ class EmojiButtonPopover extends React.Component {
   onMouseDown = (event) => {
     const emojiName = this.calcEmojiByPosition(this.calcPosition(event));
     if (!emojiName) return null;
-
     EmojiActions.selectEmoji({emojiName, replaceSelection: false});
     Actions.closePopover();
 
@@ -78,9 +78,6 @@ class EmojiButtonPopover extends React.Component {
       this.setState({ emojiName: "Emoji Picker" });
     }
   }
-
-  onMouseOut = () => {
-    this.setState({ emojiName: "Emoji Picker" });
   }
 
   onChange = (event) => {
@@ -185,7 +182,7 @@ class EmojiButtonPopover extends React.Component {
     return searchMatches;
   }
 
-  calcPosition = (event) => {
+  calcPosition(event) {
     const rect = event.target.getBoundingClientRect();
     const position = {
       x: event.pageX - rect.left / 2,
@@ -240,7 +237,7 @@ class EmojiButtonPopover extends React.Component {
   }
 
   renderCanvas() {
-    const canvas = document.getElementById("emoji-canvas");
+    const canvas = findDOMNode(this.refs.emojiCanvas);
     const keys = Object.keys(this.state.categoryPositions);
     canvas.height = this.state.categoryPositions[keys[keys.length - 1]].bottom * 2;
     const ctx = canvas.getContext("2d");
@@ -310,7 +307,7 @@ class EmojiButtonPopover extends React.Component {
         <div className="emoji-tabs">
           {this.renderTabs()}
         </div>
-        <div
+        <ScrollRegion
           className="emoji-finder-container"
           onScroll={this.onScroll}>
           <div className="emoji-search-container">
@@ -322,15 +319,15 @@ class EmojiButtonPopover extends React.Component {
             />
           </div>
           <canvas
-            id="emoji-canvas"
-            width="420"
+            ref="emojiCanvas"
+            width="400"
             height="2000"
             onMouseDown={this.onMouseDown}
             onMouseOut={this.onMouseOut}
             onMouseMove={this.onHover}
             style={{zoom: "0.5"}}>
           </canvas>
-        </div>
+        </ScrollRegion>
         <div className="emoji-name">
           {this.state.emojiName}
         </div>
