@@ -48,7 +48,6 @@ function makeSqlite3Command() {
   }
 
   // Use our local version of npm (npm 3x) to build sqlite
-<<<<<<< HEAD
   var npmPath = path.resolve(__dirname, '..', 'build', 'node_modules', '.bin', 'npm');
   //var command = `${npmPath} install https://github.com/mapbox/node-sqlite3/archive/master.tar.gz --ignore-scripts`;
   var command = npmPath + ' install https://github.com/mbilker/node-sqlite3/archive/master.tar.gz --ignore-scripts';
