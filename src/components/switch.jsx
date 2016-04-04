@@ -15,10 +15,6 @@ class Switch extends React.Component {
     onChange: React.PropTypes.func.isRequired,
   }
 
-  constructor() {
-    super();
-  }
-
   render() {
     let classnames = "slide-switch";
     if (this.props.checked) {

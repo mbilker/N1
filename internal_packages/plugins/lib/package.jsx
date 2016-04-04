@@ -12,10 +12,6 @@ class Package extends React.Component {
     package: React.PropTypes.object.isRequired,
   }
 
-  constructor() {
-    super();
-  }
-
   _onDisablePackage = () => {
     PluginsActions.disablePackage(this.props.package);
   }

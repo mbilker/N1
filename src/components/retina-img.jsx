@@ -95,11 +95,11 @@ class RetinaImg extends React.Component {
     resourcePath: React.PropTypes.string,
   }
 
-  shouldComponentUpdate = (nextProps) => {
+  static Mode = Mode;
+
+  shouldComponentUpdate(nextProps) {
     return !(_.isEqual(this.props, nextProps));
   }
-
-  static Mode = Mode;
 
   _pathFor = (name) => {
     if (!name || !_.isString(name)) return null;

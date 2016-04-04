@@ -54,20 +54,14 @@ class AppearanceModeSwitch extends React.Component {
       </div>
     );
   }
-
 }
-
 
 class AppearanceModeOption extends React.Component {
   static propTypes = {
     mode: React.PropTypes.string.isRequired,
     active: React.PropTypes.bool,
     onClick: React.PropTypes.func,
-  }
-
-  constructor() {
-    super();
-  }
+  };
 
   render() {
     let classname = "appearance-mode";

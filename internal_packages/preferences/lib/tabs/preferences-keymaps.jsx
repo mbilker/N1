@@ -87,6 +87,7 @@ class PreferencesKeymaps extends React.Component {
 
   constructor() {
     super();
+
     this.state = {
       templates: [],
       bindings: this._getStateFromKeymaps(),
@@ -109,7 +110,7 @@ class PreferencesKeymaps extends React.Component {
     for (const section of displayedKeybindings) {
       for (const [command] of section.items) {
         const keyBinding = NylasEnv.keymaps.findKeyBindings({command: command});
-        bindings[command] = keyBinding ? keyBinding : [];
+        bindings[command] = keyBinding || [];
       }
     }
     return bindings;
@@ -119,13 +120,12 @@ class PreferencesKeymaps extends React.Component {
     const templatesDir = path.join(NylasEnv.getLoadSettings().resourcePath, 'keymaps', 'templates');
     fs.readdir(templatesDir, (err, files) => {
       if (!files || !files instanceof Array) return;
-      let templates = files.filter((filename) => {
+      const templates = files.filter((filename) => {
         return path.extname(filename) === '.cson' || path.extname(filename) === '.json';
-      });
-      templates = templates.map((filename) => {
+      }).map((filename) => {
         return path.parse(filename).name;
       });
-      this.setState({templates: templates});
+      this.setState({ templates });
     });
   }
 

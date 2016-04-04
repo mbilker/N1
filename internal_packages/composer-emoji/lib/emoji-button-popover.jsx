@@ -46,7 +46,7 @@ class EmojiButtonPopover extends React.Component {
     Actions.closePopover();
 
     return true;
-  }
+  };
 
   onScroll = () => {
     const emojiContainer = document.querySelector(".emoji-finder-container");
@@ -68,7 +68,7 @@ class EmojiButtonPopover extends React.Component {
         }
       }
     }
-  }
+  };
 
   onHover = (event) => {
     const emojiName = this.calcEmojiByPosition(this.calcPosition(event));
@@ -77,8 +77,7 @@ class EmojiButtonPopover extends React.Component {
     } else {
       this.setState({ emojiName: "Emoji Picker" });
     }
-  }
-  }
+  };
 
   onChange = (event) => {
     const searchValue = event.target.value;
@@ -105,7 +104,7 @@ class EmojiButtonPopover extends React.Component {
         }, this.renderCanvas);
       });
     }
-  }
+  };
 
   getStateFromStore = () => {
     let categorizedEmoji = categorizedEmojiList;
@@ -153,7 +152,7 @@ class EmojiButtonPopover extends React.Component {
       categorizedEmoji: categorizedEmoji,
       categoryPositions: categoryPositions,
     };
-  }
+  };
 
   scrollToCategory(category) {
     const container = document.querySelector(".emoji-finder-container");
@@ -211,7 +210,7 @@ class EmojiButtonPopover extends React.Component {
       }
     }
     return null;
-  }
+  };
 
   renderTabs() {
     const tabs = [];

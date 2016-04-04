@@ -16,10 +16,6 @@ class PreferencesTabItem extends React.Component {
     tabItem: React.PropTypes.instanceOf(PreferencesUIStore.TabItem).isRequired,
   }
 
-  constructor() {
-    super();
-  }
-
   _onClick = () => {
     Actions.switchPreferencesTab(this.props.tabItem.tabId);
   }
@@ -64,11 +60,7 @@ class PreferencesTabsBar extends React.Component {
   static propTypes = {
     tabs: React.PropTypes.instanceOf(Immutable.List).isRequired,
     selection: React.PropTypes.instanceOf(Immutable.Map).isRequired,
-  }
-
-  constructor() {
-    super();
-  }
+  };
 
   renderTabs() {
     return this.props.tabs.map((tabItem) =>

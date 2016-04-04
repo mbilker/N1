@@ -11,8 +11,9 @@ import {PreferencesUIStore} from 'nylas-exports';
 import PreferencesTabsBar from './preferences-tabs-bar';
 
 class PreferencesRoot extends React.Component {
-
   static displayName = 'PreferencesRoot';
+
+  static containerRequired = false;
 
   constructor() {
     super();
@@ -51,7 +52,6 @@ class PreferencesRoot extends React.Component {
     }
   }
 
-  static containerRequired = false;
 
   _localHandlers() {
     const stopPropagation = (e) => {

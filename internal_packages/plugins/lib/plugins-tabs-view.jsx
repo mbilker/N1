@@ -7,15 +7,21 @@ import PluginsActions from './plugins-actions';
 
 
 class PluginsTabs extends React.Component {
-
   static displayName = 'PluginsTabs';
 
   static propTypes = {
     'onChange': React.PropTypes.Func,
   };
 
-  constructor() {
-    super();
+  static containerRequired = false;
+
+  static containerStyles = {
+    minWidth: 200,
+    maxWidth: 290,
+  };
+
+  constructor(props) {
+    super(props);
     this.state = this._getStateFromStores();
   }
 
@@ -27,13 +33,6 @@ class PluginsTabs extends React.Component {
   componentWillUnmount() {
     this._unsubscribers.forEach(unsubscribe => unsubscribe());
   }
-
-  static containerRequired = false;
-
-  static containerStyles = {
-    minWidth: 200,
-    maxWidth: 290,
-  };
 
   _getStateFromStores() {
     return {
