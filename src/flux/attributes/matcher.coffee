@@ -63,6 +63,8 @@ class Matcher
       when '=' then return modelValue == matcherValue
       when '<' then return modelValue < matcherValue
       when '>' then return modelValue > matcherValue
+      when '<=' then return modelValue <= matcherValue
+      when '>=' then return modelValue >= matcherValue
       when 'in' then return modelValue in matcherValue
       when 'contains'
         !!modelArrayContainsValue(modelValue, matcherValue)
@@ -177,8 +179,62 @@ class AndCompositeMatcher extends Matcher
       wheres.push(matcher.whereSQL(klass))
     return "(" + wheres.join(" AND ") + ")"
 
+class NotCompositeMatcher extends Matcher
+  constructor: (@children) ->
+    @
+
+  attribute: =>
+    null
+
+  value: =>
+    null
+
+  evaluate: (model) =>
+    not _.every(@children, (matcher) -> matcher.evaluate(model))
+
+  joinSQL: (klass) =>
+    joins = []
+    for matcher in @children
+      join = matcher.joinSQL(klass)
+      joins.push(join) if join
+    return joins
+
+  whereSQL: (klass) =>
+    wheres = []
+    for matcher in @children
+      wheres.push(matcher.whereSQL(klass))
+    return "NOT (" + wheres.join(" AND ") + ")"
+
+class SearchMatcher extends Matcher
+  constructor: (@searchQuery) ->
+    super(null, null, null)
+    @
+
+  attribute: =>
+    null
+
+  value: =>
+    null
+
+  # The only way to truly check if a model matches this matcher is to run the query
+  # again and check if the model is in the results. This is too expensive, so we
+  # will always return true so models aren't excluded from the
+  # SearchQuerySubscription result set
+  evaluate: (model) =>
+    true
+
+  joinSQL: (klass) =>
+    searchTable = "#{klass.name}Search"
+    return "INNER JOIN `#{searchTable}` AS `M#{@muid}` ON `M#{@muid}`.`content_id` = `#{klass.name}`.`id`"
+
+  whereSQL: (klass) =>
+    searchTable = "#{klass.name}Search"
+    return "`#{searchTable}` MATCH '\"#{@searchQuery}\"'"
+
 Matcher.muid = 0
 Matcher.Or = OrCompositeMatcher
 Matcher.And = AndCompositeMatcher
+Matcher.Not = NotCompositeMatcher
+Matcher.Search = SearchMatcher
 
 module.exports = Matcher

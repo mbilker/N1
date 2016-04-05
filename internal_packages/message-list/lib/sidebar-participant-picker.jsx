@@ -64,7 +64,7 @@ export default class SidebarParticipantPicker extends React.Component {
 
     return (
       <div className="sidebar-participant-picker">
-        <select onChange={this._onSelectContact} value={key}>
+        <select tabIndex={-1} onChange={this._onSelectContact} value={key}>
         {this._renderSortedContacts()}
         </select>
       </div>
