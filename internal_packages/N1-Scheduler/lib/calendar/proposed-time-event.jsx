@@ -12,9 +12,21 @@ export default class ProposedTimeEvent extends React.Component {
     event: React.PropTypes.object,
   }
 
+  // Since ProposedTimeEvent is part of an Injected Component set, by
+  // default it's placed in its own container that's rendered separately.
+  //
+  // This makes two separate React trees which cause the react event
+  // propagations to be separate. See:
+  // https://github.com/facebook/react/issues/1691
+  //
+  // Unfortunately, this means that `stopPropagation` doesn't work from
+  // within injected component sets unless the `containerRequired` is set
+  // to `false`
+  static containerRequired = false;
+
   _onMouseDown(event) {
     event.stopPropagation();
-    SchedulerActions.removeProposedTime(event.target.dataset)
+    SchedulerActions.removeProposedTime(event.target.dataset);
   }
 
   render() {

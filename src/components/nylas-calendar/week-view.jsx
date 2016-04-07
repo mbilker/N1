@@ -3,7 +3,6 @@ import React from 'react'
 import ReactDOM from 'react-dom'
 import moment from 'moment'
 import classnames from 'classnames'
-import {RetinaImg} from 'nylas-component-kit'
 import {Utils} from 'nylas-exports'
 
 import TopBanner from './top-banner'
@@ -31,6 +30,7 @@ export default class WeekView extends React.Component {
   static propTypes = {
     dataSource: React.PropTypes.instanceOf(CalendarDataSource).isRequired,
     currentMoment: React.PropTypes.instanceOf(moment).isRequired,
+    bannerComponents: React.PropTypes.node,
     headerComponents: React.PropTypes.node,
     footerComponents: React.PropTypes.node,
     changeCurrentView: React.PropTypes.func,
@@ -42,6 +42,7 @@ export default class WeekView extends React.Component {
 
   static defaultProps = {
     changeCurrentView: () => {},
+    bannerComponents: false,
     headerComponents: false,
     footerComponents: false,
   }
@@ -72,6 +73,9 @@ export default class WeekView extends React.Component {
   }
 
   componentDidUpdate() {
+    const weekStart = moment(this.state.startMoment).add(BUFFER_DAYS, 'days').unix()
+    this._scrollTime = weekStart
+    this._setIntervalHeight()
     this._ensureHorizontalScrollPos()
   }
 
@@ -139,6 +143,9 @@ export default class WeekView extends React.Component {
   }
 
   _allDayEventHeight(allDayOverlap) {
+    if (_.size(allDayOverlap) === 0) {
+      return 0
+    }
     return (this._maxConcurrentEvents(allDayOverlap) * MIN_INTERVAL_HEIGHT) + 1
   }
 
@@ -228,15 +235,11 @@ export default class WeekView extends React.Component {
 
   _headerComponents() {
     const left = (
-      <button key="today" className="btn" onClick={this._onClickToday} style={{order: -100}}>
+      <button key="today" className="btn" onClick={this._onClickToday} style={{position: 'absolute', left: 10}}>
         Today
       </button>
     );
-    const right = (
-      <button key="month" className="btn" style={{order: 100}}>
-        <RetinaImg name="ic-calendar-month.png" mode={RetinaImg.Mode.ContentIsMask} />
-      </button>
-    );
+    const right = false
     return [left, right, this.props.headerComponents]
   }
 
@@ -298,6 +301,10 @@ export default class WeekView extends React.Component {
   _setIntervalHeight = () => {
     const wrap = ReactDOM.findDOMNode(this.refs.eventGridWrap);
     const wrapHeight = wrap.getBoundingClientRect().height;
+    if (this._lastWrapHeight === wrapHeight) {
+      return
+    }
+    this._lastWrapHeight = wrapHeight;
     const numIntervals = Math.floor(DAY_DUR / INTERVAL_TIME);
     ReactDOM.findDOMNode(this.refs.eventGridLegendWrap).style.height = `${wrapHeight}px`;
     this.setState({
@@ -396,7 +403,7 @@ export default class WeekView extends React.Component {
           onCalendarMouseDown={this.props.onCalendarMouseDown}
           onCalendarMouseMove={this.props.onCalendarMouseMove}
         >
-          <TopBanner />
+          <TopBanner bannerComponents={this.props.bannerComponents} />
 
           <HeaderControls title={this._currentWeekText()}
             headerComponents={this._headerComponents()}
