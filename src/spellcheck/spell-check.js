@@ -1,9 +1,10 @@
 /** @babel */
 
-import webFrame from 'web-frame';
-import { MenuItem } from 'remote';
+import { remote, webFrame } from 'electron';
 
 import DictionaryManager from './dictionary-manager';
+
+const { MenuItem } = remote;
 
 /**
  * Spellchecking Helper
