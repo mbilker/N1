@@ -203,8 +203,8 @@ class NylasEnvConstructor extends Model
       @getCurrentWindow().setMenuBarVisibility(false)
 
     # initialize spell checking
-    #@spellchecker = require('./nylas-spellchecker')
-    @spellchecker = require('./spellcheck/spell-check')
+    #@spellchecker = require './nylas-spellchecker'
+    @spellchecker = require './spellcheck/spell-check'
 
     @subscribe @packages.onDidActivateInitialPackages => @watchThemes()
     @windowEventHandler = new WindowEventHandler()
