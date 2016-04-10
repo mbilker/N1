@@ -11,6 +11,12 @@ import {WEEK_VIEW, MONTH_VIEW} from './calendar-constants'
 export default class NylasCalendar extends React.Component {
   static displayName = "NylasCalendar";
 
+  static defaultProps = {
+    bannerComponents: {day: false, week: false, month: false, year: false},
+    headerComponents: {day: false, week: false, month: false, year: false},
+    footerComponents: {day: false, week: false, month: false, year: false},
+  };
+
   static propTypes = {
     /**
      * The data source that powers all of the views of the NylasCalendar
@@ -62,11 +68,9 @@ export default class NylasCalendar extends React.Component {
     onCalendarMouseMove: React.PropTypes.func,
   }
 
-  static defaultProps = {
-    bannerComponents: {day: false, week: false, month: false, year: false},
-    headerComponents: {day: false, week: false, month: false, year: false},
-    footerComponents: {day: false, week: false, month: false, year: false},
-  }
+  static containerStyles = {
+    height: "100%",
+  };
 
   constructor(props) {
     super(props);
@@ -74,10 +78,6 @@ export default class NylasCalendar extends React.Component {
       currentView: WEEK_VIEW,
       currentMoment: moment(),
     };
-  }
-
-  static containerStyles = {
-    height: "100%",
   }
 
   _getCurrentViewComponent() {

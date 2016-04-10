@@ -89,12 +89,13 @@ class ComposerEditor extends Component {
     class ComposerFocusManager extends ContenteditableExtension {
       static onFocus() {
         if (props.onFocus) {
-          return props.onFocus();
+          props.onFocus();
         }
       }
+
       static onBlur() {
         if (props.onBlur) {
-          return props.onBlur();
+          props.onBlur();
         }
       }
     }

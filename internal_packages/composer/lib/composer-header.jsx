@@ -140,9 +140,9 @@ export default class ComposerHeader extends React.Component {
   }
 
   _onFocusOutParticipants = (lastFocusedEl) => {
-    const active = Fields.ParticipantFields.find((fieldName) =>
-      this.refs[fieldName] ? ReactDOM.findDOMNode(this.refs[fieldName]).contains(lastFocusedEl) : false
-    );
+    const active = Fields.ParticipantFields.find((fieldName) => {
+      return this.refs[fieldName] ? ReactDOM.findDOMNode(this.refs[fieldName]).contains(lastFocusedEl) : false
+    });
     this.setState({
       participantsFocused: false,
       participantsLastActiveField: active,

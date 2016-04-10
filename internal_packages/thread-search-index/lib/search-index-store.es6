@@ -23,10 +23,10 @@ class SearchIndexStore {
 
   activate() {
     NylasSyncStatusStore.whenSyncComplete().then(() => {
-      const date = Date.now()
-      console.log('Thread Search: Initializing thread search index...')
+      const date = Date.now();
+      console.log('Thread Search: Initializing thread search index...');
 
-      this.accountIds = _.pluck(AccountStore.accounts(), 'id')
+      this.accountIds = _.pluck(AccountStore.accounts(), 'id');
       this.initializeIndex()
       .then(() => {
         console.log('Thread Search: Index built successfully in ' + ((Date.now() - date) / 1000) + 's')
@@ -34,8 +34,8 @@ class SearchIndexStore {
           AccountStore.listen(::this.onAccountsChanged),
           DatabaseStore.listen(::this.onDataChanged),
         ]
-      })
-    })
+      });
+    });
   }
 
   /**
@@ -50,17 +50,17 @@ class SearchIndexStore {
   initializeIndex() {
     return DatabaseStore.searchIndexSize(Thread)
     .then((size) => {
-      console.log('Thread Search: Current index size is ' + (size || 0) + ' threads')
+      console.log('Thread Search: Current index size is ' + (size || 0) + ' threads');
       if (!size || size >= MAX_INDEX_SIZE || size === 0) {
-        return this.clearIndex().thenReturn(this.accountIds)
+        return this.clearIndex().thenReturn(this.accountIds);
       }
-      return this.getUnindexedAccounts()
+      return this.getUnindexedAccounts();
     })
     .then((accountIds) => {
       if (accountIds.length > 0) {
-        return this.buildIndex(accountIds)
+        return this.buildIndex(accountIds);
       }
-      return Promise.resolve()
+      return Promise.resolve();
     })
   }
 
@@ -212,9 +212,7 @@ class SearchIndexStore {
               {body: QuotedHTMLTransformer.removeQuotedHTML(body)}
           ))
           .map(({body, snippet}) => (
-            snippet ?
-              snippet :
-              Utils.extractTextFromHtml(body, {maxLength: MESSAGE_BODY_LENGTH}).replace(/(\s)+/g, ' ')
+            snippet || Utils.extractTextFromHtml(body, {maxLength: MESSAGE_BODY_LENGTH}).replace(/(\s)+/g, ' ')
           ))
           .join(' ')
         )
