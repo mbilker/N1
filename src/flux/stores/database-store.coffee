@@ -16,7 +16,7 @@ DatabaseTransaction = require './database-transaction'
 
 {remote, ipcRenderer} = require 'electron'
 
-DatabaseVersion = 22
+DatabaseVersion = 23
 DatabasePhase =
   Setup: 'setup'
   Ready: 'ready'
@@ -115,6 +115,7 @@ class DatabaseStore extends NylasStore
         @_checkDatabaseVersion {allowNotSet: true}, =>
           @_runDatabaseSetup =>
             app.setDatabasePhase(DatabasePhase.Ready)
+            setTimeout(@_runDatabaseAnalyze, 60 * 1000)
 
     else if phase is DatabasePhase.Ready
       @_openDatabase =>
@@ -204,6 +205,13 @@ class DatabaseStore extends NylasStore
               console.log("Could not re-import mail rules: #{err}")
           ready()
 
+  _runDatabaseAnalyze: =>
+    builder = new DatabaseSetupQueryBuilder()
+    async.each builder.analyzeQueries(), (query, callback) =>
+      @_db.run(query, [], callback)
+    , (err) =>
+      console.log("Completed ANALYZE of database")
+
   _handleSetupError: (err) =>
     NylasEnv.reportError(err)
 
@@ -265,10 +273,10 @@ class DatabaseStore extends NylasStore
         if DEBUG_QUERY_PLANS
           @_db.all "EXPLAIN QUERY PLAN #{query}", values, (err, results=[]) =>
             str = results.map((row) -> row.detail).join('\n') + " for " + query
-            return if str.indexOf("SCAN") is -1
             return if str.indexOf('ThreadCounts') > 0
             return if str.indexOf('ThreadSearch') > 0
-            @_prettyConsoleLog(str)
+            if str.indexOf('SCAN') isnt -1 and str.indexOf('COVERING INDEX') is -1
+              @_prettyConsoleLog(str)
 
       # Important: once the user begins a transaction, queries need to run
       # in serial.  This ensures that the subsequent "COMMIT" call
