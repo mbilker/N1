@@ -97,7 +97,7 @@ class ProposedTimeCalendarStore extends NylasStore {
     )
 
     const blockSize = this._duration.slice(0, 2)
-    blockSize[0] = parseInt(blockSize[0], 10);
+    blockSize[0] = blockSize[0] / 1; // moment requires a number
     const isMinBlockSize = (bounds.end - bounds.start) >= moment.duration.apply(moment, blockSize).as('seconds');
     while (minMoment.isSameOrBefore(maxMoment)) {
       const start = minMoment.unix();
@@ -137,11 +137,12 @@ class ProposedTimeCalendarStore extends NylasStore {
     this._updateDragBuffer(newT.round(30, 'minutes'));
   }
 
-  _onEndBlock = (newT) => {
-    this._updateDragBuffer(newT.ceil(30, 'minutes'));
-    this._convertBufferToProposedTimes()
-    this._resetDragBuffer();
-    this.trigger()
+  _onEndBlock = () => {
+    if (this._dragBuffer.anchor) {
+      this._convertBufferToProposedTimes()
+      this._resetDragBuffer();
+      this.trigger();
+    }
   }
 
   _onChangeDuration = (newDuration) => {
