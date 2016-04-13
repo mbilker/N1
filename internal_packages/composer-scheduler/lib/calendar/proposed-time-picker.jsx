@@ -18,6 +18,7 @@ export default class ProposedTimePicker extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
+      proposals: ProposedTimeCalendarStore.proposals(),
       duration: ProposedTimeCalendarStore.currentDuration(),
       pendingSave: ProposedTimeCalendarStore.pendingSave(),
     }
@@ -27,6 +28,7 @@ export default class ProposedTimePicker extends React.Component {
     this._usub = ProposedTimeCalendarStore.listen(() => {
       this.setState({
         duration: ProposedTimeCalendarStore.currentDuration(),
+        proposals: ProposedTimeCalendarStore.proposals(),
         pendingSave: ProposedTimeCalendarStore.pendingSave(),
       });
     })
@@ -57,19 +59,40 @@ export default class ProposedTimePicker extends React.Component {
     }
   }
 
-  _leftFooterComponents() {
-    const optComponents = ProposedTimeCalendarStore.DURATIONS.map((opt, i) => {
-      return <option value={opt.join("|")} key={i}>{opt[2]}</option>
-    })
-
+  _renderClearButton() {
+    if (this.state.proposals.length === 0) {
+      return false
+    }
     return (
+      <button key="clear"
+        style={{order: -99, marginLeft: 20}}
+        onClick={this._onClearProposals}
+        className="btn"
+      >
+        Clear Times
+      </button>
+    )
+  }
+
+  _onClearProposals = () => {
+    SchedulerActions.clearProposals()
+  }
+
+  _leftFooterComponents() {
+    const optComponents = ProposedTimeCalendarStore.DURATIONS.map((opt, i) =>
+      <option value={opt.join("|")} key={i}>{opt[2]}</option>
+    )
+
+    const durationPicker = (
       <div key="dp" className="duration-picker" style={{order: -100}}>
         <label style={{paddingRight: 10}}>Event Duration:</label>
         <select value={this.state.duration.join("|")} onChange={this._onChangeDuration}>
           {optComponents}
         </select>
       </div>
-    );
+    )
+
+    return ([durationPicker, this._renderClearButton()]);
   }
 
   _rightFooterComponents() {
@@ -90,7 +113,7 @@ export default class ProposedTimePicker extends React.Component {
   }
 
   _onDone = () => {
-    const proposals = ProposedTimeCalendarStore.timeBlocksAsProposals();
+    const proposals = ProposedTimeCalendarStore.proposals();
     // NOTE: This gets dispatched to the main window
     const {draftClientId} = NylasEnv.getWindowProps()
     SchedulerActions.confirmChoices({proposals, draftClientId});
@@ -99,20 +122,23 @@ export default class ProposedTimePicker extends React.Component {
   }
 
   _onCalendarMouseUp({time, currentView}) {
-    if (!time || currentView !== NylasCalendar.WEEK_VIEW) { return }
-    SchedulerActions.addProposedTime(time);
+    if (currentView !== NylasCalendar.WEEK_VIEW) { return }
+    if (time) {
+      SchedulerActions.addToProposedTimeBlock(time);
+    }
+    SchedulerActions.endProposedTimeBlock();
     return
   }
 
   _onCalendarMouseMove({time, mouseIsDown, currentView}) {
     if (!time || !mouseIsDown || currentView !== NylasCalendar.WEEK_VIEW) { return }
-    SchedulerActions.addProposedTime(time);
+    SchedulerActions.addToProposedTimeBlock(time);
     return
   }
 
   _onCalendarMouseDown({time, currentView}) {
     if (!time || currentView !== NylasCalendar.WEEK_VIEW) { return }
-    SchedulerActions.addProposedTime(time);
+    SchedulerActions.startProposedTimeBlock(time);
     return
   }
 

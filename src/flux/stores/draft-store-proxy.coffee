@@ -5,8 +5,11 @@ ExtensionRegistry = require '../../extension-registry'
 {Listener, Publisher} = require '../modules/reflux-coffee'
 SyncbackDraftTask = require '../tasks/syncback-draft-task'
 CoffeeHelpers = require '../coffee-helpers'
+DraftStore = null
 
 _ = require 'underscore'
+
+MetadataChangePrefix = 'metadata.'
 
 ###
 Public: As the user interacts with the draft, changes are accumulated in the
@@ -44,6 +47,11 @@ class DraftChangeSet
     clearTimeout(@_timer) if @_timer
     @_timer = setTimeout(@commit, 10000)
 
+  addPluginMetadata: (pluginId, metadata) =>
+    changes = {}
+    changes["#{MetadataChangePrefix}#{pluginId}"] = metadata
+    @add(changes)
+
   commit: ({noSyncback}={}) =>
     @_commitChain = @_commitChain.finally =>
       if Object.keys(@_pending).length is 0
@@ -58,8 +66,12 @@ class DraftChangeSet
 
   applyToModel: (model) =>
     if model
-      model[key] = val for key, val of @_saving
-      model[key] = val for key, val of @_pending
+      changesToApply = _.pairs(@_saving).concat(_.pairs(@_pending))
+      for [key, val] in changesToApply
+        if key.startsWith(MetadataChangePrefix)
+          model.applyPluginMetadata(key.split(MetadataChangePrefix).pop(), val)
+        else
+          model[key] = val
     model
 
 ###
@@ -82,7 +94,7 @@ class DraftStoreProxy
   @include Listener
 
   constructor: (@draftClientId, draft = null) ->
-    DraftStore = require './draft-store'
+    DraftStore ?= require './draft-store'
     @listenTo DraftStore, @_onDraftChanged
 
     @_draft = false
@@ -133,8 +145,6 @@ class DraftStoreProxy
 
     # Reverse draft transformations performed by third-party plugins when the draft
     # was last saved to disk
-    DraftStore = require './draft-store'
-
     return Promise.each ExtensionRegistry.Composer.extensions(), (ext) ->
       if ext.applyTransformsToDraft and ext.unapplyTransformsToDraft
         Promise.resolve(ext.unapplyTransformsToDraft({draft})).then (untransformed) ->
