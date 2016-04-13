@@ -51,6 +51,7 @@ class EmojiStore extends NylasStore {
         return `images/composer-emoji/twitter/${emoji.image}`;
       }
     }
+    return null;
   }
 
   _onUseEmoji = (emoji) => {
