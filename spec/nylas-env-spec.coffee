@@ -92,8 +92,7 @@ describe "the `NylasEnv` global", ->
       updateAvailableHandler = jasmine.createSpy("update-available-handler")
       subscription = NylasEnv.onUpdateAvailable updateAvailableHandler
 
-      autoUpdater = require('remote').require('auto-updater')
-      autoUpdater.emit 'update-downloaded', null, "notes", "version"
+      remote.autoUpdater.emit 'update-downloaded', null, "notes", "version"
 
       waitsFor ->
         updateAvailableHandler.callCount > 0
