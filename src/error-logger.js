@@ -72,7 +72,7 @@ module.exports = (function() {
   };
 
   ErrorLogger.prototype.openLogs = function() {
-    var shell = require('shell');
+    var shell = require('electron').shell;
     shell.openItem(this._logPath());
   };
 
