@@ -1,16 +1,14 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
 import {
-  Event,
   Actions,
-  Calendar,
   APIError,
   NylasAPI,
-  DraftStore,
-  DatabaseStore,
 } from 'nylas-exports'
 import {Menu, RetinaImg} from 'nylas-component-kit'
 import {PLUGIN_ID, PLUGIN_NAME} from '../scheduler-constants'
+
+import NewEventHelper from './new-event-helper'
 
 import moment from 'moment'
 // moment-round upon require patches `moment` with new functions.
@@ -23,54 +21,30 @@ export default class SchedulerComposerButton extends React.Component {
   static displayName = "SchedulerComposerButton";
 
   static propTypes = {
-    draftClientId: React.PropTypes.string,
+    draft: React.PropTypes.object.isRequired,
+    session: React.PropTypes.object.isRequired,
   };
 
   constructor(props) {
     super(props);
     this.state = {enabled: false};
-    this._session = null;
-    this._mounted = false;
     this._unsubscribes = [];
   }
 
-  componentDidMount() {
-    this._mounted = true;
-    this.handleProps()
+  shouldComponentUpdate(nextProps, nextState) {
+    return (this.state !== nextState) ||
+      (this._hasPendingEvent(nextProps) !== this._hasPendingEvent(this.props));
   }
 
-  componentWillReceiveProps(newProps) {
-    this.handleProps(newProps);
-  }
-
-  handleProps(newProps = null) {
-    const props = newProps || this.props;
-    DraftStore.sessionForClientId(props.draftClientId).then(session => {
-      // Only run if things are still relevant: component is mounted
-      // and draftClientIds still match
-      const idIsCurrent = newProps ? true : this.props.draftClientId === session.draftClientId;
-      if (this._mounted && idIsCurrent) {
-        this._session = session;
-        const unsub = session.listen(this._onDraftChange.bind(this));
-        this._unsubscribes.push(unsub);
-        this._onDraftChange();
-      }
-    });
-  }
-
-  _onDraftChange() {
-    this.setState({enabled: this._hasPendingEvent()});
-  }
-
-  _hasPendingEvent() {
-    const metadata = this._session.draft().metadataForPluginId(PLUGIN_ID);
+  _hasPendingEvent(props) {
+    const metadata = props.draft.metadataForPluginId(PLUGIN_ID);
     return metadata && metadata.pendingEvent
   }
 
   // Helper method that will render the contents of our popover.
   _renderPopover() {
     const headerComponents = [
-      <span>I'd like to:</span>,
+      <span key="header">I'd like to:</span>,
     ];
     const items = [
       MEETING_REQUEST,
@@ -91,14 +65,14 @@ export default class SchedulerComposerButton extends React.Component {
   }
 
   _onSelectItem = (item) => {
-    this._onCreateEventCard();
-    const draft = this._session.draft()
+    NewEventHelper.addEventToSession(this.props.session)
+
     if (item === PROPOSAL) {
       NylasEnv.newWindow({
         title: "Calendar",
         windowType: "calendar",
         windowProps: {
-          draftClientId: draft.clientId,
+          draftClientId: this.props.draft.clientId,
         },
       });
     }
@@ -106,10 +80,8 @@ export default class SchedulerComposerButton extends React.Component {
   }
 
   _onClick = () => {
-    if (!this._session) { return }
-    const draft = this._session.draft()
     const buttonRect = ReactDOM.findDOMNode(this).getBoundingClientRect()
-    NylasAPI.authPlugin(PLUGIN_ID, PLUGIN_NAME, draft.accountId)
+    NylasAPI.authPlugin(PLUGIN_ID, PLUGIN_NAME, this.props.draft.accountId)
     .catch((error) => {
       let title = "Error"
       let msg = `Unfortunately scheduling is not currently available. \
@@ -131,42 +103,16 @@ Please try again later.\n\nError: ${error}`
     )
   }
 
-  _onCreateEventCard = () => {
-    if (!this._session) { return }
-    const draft = this._session.draft()
-    DatabaseStore.findAll(Calendar, {accountId: draft.accountId})
-    .then((allCalendars) => {
-      if (allCalendars.length === 0) {
-        throw new Error(`Can't create an event. The Account \
-${draft.accountId} has no calendars.`);
-      }
-
-      const cals = allCalendars.filter(c => !c.readOnly);
-
-      if (cals.length === 0) {
-        NylasEnv.showErrorDialog(`This account has no editable \
-calendars. We can't create an event for you. Please make sure you have an \
-editable calendar with your account provider.`);
-        return;
-      }
-
-      const start = moment().ceil(30, 'minutes');
-      const metadata = draft.metadataForPluginId(PLUGIN_ID) || {};
-      metadata.uid = draft.clientId;
-      metadata.pendingEvent = new Event({
-        calendarId: cals[0].id,
-        start: start.unix(),
-        end: moment(start).add(1, 'hour').unix(),
-      }).toJSON();
-      Actions.setMetadata(draft, PLUGIN_ID, metadata);
-    })
+  _now() {
+    return moment()
   }
 
   render() {
+    const hasEvent = this._hasPendingEvent(this.props);
     return (
-      <button className={`btn btn-toolbar ${this.state.enabled ? "btn-enabled" : ""}`}
+      <button className={`btn btn-toolbar ${hasEvent ? "btn-enabled" : ""}`}
         onClick={this._onClick}
-        title="Add an event…"
+        title="Schedule an event…"
       >
       <RetinaImg url="nylas://composer-scheduler/assets/ic-composer-scheduler@2x.png"
         mode={RetinaImg.Mode.ContentIsMask}
@@ -179,3 +125,5 @@ editable calendar with your account provider.`);
     </button>)
   }
 }
+
+SchedulerComposerButton.containerRequired = false;

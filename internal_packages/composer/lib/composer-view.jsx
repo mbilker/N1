@@ -239,7 +239,12 @@ export default class ComposerView extends React.Component {
       <div className="composer-footer-region">
         <InjectedComponentSet
           matching={{role: "Composer:Footer"}}
-          exposedProps={{draftClientId: this.props.draft.clientId, threadId: this.props.draft.threadId}}
+          exposedProps={{
+            draft: this.props.draft,
+            threadId: this.props.draft.threadId,
+            draftClientId: this.props.draft.clientId,
+            session: this.props.session,
+          }}
           direction="column"/>
       </div>
     );
@@ -311,7 +316,13 @@ export default class ComposerView extends React.Component {
         <InjectedComponentSet
           className="composer-action-bar-plugins"
           matching={{role: "Composer:ActionButton"}}
-          exposedProps={{draftClientId: this.props.draft.clientId, threadId: this.props.draft.threadId}} />
+          exposedProps={{
+            draft: this.props.draft,
+            threadId: this.props.draft.threadId,
+            draftClientId: this.props.draft.clientId,
+            session: this.props.session,
+          }}
+        />
 
         <button
           tabIndex={-1}
@@ -428,11 +439,11 @@ export default class ComposerView extends React.Component {
   }
 
   _onBodyChanged = (event) => {
-    this._addToProxy({body: this._showQuotedText(event.target.value)});
+    this._applyChanges({body: this._showQuotedText(event.target.value)});
     return;
   }
 
-  _addToProxy = (changes = {}, source = {}) => {
+  _applyChanges = (changes = {}, source = {}) => {
     const selections = this._getSelections();
     this.props.session.changes.add(changes);
 
@@ -549,7 +560,7 @@ export default class ComposerView extends React.Component {
     }
 
     this._recoveredSelection = historyItem.currentSelection;
-    this._addToProxy(historyItem.state, {fromUndoManager: true});
+    this._applyChanges(historyItem.state, {fromUndoManager: true});
     this._recoveredSelection = null;
   }
 
@@ -561,7 +572,7 @@ export default class ComposerView extends React.Component {
       return;
     }
     this._recoveredSelection = historyItem.currentSelection;
-    this._addToProxy(historyItem.state, {fromUndoManager: true});
+    this._applyChanges(historyItem.state, {fromUndoManager: true});
     this._recoveredSelection = null;
   }
 

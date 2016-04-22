@@ -13,20 +13,20 @@ MetadataChangePrefix = 'metadata.'
 
 ###
 Public: As the user interacts with the draft, changes are accumulated in the
-DraftChangeSet associated with the store proxy. The DraftChangeSet does two things:
+DraftChangeSet associated with the store session. The DraftChangeSet does two things:
 
 1. It debounces changes and calls Actions.saveDraft() at a reasonable interval.
 
 2. It exposes `applyToModel`, which allows you to optimistically apply changes
-  to a draft object. When the proxy vends the draft, it passes it through this
+  to a draft object. When the session vends the draft, it passes it through this
   function to apply uncommitted changes. This means the Draft provided by the
-  DraftStoreProxy will always relfect recent changes, even though they're
+  DraftEditingSession will always relfect recent changes, even though they're
   written to the database intermittently.
 
 Section: Drafts
 ###
 class DraftChangeSet
-  constructor: (@_onTrigger, @_onCommit) ->
+  constructor: (@_onAltered, @_onCommit) ->
     @_commitChain = Promise.resolve()
     @_pending = {}
     @_saving = {}
@@ -39,10 +39,10 @@ class DraftChangeSet
       clearTimeout(@_timer)
       @_timer = null
 
-  add: (changes, {silent} = {}) =>
+  add: (changes) =>
     @_pending = _.extend(@_pending, changes)
     @_pending['pristine'] = false
-    @_onTrigger() unless silent
+    @_onAltered()
 
     clearTimeout(@_timer) if @_timer
     @_timer = setTimeout(@commit, 10000)
@@ -75,7 +75,7 @@ class DraftChangeSet
     model
 
 ###
-Public: DraftStoreProxy is a small class that makes it easy to implement components
+Public: DraftEditingSession is a small class that makes it easy to implement components
 that display Draft objects or allow for interactive editing of Drafts.
 
 1. It synchronously provides an instance of a draft via `draft()`, and
@@ -87,7 +87,7 @@ that display Draft objects or allow for interactive editing of Drafts.
 
 Section: Drafts
 ###
-class DraftStoreProxy
+class DraftEditingSession
   @include: CoffeeHelpers.includeModule
 
   @include Publisher
@@ -101,7 +101,7 @@ class DraftStoreProxy
     @_draftPristineBody = null
     @_destroyed = false
 
-    @changes = new DraftChangeSet(@_changeSetTrigger, @_changeSetCommit)
+    @changes = new DraftChangeSet(@_changeSetAltered, @_changeSetCommit)
 
     if draft
       @_draftPromise = @_setDraft(draft)
@@ -113,7 +113,7 @@ class DraftStoreProxy
   draft: ->
     return null if not @_draft
     @changes.applyToModel(@_draft)
-    @_draft
+    @_draft.clone()
 
   # Public: Returns the initial body of the draft when it was pristine, or null if the
   # draft was never pristine in this editing session. Useful for determining if the
@@ -135,7 +135,7 @@ class DraftStoreProxy
 
   _setDraft: (draft) ->
     if !draft.body?
-      throw new Error("DraftStoreProxy._setDraft - new draft has no body!")
+      throw new Error("DraftEditingSession._setDraft - new draft has no body!")
 
     # We keep track of the draft's initial body if it's pristine when the editing
     # session begins. This initial value powers things like "are you sure you want
@@ -163,13 +163,15 @@ class DraftStoreProxy
     # Is this change an update to our draft?
     myDrafts = _.filter(change.objects, (obj) => obj.clientId is @_draft.clientId)
     if myDrafts.length > 0
-      @_draft = _.extend @_draft, _.last(myDrafts)
+      @_draft = Object.assign(new Message(), @_draft, myDrafts.pop())
       @trigger()
 
-  _changeSetTrigger: =>
+  _changeSetAltered: =>
     return if @_destroyed
     if !@_draft
       throw new Error("DraftChangeSet was modified before the draft was prepared.")
+
+    @changes.applyToModel(@_draft)
     @trigger()
 
   _changeSetCommit: ({noSyncback}={}) =>
@@ -206,6 +208,6 @@ class DraftStoreProxy
       Actions.ensureDraftSynced(@draftClientId)
 
 
-DraftStoreProxy.DraftChangeSet = DraftChangeSet
+DraftEditingSession.DraftChangeSet = DraftChangeSet
 
-module.exports = DraftStoreProxy
+module.exports = DraftEditingSession

@@ -60,8 +60,6 @@ class Package
   menus: null
   stylesheets: null
   stylesheetDisposables: null
-  grammars: null
-  settings: null
   mainModulePath: null
   resolvedMainModulePath: false
   mainModule: null
@@ -145,12 +143,10 @@ class Package
         @loadKeymaps()
         @loadMenus()
         @loadStylesheets()
-        @settingsPromise = @loadSettings()
-        if not @hasActivationCommands()
-          mainModule = @requireMainModule()
-          return unless mainModule
-          @registerModelConstructors(mainModule.modelConstructors)
-          @registerTaskConstructors(mainModule.taskConstructors)
+        mainModule = @requireMainModule()
+        return unless mainModule
+        @registerModelConstructors(mainModule.modelConstructors)
+        @registerTaskConstructors(mainModule.taskConstructors)
 
       catch error
         console.warn "Failed to load package named '#{@name}'"
@@ -172,22 +168,15 @@ class Package
     @stylesheets = []
     @keymaps = []
     @menus = []
-    @grammars = []
-    @settings = []
 
   activate: ->
-    @grammarsPromise ?= @loadGrammars()
-
     unless @activationDeferred?
       @activationDeferred = Q.defer()
       @measure 'activateTime', =>
         @activateResources()
-        if @hasActivationCommands()
-          @subscribeToActivationCommands()
-        else
-          @activateNow()
+        @activateNow()
 
-    Q.all([@grammarsPromise, @settingsPromise, @activationDeferred.promise])
+    Q.all([@activationDeferred.promise])
 
   activateNow: ->
     try
@@ -197,7 +186,6 @@ class Package
         localState = NylasEnv.packages.getPackageState(@name) ? {}
         @mainModule.activate(localState)
         @mainActivated = true
-        @activateServices()
     catch e
       console.log e.message
       console.log e.stack
@@ -238,22 +226,6 @@ class Package
     @activationDisposables = new CompositeDisposable
     @activationDisposables.add(NylasEnv.keymaps.add(keymapPath, map)) for [keymapPath, map] in @keymaps
     @activationDisposables.add(NylasEnv.menu.add(map['menu'])) for [menuPath, map] in @menus when map['menu']?
-
-    unless @grammarsActivated
-      grammar.activate() for grammar in @grammars
-      @grammarsActivated = true
-
-    settings.activate() for settings in @settings
-    @settingsActivated = true
-
-  activateServices: ->
-    for name, {versions} of @metadata.providedServices
-      for version, methodName of versions
-        @activationDisposables.add NylasEnv.packages.serviceHub.provide(name, version, @mainModule[methodName]())
-
-    for name, {versions} of @metadata.consumedServices
-      for version, methodName of versions
-        @activationDisposables.add NylasEnv.packages.serviceHub.consume(name, version, @mainModule[methodName].bind(@mainModule))
 
   loadKeymaps: ->
     if @bundledPackage and packagesCache[@name]?
@@ -304,66 +276,6 @@ class Package
       _.filter fs.listSync(stylesheetDirPath, ['css', 'less']), (file) ->
         path.basename(file)[0] isnt '.'
 
-  loadGrammarsSync: ->
-    return if @grammarsLoaded
-
-    grammarsDirPath = path.join(@path, 'grammars')
-    grammarPaths = fs.listSync(grammarsDirPath, ['json', 'cson'])
-    for grammarPath in grammarPaths
-      try
-        grammar = NylasEnv.grammars.readGrammarSync(grammarPath)
-        grammar.packageName = @name
-        @grammars.push(grammar)
-        grammar.activate()
-      catch error
-        console.warn("Failed to load grammar: #{grammarPath}", error.stack ? error)
-
-    @grammarsLoaded = true
-    @grammarsActivated = true
-
-  loadGrammars: ->
-    return Q() if @grammarsLoaded
-
-    loadGrammar = (grammarPath, callback) =>
-      NylasEnv.grammars.readGrammar grammarPath, (error, grammar) =>
-        if error?
-          console.warn("Failed to load grammar: #{grammarPath}", error.stack ? error)
-        else
-          grammar.packageName = @name
-          @grammars.push(grammar)
-          grammar.activate() if @grammarsActivated
-        callback()
-
-    deferred = Q.defer()
-    grammarsDirPath = path.join(@path, 'grammars')
-    fs.list grammarsDirPath, ['json', 'cson'], (error, grammarPaths=[]) ->
-      async.each grammarPaths, loadGrammar, -> deferred.resolve()
-    deferred.promise
-
-  loadSettings: ->
-    @settings = []
-
-    loadSettingsFile = (settingsPath, callback) =>
-      ScopedProperties.load settingsPath, (error, settings) =>
-        if error?
-          console.warn("Failed to load package settings: #{settingsPath}", error.stack ? error)
-        else
-          @settings.push(settings)
-          settings.activate() if @settingsActivated
-        callback()
-
-    deferred = Q.defer()
-
-    if fs.isDirectorySync(path.join(@path, 'scoped-properties'))
-      settingsDirPath = path.join(@path, 'scoped-properties')
-      deprecate("Store package settings files in the `settings/` directory instead of `scoped-properties/`", packageName: @name)
-    else
-      settingsDirPath = path.join(@path, 'settings')
-
-    fs.list settingsDirPath, ['json', 'cson'], (error, settingsPaths=[]) ->
-      async.each settingsPaths, loadSettingsFile, -> deferred.resolve()
-    deferred.promise
-
   serialize: ->
     if @mainActivated
       try
@@ -390,13 +302,9 @@ class Package
     @configActivated = false
 
   deactivateResources: ->
-    grammar.deactivate() for grammar in @grammars
-    settings.deactivate() for settings in @settings
     @stylesheetDisposables?.dispose()
     @activationDisposables?.dispose()
     @stylesheetsActivated = false
-    @grammarsActivated = false
-    @settingsActivated = false
 
   reloadStylesheets: ->
     oldSheets = _.clone(@stylesheets)
@@ -436,70 +344,6 @@ class Package
           path.join(@path, 'index')
       @mainModulePath = fs.resolveExtension(mainModulePath, ["", Object.keys(require.extensions)...])
 
-  hasActivationCommands: ->
-    for selector, commands of @getActivationCommands()
-      return true if commands.length > 0
-    false
-
-  subscribeToActivationCommands: ->
-    @activationCommandSubscriptions = new CompositeDisposable
-    for selector, commands of @getActivationCommands()
-      for command in commands
-        do (selector, command) =>
-          # Add dummy command so it appears in menu.
-          # The real command will be registered on package activation
-          @activationCommandSubscriptions.add NylasEnv.commands.add selector, command, ->
-          @activationCommandSubscriptions.add NylasEnv.commands.onWillDispatch (event) =>
-            return unless event.type is command
-            currentTarget = event.target
-            while currentTarget
-              if currentTarget.webkitMatchesSelector(selector)
-                @activationCommandSubscriptions.dispose()
-                @activateNow()
-                break
-              currentTarget = currentTarget.parentElement
-
-  getActivationCommands: ->
-    return @activationCommands if @activationCommands?
-
-    @activationCommands = {}
-
-    if @metadata.activationCommands?
-      for selector, commands of @metadata.activationCommands
-        @activationCommands[selector] ?= []
-        if _.isString(commands)
-          @activationCommands[selector].push(commands)
-        else if _.isArray(commands)
-          @activationCommands[selector].push(commands...)
-
-    if @metadata.activationEvents?
-      deprecate """
-        Use `activationCommands` instead of `activationEvents` in your package.json
-        Commands should be grouped by selector as follows:
-        ```json
-          "activationCommands": {
-            "nylas-workspace": ["foo:bar", "foo:baz"],
-            "nylas-theme-wrap": ["foo:quux"]
-          }
-        ```
-      """
-      if _.isArray(@metadata.activationEvents)
-        for eventName in @metadata.activationEvents
-          @activationCommands['nylas-workspace'] ?= []
-          @activationCommands['nylas-workspace'].push(eventName)
-      else if _.isString(@metadata.activationEvents)
-        eventName = @metadata.activationEvents
-        @activationCommands['nylas-workspace'] ?= []
-        @activationCommands['nylas-workspace'].push(eventName)
-      else
-        for eventName, selector of @metadata.activationEvents
-          selector ?= 'nylas-workspace'
-          @activationCommands[selector] ?= []
-          @activationCommands[selector].push(eventName)
-
-    @activationCommands
-
-  # Does the given module path contain native code?
   isNativeModule: (modulePath) ->
     try
       fs.listSync(path.join(modulePath, 'build', 'Release'), ['.node']).length > 0
