@@ -220,17 +220,18 @@ class Message extends ModelWithMetadata
     to.length > 1 or cc.length > 0
 
   # Public: Returns a set of uniqued message participants by combining the
-  # `to`, `cc`, and `from` fields.
-  participants: ->
-    seen = {}
-    all = []
-    for contact in [].concat(@to, @cc, @from)
-      continue unless contact.email
-      key = contact.toString().trim().toLowerCase()
-      continue if seen[key]
-      seen[key] = true
-      all.push(contact)
-    all
+  # `to`, `cc`, 'bcc', and (optionally) `from` fields.
+  participants: ({includeFrom, includeBcc} = {includeFrom: true, includeBcc: false}) ->
+    participants = {}
+    contacts = _.union((@to ? []), (@cc ? []))
+    if includeFrom
+      contacts = _.union(contacts, (@from ? []))
+    if includeBcc
+      contacts = _.union(contacts, (@bcc ? []))
+    for contact in contacts
+      if contact? and contact.email?.length > 0
+        participants["#{(contact?.email ? "").toLowerCase().trim()} #{(contact?.name ? "").toLowerCase().trim()}"] = contact if contact?
+    return _.values(participants)
 
   # Public: Returns a hash with `to` and `cc` keys for authoring a new draft in
   # "reply all" to this message. This method takes into account whether the
