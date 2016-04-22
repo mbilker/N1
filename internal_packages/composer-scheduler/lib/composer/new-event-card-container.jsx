@@ -23,10 +23,6 @@ export default class NewEventCardContainer extends Component {
     session: PropTypes.object.isRequired,
   }
 
-  constructor(props) {
-    super(props);
-  }
-
   componentDidMount() {
     this._unlisten = SchedulerActions.confirmChoices.listen(this._onConfirmChoices);
   }

@@ -13,10 +13,6 @@ class TemplateStatusBar extends React.Component {
     margin: 'auto',
   };
 
-  constructor() {
-    super();
-  }
-
   shouldComponentUpdate(nextProps) {
     return (this._usingTemplate(nextProps) !== this._usingTemplate(this.props));
   }
