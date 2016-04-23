@@ -1,3 +1,5 @@
+/* eslint no-use-before-define: 0 */
+
 import React, {Component, PropTypes} from 'react'
 import ReactDOM from 'react-dom'
 import SelectableTable, {SelectableCell} from './selectable-table'

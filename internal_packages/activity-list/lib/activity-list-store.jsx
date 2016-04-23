@@ -10,10 +10,6 @@ const LINK_TRACKING_ID = "a1ec1s3ieddpik6lpob74hmcq";
 
 
 class ActivityListStore extends NylasStore {
-  constructor() {
-    super();
-  }
-
   activate() {
     this._getActivity();
   }

@@ -1,7 +1,6 @@
 /** @babel */
 
-import { Utils, DraftStore, React } from 'nylas-exports';
-import { RetinaImg } from 'nylas-component-kit';
+import { React } from 'nylas-exports';
 import PGPKeyStore from './pgp-key-store';
 import pgp from 'kbpgp';
 import _ from 'underscore';
@@ -35,10 +34,6 @@ class EncryptMessageButton extends React.Component {
     this.unlistenKeystore = PGPKeyStore.listen(this._onKeystoreChange, this);
   }
 
-  componentWillUnmount() {
-    this.unlistenKeystore();
-  }
-
   componentWillReceiveProps(nextProps) {
     const { currentlyEncrypted, cryptotext } = this.state;
 
@@ -51,9 +46,13 @@ class EncryptMessageButton extends React.Component {
     }
   }
 
+  componentWillUnmount() {
+    this.unlistenKeystore();
+  }
+
   _getKeys() {
     const keys = [];
-    for (let recipient of this.props.draft.participants({ includeFrom: false, includeBcc: true })) {
+    for (const recipient of this.props.draft.participants({ includeFrom: false, includeBcc: true })) {
       const publicKeys = PGPKeyStore.pubKeys(recipient.email);
       if (publicKeys.length < 1) {
         // no key for this user:
@@ -63,7 +62,7 @@ class EncryptMessageButton extends React.Component {
       } else {
         // note: this, by default, encrypts using every public key associated
         // with the address
-        for (let publicKey of publicKeys) {
+        for (const publicKey of publicKeys) {
           if (!publicKey.key) {
             PGPKeyStore.getKeyContents({ key: publicKey });
           } else {
@@ -142,7 +141,10 @@ class EncryptMessageButton extends React.Component {
       // - link to preferences page
       // - formatting, probably an error dialog is the wrong way to do this
       // - potentially an option to disable this warning in the pref. page?
-      NylasEnv.showErrorDialog(`At least one key is missing - the following recipients won't be able to decrypt the message:\n- ${missingAddrs}\n\nYou can add keys for them from the preferences page.`);
+      NylasEnv.showErrorDialog(`At least one key is missing - the following recipients won't be able to decrypt the message:
+- ${missingAddrs}
+
+You can add keys for them from the preferences page.`);
     }
 
     // get the actual key objects

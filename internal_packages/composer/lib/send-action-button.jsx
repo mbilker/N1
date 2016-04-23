@@ -13,8 +13,11 @@ export default class SendActionButton extends React.Component {
     isValidDraft: React.PropTypes.func,
   };
 
+  static containerRequired = false
+
   constructor(props) {
     super(props)
+
     this.state = {
       actionConfigs: this._actionConfigs(this.props),
     };
@@ -31,8 +34,6 @@ export default class SendActionButton extends React.Component {
   componentWillUnmount() {
     this.unsub();
   }
-
-  static containerRequired = false
 
   primaryClick() {
     this._onPrimaryClick();

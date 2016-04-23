@@ -1,10 +1,8 @@
 /** @babel */
 
-import { Utils, React, RegExpUtils } from 'nylas-exports';
+import { React, RegExpUtils } from 'nylas-exports';
 import PGPKeyStore from './pgp-key-store';
-import kb from './keybase';
 import pgp from 'kbpgp';
-import _ from 'underscore';
 
 class KeyAdder extends React.Component {
   static displayName = 'KeyAdder';
@@ -77,26 +75,26 @@ class KeyAdder extends React.Component {
 
   _generateKeypair() {
     this.setState({ placeholder: "Generating your key now..." });
-    pgp.KeyManager.generate_rsa({ userid : this.state.address }, (err, km) => {
+    pgp.KeyManager.generate_rsa({ userid: this.state.address }, (err, km) => {
       km.sign({}, (err2) => {
         if (err2) {
           console.warn(err);
         }
 
         // todo: add passphrase input
-        km.export_pgp_private({ passphrase: this.state.passphrase }, (err, pgp_private) => {
+        km.export_pgp_private({ passphrase: this.state.passphrase }, (err3, pgpPrivate) => {
           // Remove trailing whitespace, if necessary.
           // if pgp_private.charAt(pgp_private.length - 1) != '-'
           //   pgp_private = pgp_private.slice(0, -1)
-          PGPKeyStore.saveNewKey(this.state.address, pgp_private, false);
+          PGPKeyStore.saveNewKey(this.state.address, pgpPrivate, false);
         });
-        km.export_pgp_public({}, (err, pgp_public) => {
+        km.export_pgp_public({}, (err3, pgpPublic) => {
           // Remove trailing whitespace, if necessary.
           // if pgp_public.charAt(pgp_public.length - 1) != '-'
           //   pgp_public = pgp_public.slice(0, -1)
-          PGPKeyStore.saveNewKey(this.state.address, pgp_public, isPub = true)
+          PGPKeyStore.saveNewKey(this.state.address, pgpPublic, true)
           this.setState({
-            keyContents: pgp_public,
+            keyContents: pgpPublic,
             placeholder: 'Your generated public key will appear here. Share it with your friends!',
           });
         });
@@ -132,19 +130,20 @@ class KeyAdder extends React.Component {
   };
 
   _onKeyChange = (event) => {
+    let valid = true;
+
     this.setState({
       keyContents: event.target.value,
     });
 
     pgp.KeyManager.import_from_armored_pgp({
       armored: event.target.value,
-    }, (err, km) => {
+    }, (err) => {
       if (err) {
         console.warn(err);
         valid = false;
-      } else {
-        valid = true;
       }
+
       this.setState({
         validKeyBody: valid,
       });

@@ -1,10 +1,7 @@
 /** @babel */
 
-import { Utils, React } from 'nylas-exports';
-import PGPKeyStore from './pgp-key-store';
+import { React } from 'nylas-exports';
 import KeybaseUser from './keybase-user';
-import kb from './keybase';
-import _ from 'underscore';
 
 class KeyManager extends React.Component {
   static displayName = 'KeyManager';

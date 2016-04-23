@@ -1,26 +1,29 @@
+/* eslint no-use-before-define: 0 */
+
 import React, {Component, PropTypes} from 'react'
 import MailMergeTable from './mail-merge-table'
-
 
 class MailMergeWorkspace extends Component {
   static displayName = 'MailMergeWorkspace'
 
   static propTypes = {
+    draftClientId: PropTypes.string,
     isWorkspaceOpen: PropTypes.bool,
     tableData: MailMergeTable.propTypes.tableData,
     selection: PropTypes.object,
-    draftClientId: PropTypes.string,
     session: PropTypes.object,
   }
 
   render() {
     const {session, draftClientId, isWorkspaceOpen, tableData, selection, ...otherProps} = this.props
+
     if (!isWorkspaceOpen) {
       return false
     }
 
     const {row} = selection
     const {rows} = tableData
+
     return (
       <div className="mail-merge-workspace">
         <div className="selection-controls">

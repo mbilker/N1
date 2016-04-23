@@ -1,7 +1,6 @@
-import React, {Component, PropTypes} from 'react'
-import {EditableTable, RetinaImg} from 'nylas-component-kit'
+import React from 'react'
+import { EditableTable, RetinaImg } from 'nylas-component-kit'
 import {DataTransferTypes} from './mail-merge-constants'
-
 
 function Input({isHeader, colIdx, onDragStart, ...props}) {
   if (!isHeader) {
@@ -19,13 +18,18 @@ function Input({isHeader, colIdx, onDragStart, ...props}) {
   )
 }
 
-class MailMergeTable extends Component {
+Input.propTypes = {
+  isHeader: React.PropTypes.bool,
+  colIdx: React.PropTypes.number,
+  onDragStart: React.PropTypes.func.isRequired,
+};
 
+class MailMergeTable extends React.Component {
   static propTypes = {
+    draftClientId: React.PropTypes.string,
     tableData: EditableTable.propTypes.tableData,
-    selection: PropTypes.object,
-    draftClientId: PropTypes.string,
-    onShiftSelection: PropTypes.func,
+    selection: React.PropTypes.object,
+    onShiftSelection: React.PropTypes.func,
   }
 
   onDragColumn(event, colIdx) {

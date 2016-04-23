@@ -21,7 +21,8 @@ export function colIdxFromContact(contact) {
 
 export function bodyTokenRegex(draftClientId, colIdx) {
   // TODO update this regex for when it doesn't contain the style tag
-  const reStr = `<span class="mail-merge-token" contenteditable="false" tabindex="-1" style="border: 1px solid red;" data-col-idx="${colIdx}" data-draft-client-id="${draftClientId}">[^]*</span>`
+  const style = 'style="border: 1px solid red;"';
+  const reStr = `<span class="mail-merge-token" contenteditable="false" tabindex="-1" ${style} data-col-idx="${colIdx}" data-draft-client-id="${draftClientId}">[^]*</span>`
   return new RegExp(reStr)
 }
 

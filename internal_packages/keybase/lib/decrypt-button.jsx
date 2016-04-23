@@ -1,8 +1,7 @@
 /** @babel */
 
-import { MessageStore, React, ReactDOM } from 'nylas-exports';
+import { React, ReactDOM } from 'nylas-exports';
 import PGPKeyStore from './pgp-key-store';
-import pgp from 'kbpgp';
 
 class DecryptMessageButton extends React.Component {
   static displayName = 'DecryptMessageButton';
@@ -17,6 +16,14 @@ class DecryptMessageButton extends React.Component {
     this.state = this._getStateFromStores();
   }
 
+  componentDidMount() {
+    this.unlistenKeystore = PGPKeyStore.listen(this._onKeystoreChange, this);
+  }
+
+  componentWillUnmount() {
+    this.unlistenKeystore();
+  }
+
   _getStateFromStores() {
     const { message } = this.props;
     return {
@@ -24,14 +31,6 @@ class DecryptMessageButton extends React.Component {
       wasEncrypted: PGPKeyStore.hasEncryptedComponent(message),
       status: PGPKeyStore.msgStatus(message),
     };
-  }
-
-  componentDidMount() {
-    this.unlistenKeystore = PGPKeyStore.listen(this._onKeystoreChange, this);
-  }
-
-  componentWillUnmount() {
-    this.unlistenKeystore();
   }
 
   _onKeystoreChange() {
@@ -47,11 +46,11 @@ class DecryptMessageButton extends React.Component {
     const { message } = this.props;
     const passphrase = ReactDOM.findDOMNode(this.refs.passphrase).value;
 
-    for (let recipient of message.to) {
+    for (const recipient of message.to) {
       // right now, just try to unlock all possible keys
       // (many will fail - TODO?)
       const privateKeys = PGPKeyStore.privKeys({ address: recipient.email, timed: false });
-      for (let privateKey of privateKeys) {
+      for (const privateKey of privateKeys) {
         PGPKeyStore.getKeyContents({ key: privateKey, passphrase: passphrase });
       }
     }
@@ -75,13 +74,12 @@ class DecryptMessageButton extends React.Component {
           <div className="decrypted" ref="decrypted">{this.state.status}</div>
         </div>
       );
-    } else {
-      // TODO inform user of errors/etc. instead of failing without showing it
-      return (
-        <div className="n1-keybase">
-        </div>
-      );
     }
+
+    // TODO inform user of errors/etc. instead of failing without showing it
+    return (
+      <div className="n1-keybase" />
+    );
   }
 }
 

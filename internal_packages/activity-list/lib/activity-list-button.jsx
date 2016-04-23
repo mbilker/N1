@@ -8,10 +8,6 @@ import ActivityList from './activity-list';
 class ActivityListButton extends React.Component {
   static displayName = 'ActivityListButton';
 
-  constructor() {
-    super();
-  }
-
   onClick = () => {
     const buttonRect = ReactDOM.findDOMNode(this).getBoundingClientRect();
     Actions.openPopover(

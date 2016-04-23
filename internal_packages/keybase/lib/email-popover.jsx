@@ -5,6 +5,10 @@ import { ParticipantsTextField } from 'nylas-component-kit';
 import _ from 'underscore';
 
 class EmailPopover extends React.Component {
+  static propTypes = {
+    onPopoverDone: React.PropTypes.func.isRequired,
+  };
+
   constructor() {
     super();
 

@@ -1,3 +1,5 @@
+/* eslint no-use-before-define: 0 */
+
 import _ from 'underscore'
 import classnames from 'classnames'
 import React, {Component, PropTypes} from 'react'
