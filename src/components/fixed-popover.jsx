@@ -2,6 +2,8 @@ import _ from 'underscore';
 import React, {Component, PropTypes} from 'react';
 import {findDOMNode} from 'react-dom';
 import Actions from '../flux/actions';
+import AutoFocuses from './decorators/auto-focuses'
+import compose from './decorators/compose'
 
 
 const Directions = {
@@ -41,6 +43,7 @@ class FixedPopover extends Component {
       height: PropTypes.number,
       width: PropTypes.number,
     }),
+    focusElementWithTabIndex: PropTypes.func,
   };
 
   static Directions = Directions;
@@ -59,7 +62,6 @@ class FixedPopover extends Component {
 
   componentDidMount() {
     this.mounted = true;
-    this.focusElementWithTabIndex()
     findDOMNode(this.refs.popoverContainer).addEventListener('animationend', this.onAnimationEnd)
     window.addEventListener('resize', this.onWindowResize)
     _.defer(this.onPopoverRendered)
@@ -78,7 +80,6 @@ class FixedPopover extends Component {
   }
 
   componentDidUpdate() {
-    this.focusElementWithTabIndex()
     _.defer(this.onPopoverRendered)
   }
 
@@ -89,7 +90,7 @@ class FixedPopover extends Component {
   }
 
   onAnimationEnd = () => {
-    _.defer(this.focusElementWithTabIndex);
+    _.defer(this.props.focusElementWithTabIndex);
   }
 
   onWindowResize() {
@@ -342,4 +343,4 @@ class FixedPopover extends Component {
   }
 }
 
-export default FixedPopover;
+export default compose(FixedPopover, AutoFocuses)

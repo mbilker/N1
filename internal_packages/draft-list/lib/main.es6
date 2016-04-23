@@ -10,7 +10,7 @@ export function activate() {
     'Drafts',
     {root: true},
     {list: ['RootSidebar', 'DraftList']}
-  )
+  );
   if (NylasEnv.savedState.perspective &&
     NylasEnv.savedState.perspective.type === "DraftsMailboxPerspective") {
     Actions.selectRootSheet(WorkspaceStore.Sheet.Drafts);

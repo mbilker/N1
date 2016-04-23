@@ -32,6 +32,7 @@ export default class ProposedTimePicker extends React.Component {
         pendingSave: ProposedTimeCalendarStore.pendingSave(),
       });
     })
+    NylasEnv.displayWindow()
   }
 
   shouldComponentUpdate(nextProps, nextState) {
