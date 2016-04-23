@@ -76,9 +76,9 @@ class PGPKeyStore extends NylasStore
 
   watch: =>
     if (!@_pubWatcher)
-      @_pubWatcher = fs.watch(@_pubKeyDir, => @_populate(isPub = true))
+      @_pubWatcher = fs.watch(@_pubKeyDir, => @_populate(true))
     if (!@_privWatcher)
-      @_privWatcher = fs.watch(@_privKeyDir, => @_populate(isPub = false))
+      @_privWatcher = fs.watch(@_privKeyDir, => @_populate(false))
 
   unwatch: =>
     if (@_pubWatcher)

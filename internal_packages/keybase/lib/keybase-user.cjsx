@@ -52,8 +52,8 @@ class KeybaseUser extends React.Component
     if addresses.length < 1
       # no email addresses added, nop
       return
-    else
-      @_save(keybaseUsername, addresses[0])
+
+    @_save(keybaseUsername, addresses[0])
 
     if addresses.length > 1
       # add any extra ddresses the user entered
@@ -66,6 +66,7 @@ class KeybaseUser extends React.Component
     kb.getKey(keybaseUsername, (error, key) =>
       if error
         console.error "Unable to fetch key for #{keybaseUsername}"
+        console.error error
       else
         PGPKeyStore.saveNewKey(address, key, true) # isPub = true
     )
@@ -83,6 +84,7 @@ class KeybaseUser extends React.Component
 
   _addEmail: (email) =>
     # associate another email address with this key
+    console.log @props.profile
     PGPKeyStore.addAddressToKey(@props.profile, email)
 
   _addEmailInput: (contacts) =>

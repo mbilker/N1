@@ -11,9 +11,7 @@
   },
   "description": "PGP encryption for N1 using Keybase for public key exchange.",
   "dependencies": {
-    "kbpgp": "^2.0.52",
-    "request": "^2.69.0",
-    "underscore": "^1.8.3"
+    "kbpgp": "^2.0.52"
   },
   "license": "MIT",
   "windowTypes": {

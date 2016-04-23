@@ -1,19 +1,23 @@
-import {PreferencesUIStore, ComponentRegistry, ExtensionRegistry} from 'nylas-exports';
+/** @babel */
+
+import { PreferencesUIStore, ComponentRegistry, ExtensionRegistry } from 'nylas-exports';
 
 import EncryptMessageButton from './encrypt-button';
 import DecryptMessageButton from './decrypt-button';
 import DecryptPGPExtension from './decryption-preprocess';
 import RecipientKeyChip from './recipient-key-chip';
+import PreferecesKeybase from './preferences-keybase';
 
 export function activate() {
   this.preferencesTab = new PreferencesUIStore.TabItem({
     tabId: 'PGP Encryption',
     displayName: 'PGP Encryption',
-    component: require('./preferences-keybase'),
+    component: PreferecesKeybase,
   });
-  ComponentRegistry.register(EncryptMessageButton, {role: 'Composer:ActionButton'});
-  ComponentRegistry.register(DecryptMessageButton, {role: 'message:BodyHeader'});
-  ComponentRegistry.register(RecipientKeyChip, {role: 'Composer:RecipientChip'});
+
+  ComponentRegistry.register(EncryptMessageButton, { role: 'Composer:ActionButton' });
+  ComponentRegistry.register(DecryptMessageButton, { role: 'message:BodyHeader' });
+  ComponentRegistry.register(RecipientKeyChip, { role: 'Composer:RecipientChip' });
   ExtensionRegistry.MessageView.register(DecryptPGPExtension);
   PreferencesUIStore.registerPreferencesTab(this.preferencesTab);
 }
