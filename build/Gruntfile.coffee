@@ -174,9 +174,6 @@ module.exports = (grunt) ->
     glob_to_multiple:
       expand: true
       src: [
-        'menus/*.cson'
-        'keymaps/*.cson'
-        'keymaps/templates/*.cson'
         'static/**/*.cson'
       ]
       dest: appDir
@@ -264,6 +261,7 @@ module.exports = (grunt) ->
 
     eslint:
       options:
+        ignore: false
         configFile: 'build/config/eslint.json'
       target: [
         'internal_packages/**/*.jsx'

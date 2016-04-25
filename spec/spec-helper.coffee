@@ -17,7 +17,6 @@ KeymapManager = require '../src/keymap-manager'
 {$} = require '../src/space-pen-extensions'
 
 Config = require '../src/config'
-ServiceHub = require 'service-hub'
 pathwatcher = require 'pathwatcher'
 {clipboard} = require 'electron'
 
@@ -35,8 +34,6 @@ NylasEnv.themes.requireStylesheet '../static/jasmine'
 NylasEnv.themes.initialLoadComplete = true
 
 NylasEnv.keymaps.loadBundledKeymaps()
-keyBindingsToRestore = NylasEnv.keymaps.getKeyBindings()
-commandsToRestore = NylasEnv.commands.getSnapshot()
 styleElementsToRestore = NylasEnv.styles.getSnapshot()
 
 window.addEventListener 'core:close', -> window.close()
@@ -116,6 +113,9 @@ window.TEST_ACCOUNT_ALIAS_EMAIL = "tester+alternative@nylas.com"
 
 window.TEST_TIME_ZONE = "America/Los_Angeles"
 moment = require('moment-timezone')
+# moment-round upon require patches `moment` with new functions.
+require('moment-round')
+
 # This date was chosen because it's close to a DST boundary
 window.testNowMoment = ->
   moment.tz("2016-03-15 12:00", TEST_TIME_ZONE)
@@ -144,9 +144,6 @@ beforeEach ->
 
   $.fx.off = true
   documentTitle = null
-  NylasEnv.packages.serviceHub = new ServiceHub
-  NylasEnv.keymaps.keyBindings = _.clone(keyBindingsToRestore)
-  NylasEnv.commands.restoreSnapshot(commandsToRestore)
   NylasEnv.styles.restoreSnapshot(styleElementsToRestore)
   NylasEnv.workspaceViewParentSelector = '#jasmine-content'
 
