@@ -50,17 +50,18 @@ describe('EmojiComposerExtension', ()=> {
 
     it('should insert an emoji on enter', ()=> {
       this._performEdit('Testing! :h');
-      waitsFor(()=> {
+      waitsFor(() => {
         return ReactTestUtils.scryRenderedDOMComponentsWithClass(this.component, 'emoji-picker').length > 0
       });
-      runs(()=> {
+      runs(() => {
         ReactTestUtils.Simulate.keyDown(this.editableNode, {key: "Enter", keyCode: 13, which: 13});
       });
-      waitsFor(()=> {
+      waitsFor(() => {
         return EmojiComposerExtension._onSelectEmoji.calls.length > 0
       })
-      runs(()=> {
-        expect(this.editableNode.innerHTML).toEqual(`Testing!&nbsp;<img class="emoji haircut" src="images/composer-emoji/apple/1f487.png" width="14" height="14" style="margin-top: -5px;">`);
+      runs(() => {
+        const platformEmoji = process.platform === 'darwin' ? 'apple' : 'twitter';
+        expect(this.editableNode.innerHTML).toEqual(`Testing!&nbsp;<img class="emoji haircut" src="images/composer-emoji/${platformEmoji}/1f487.png" width="14" height="14" style="margin-top: -5px;">`);
       });
     })
 
@@ -78,7 +79,8 @@ describe('EmojiComposerExtension', ()=> {
         return EmojiComposerExtension._onSelectEmoji.calls.length > 0
       })
       runs(()=> {
-        expect(this.editableNode.innerHTML).toEqual(`Testing!&nbsp;<img class="emoji haircut" src="images/composer-emoji/apple/1f487.png" width="14" height="14" style="margin-top: -5px;">`);
+        const platformEmoji = process.platform === 'darwin' ? 'apple' : 'twitter';
+        expect(this.editableNode.innerHTML).toEqual(`Testing!&nbsp;<img class="emoji haircut" src="images/composer-emoji/${platformEmoji}/1f487.png" width="14" height="14" style="margin-top: -5px;">`);
       });
     })
 
