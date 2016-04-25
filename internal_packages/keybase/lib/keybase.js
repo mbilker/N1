@@ -11,10 +11,11 @@ class KeybaseAPI {
     const keyTypes = ['usernames', 'domain', 'twitter', 'github', 'reddit',
                       'hackernews', 'coinbase', 'key_fingerprint'];
     if (!keyTypes.some(x => x === keyType)) {
-      console.error('keyType must be a supported Keybase query type.');
+      callback(new Error('keyType must be a supported Keybase query type.'), null);
+      return;
     }
 
-    const url = `${this.baseUrl}/_/api/1.0/user/lookup.json?${keyType}=${key}`;
+    const url = `/_/api/1.0/user/lookup.json?${keyType}=${key}`;
     this._keybaseRequest(url).then((obj) => {
       if (!obj || !obj.them) {
         throw new Error("Empty response!");

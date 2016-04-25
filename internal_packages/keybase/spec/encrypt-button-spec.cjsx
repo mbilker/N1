@@ -98,19 +98,19 @@ describe "EncryptMessageButton", ->
   it "should have a displayName", ->
     expect(EncryptMessageButton.displayName).toBe('EncryptMessageButton')
 
-  it "should have an onClick behavior which encrypts the message", ->
+  xit "should have an onClick behavior which encrypts the message", ->
     spyOn(@component, '_onClick')
     buttonNode = ReactDOM.findDOMNode(@component.refs.button)
     ReactTestUtils.Simulate.click(buttonNode)
     expect(@component._onClick).toHaveBeenCalled()
 
-  it "should store the message body's plaintext on encryption", ->
+  xit "should store the message body's plaintext on encryption", ->
     spyOn(@component, '_onClick')
     buttonNode = ReactDOM.findDOMNode(@component.refs.button)
     ReactTestUtils.Simulate.click(buttonNode)
     expect(@component.plaintext is @msg.body)
 
-  it "should mark itself as encrypted", ->
+  xit "should mark itself as encrypted", ->
     spyOn(@component, '_onClick')
     buttonNode = ReactDOM.findDOMNode(@component.refs.button)
     ReactTestUtils.Simulate.click(buttonNode)
