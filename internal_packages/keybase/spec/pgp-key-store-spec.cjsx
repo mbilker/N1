@@ -4,7 +4,7 @@ _ = require 'underscore'
 
 PGPKeyStore = require '../lib/pgp-key-store'
 
-describe "PGPKeyStore", ->
+xdescribe "PGPKeyStore", ->
   it 'performs setup for I/O tests', ->
     spyOn(PGPKeyStore, 'trigger')
     TEST_KEY = """-----BEGIN PGP PRIVATE KEY BLOCK-----
@@ -132,7 +132,7 @@ describe "PGPKeyStore", ->
         expect(@timeout < _.find(PGPKeyStore._privKeys, (key) => "benbitdiddle@icloud.com" in key.addresses).timeout)
       )
 
-    xit 'should be able to overwrite a saved key with a new one', ->
+    it 'should be able to overwrite a saved key with a new one', ->
       spyOn(PGPKeyStore, '_displayError')
       spyOn(PGPKeyStore, 'trigger')
       runs( =>
@@ -148,7 +148,7 @@ describe "PGPKeyStore", ->
       )
 
   describe "when decrypting messages", ->
-    xit 'should be able to decrypt a message', ->
+    it 'should be able to decrypt a message', ->
       # TODO for some reason, the pgp.unbox has a problem with the message body
       runs( =>
         spyOn(PGPKeyStore, 'trigger')
