@@ -70,12 +70,7 @@
     "season": "^5.3",
     "semver": "^5.1.0",
     "serializable": "^1",
-<<<<<<< HEAD
-    "service-hub": "^0.7.0",
     "source-map-support": "^0.4.0",
-=======
-    "source-map-support": "^0.3.2",
->>>>>>> github/master
     "space-pen": "3.8.2",
     "spellchecker": "3.2.3",
     "temp": "^0.8",
