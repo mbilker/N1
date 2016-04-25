@@ -1,3 +1,5 @@
+/* eslint max-len: 0 */
+
 import _ from 'underscore';
 import Reflux from 'reflux';
 import path from 'path';
