@@ -150,8 +150,18 @@ class EventedIFrame extends React.Component
         else
           target.setAttribute('href', "http://#{rawHref}")
 
+        rawHref = target.getAttribute('href')
+
       e.preventDefault()
-      NylasEnv.windowEventHandler.openLink(target: target, metaKey: e.metaKey)
+
+      # It's important to send the raw `href` here instead of the target.
+      # The `target` comes from the document context of the iframe, which
+      # as of Electron 0.36.9, has different constructor function objects
+      # in memory than the main execution context. This means that code
+      # like `e.target instanceof Element` will erroneously return false
+      # since the `e.target.constructor` and the `Element` function are
+      # created in different contexts.
+      NylasEnv.windowEventHandler.openLink(href: rawHref, metaKey: e.metaKey)
 
   _isBlacklistedHref: (href) ->
     return (new RegExp(/^file:/i)).test(href)
@@ -195,8 +205,12 @@ class EventedIFrame extends React.Component
     linkTarget = @_getContainingTarget(event, {with: 'href'})
     if linkTarget
       href = linkTarget.getAttribute('href')
-      menu.append(new MenuItem({ label: "Open Link", click:( -> NylasEnv.windowEventHandler.openLink({href}) )}))
-      menu.append(new MenuItem({ label: "Copy Link", click:( -> clipboard.writeText(href) )}))
+      if href.startsWith('mailto')
+        menu.append(new MenuItem({ label: "Compose Message...", click:( -> NylasEnv.windowEventHandler.openLink({href}) )}))
+        menu.append(new MenuItem({ label: "Copy Email Address", click:( -> clipboard.writeText(href.split('mailto:').pop()) )}))
+      else
+        menu.append(new MenuItem({ label: "Open Link", click:( -> NylasEnv.windowEventHandler.openLink({href}) )}))
+        menu.append(new MenuItem({ label: "Copy Link", click:( -> clipboard.writeText(href) )}))
       menu.append(new MenuItem({ type: 'separator' }))
 
     # Menu actions for images

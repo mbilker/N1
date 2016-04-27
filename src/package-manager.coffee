@@ -174,7 +174,7 @@ class PackageManager
     return packagePath if fs.isDirectorySync(packagePath)
 
     packagePath = path.join(@resourcePath, 'node_modules', name)
-    return packagePath if @nasNylasEngine(packagePath)
+    return packagePath if @hasNylasEngine(packagePath)
 
   # Public: Is the package with the given name bundled with Nylas?
   #
@@ -313,7 +313,12 @@ class PackageManager
     if windowType
       packagePaths = _.filter packagePaths, (packagePath) ->
         try
-          {windowTypes} = Package.loadMetadata(packagePath) ? {}
+          metadata = Package.loadMetadata(packagePath) ? {}
+
+          if not (metadata.engines?.nylas)
+            console.error("INVALID PACKAGE: Your package at #{packagePath} does not have a properly formatted `package.json`. You must include an {'engines': {'nylas': version}} property")
+
+          {windowTypes} = metadata
           if windowTypes
             return windowTypes[windowType]? or windowTypes["all"]?
           else if loadPackagesWhenNoTypesSpecified
@@ -417,7 +422,7 @@ class PackageManager
 
     @packageDependencies
 
-  nasNylasEngine: (packagePath) ->
+  hasNylasEngine: (packagePath) ->
     metadata = Package.loadMetadata(packagePath, true)
     metadata?.engines?.nylas?
 
