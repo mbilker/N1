@@ -96,6 +96,12 @@ class KeybaseAPI {
     }
     cleanedProfile.components = { username: { val: profile.basics.username } };
 
+    _.each(profile.proofs_summary.all, (connectedAccount) => {
+      let component = {};
+      component[connectedAccount.proof_type] = { val: connectedAccount.nametag };
+      cleanedProfile.components = _.extend(cleanedProfile.components, component);
+    });
+
     return cleanedProfile;
   }
 }

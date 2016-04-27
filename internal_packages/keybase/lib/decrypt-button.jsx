@@ -59,11 +59,18 @@ class DecryptMessageButton extends React.Component {
   render() {
     if (this.state.wasEncrypted && !this.state.isDecrypted) {
       return (
-        <div className="n1-keybase">
-          <input type="password" ref="passphrase" />
-          <button className="btn btn-toolbar pull-right" title="Decrypt email body" onClick={this._onClick} ref="button">
-            Decrypt
-          </button>
+        <div className="keybase-decrypt">
+          <span className="decryption-interface">
+            <input type="password" ref="passphrase" placeholder="Private key passphrase" />
+            <button
+              title="Decrypt email body"
+              className="btn btn-toolbar pull-right"
+              onClick={this._onClick()}
+              ref="button"
+            >
+              Decrypt
+            </button>
+          </span>
           <div className="message" ref="message">{this.state.status}</div>
         </div>
       );
