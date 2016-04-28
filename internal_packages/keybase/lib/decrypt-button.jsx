@@ -65,7 +65,7 @@ class DecryptMessageButton extends React.Component {
             <button
               title="Decrypt email body"
               className="btn btn-toolbar pull-right"
-              onClick={this._onClick()}
+              onClick={this._onClick}
               ref="button"
             >
               Decrypt
