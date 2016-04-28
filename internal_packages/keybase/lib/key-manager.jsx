@@ -2,6 +2,8 @@
 
 import { React } from 'nylas-exports';
 import KeybaseUser from './keybase-user';
+import PGPKeyStore from './pgp-key-store';
+import _ from 'underscore';
 
 class KeyManager extends React.Component {
   static displayName = 'KeyManager';
@@ -17,15 +19,15 @@ class KeyManager extends React.Component {
       return null;
     }
 
-    const key = _.find(keys, (key) => {
-      return key.key && key.fingerprint() === targetIdentity.fingerprint();
+    const key = _.find(keys, (theKey) => {
+      return theKey.key && theKey.fingerprint() === targetIdentity.fingerprint();
     });
 
     if (!key) {
       return null;
-    } else {
-      return key;
-    }
+    } 
+
+    return key;
   }
 
   _delete = (email, identity) => {
@@ -54,7 +56,7 @@ class KeyManager extends React.Component {
     });
 
     if (keys.length < 1) {
-      //keys = (<span>No keys saved!</span>)
+      // keys = (<span>No keys saved!</span>)
       keys = null;
     }
 
