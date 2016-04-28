@@ -1,7 +1,7 @@
 {
   "name": "nylas",
   "productName": "Nylas N1",
-  "version": "0.4.27",
+  "version": "0.4.28",
   "description": "An extensible, open-source mail client built on the modern web.",
   "main": "./src/browser/main.js",
   "repository": {
@@ -35,7 +35,7 @@
     "jquery": "^2.1.1",
     "juice": "^1.4",
     "keyboard-layout": "^1.0.0",
-    "keytar": "^3.0.0",
+    "keytar": "3.0.0",
     "less-cache": "~0.23.0",
     "mkdirp": "^0.5",
     "moment": "2.12.0",
