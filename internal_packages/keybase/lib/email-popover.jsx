@@ -4,8 +4,11 @@ import { Actions, React } from 'nylas-exports';
 import { ParticipantsTextField } from 'nylas-component-kit';
 import _ from 'underscore';
 
+import Identity from './identity';
+
 class EmailPopover extends React.Component {
   static propTypes = {
+    profile: React.PropTypes.instanceOf(Identity).isRequired,
     onPopoverDone: React.PropTypes.func.isRequired,
   };
 
