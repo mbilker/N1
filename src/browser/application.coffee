@@ -75,6 +75,17 @@ class Application
     @sharedFileManager = new SharedFileManager()
     @nylasProtocolHandler = new NylasProtocolHandler(@resourcePath, @safeMode)
 
+
+    # Temporary as we move away from cson
+    CSON = require 'season'
+    oldConfigFilePath = fs.resolve(@configDirPath, 'config.cson')
+    newConfigFilePath = path.join(@configDirPath, 'config.json')
+    if oldConfigFilePath
+      userConfig = CSON.readFileSync(oldConfigFilePath)
+      fs.writeFileSync(newConfigFilePath, JSON.stringify(userConfig, null, 2))
+      fs.unlinkSync(oldConfigFilePath)
+    # End temporary
+
     Config = require '../config'
     @config = new Config({@configDirPath, @resourcePath})
     @config.load()
@@ -216,7 +227,7 @@ class Application
 
   _resetConfigAndRelaunch: =>
     @setDatabasePhase('close')
-    @windowManager.closeAllWindows()
+    @windowManager.destroyAllWindows()
     @_deleteDatabase =>
       @config.set('nylas', null)
       @config.set('edgehill', null)
@@ -244,14 +255,20 @@ class Application
     @windowManager.sendToAllWindows("database-phase-change", {}, phase)
 
   rebuildDatabase: =>
-    return if @_databasePhase is 'close'
-    @setDatabasePhase('close')
-    @windowManager.closeAllWindows()
-
-    loadingMessage = "Please wait while we prepare new features."
-    @_deleteDatabase =>
-      @setDatabasePhase('setup')
-      @openWindowsForTokenState(loadingMessage)
+    # We need to set a timeout so `rebuildDatabases` immediately returns.
+    # If we don't immediately return the main window caller wants to wait
+    # for this function to finish so it can get the return value via ipc.
+    # Unfortunately since this function destroys the main window
+    # immediately, an error will be thrown.
+    setTimeout( =>
+      return if @_databasePhase is 'close'
+      @setDatabasePhase('close')
+      @windowManager.destroyAllWindows()
+      loadingMessage = "Please wait while we prepare new features."
+      @_deleteDatabase =>
+        @setDatabasePhase('setup')
+        @openWindowsForTokenState(loadingMessage)
+    , 0)
 
   # Registers basic application commands, non-idempotent.
   # Note: If these events are triggered while an application window is open, the window
@@ -316,7 +333,7 @@ class Application
       else
         @config.set('devMode', undefined)
 
-      @windowManager.closeAllWindows()
+      @windowManager.destroyAllWindows()
       @windowManager.devMode = @devMode
       @openWindowsForTokenState()
 
@@ -377,8 +394,9 @@ class Application
       app.dock?.setBadge?(value)
 
     ipcMain.on 'new-window', (event, options) =>
-      if options.windowKey
-        @windowManager.ensureWindow(options.windowKey, options)
+      if options.windowKey and win = @windowManager.get(options.windowKey)
+        win.show()
+        win.focus()
       else
         @windowManager.newWindow(options)
 
