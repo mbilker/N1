@@ -27,8 +27,9 @@ import FileUpload from './file-upload';
 import ImageFileUpload from './image-file-upload';
 
 import ComposerEditor from './composer-editor';
-import SendActionButton from './send-action-button';
 import ComposerHeader from './composer-header';
+import SendActionButton from './send-action-button';
+import ActionBarPlugins from './action-bar-plugins'
 
 import Fields from './fields';
 
@@ -107,8 +108,8 @@ export default class ComposerView extends React.Component {
       'composer:show-and-focus-cc': () => this.refs.header.showAndFocusField(Fields.Cc),
       'composer:focus-to': () => this.refs.header.showAndFocusField(Fields.To),
       "composer:show-and-focus-from": () => {}, // todo
-      "composer:undo": this.undo,
-      "composer:redo": this.redo,
+      "core:undo": this.undo,
+      "core:redo": this.redo,
     };
   }
 
@@ -145,6 +146,7 @@ export default class ComposerView extends React.Component {
           ref="header"
           draft={this.props.draft}
           session={this.props.session}
+          initiallyFocused={this.props.draft.to.length === 0}
         />
         <div
           className="compose-body"
@@ -328,16 +330,7 @@ export default class ComposerView extends React.Component {
   _renderActionsRegion() {
     return (
       <div className="composer-action-bar-content">
-        <InjectedComponentSet
-          className="composer-action-bar-plugins"
-          matching={{role: "Composer:ActionButton"}}
-          exposedProps={{
-            draft: this.props.draft,
-            threadId: this.props.draft.threadId,
-            draftClientId: this.props.draft.clientId,
-            session: this.props.session,
-          }}
-        />
+        <ActionBarPlugins draft={this.props.draft} session={this.props.session} />
 
         <button
           tabIndex={-1}

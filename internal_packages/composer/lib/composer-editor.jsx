@@ -218,6 +218,9 @@ class ComposerEditor extends Component {
     this.refs.contenteditable._onDragOver(event)
   }
 
+  _shouldAcceptDrop(event) {
+    return this.refs.contenteditable._shouldAcceptDrop(event)
+  }
   // Helpers
 
   _scrollToBottom = () => {
@@ -303,7 +306,7 @@ class ComposerEditor extends Component {
         className="composer-inner-wrap"
         onDrop={::this._onDrop}
         onDragOver={::this._onDragOver}
-        shouldAcceptDrop={() => true}
+        shouldAcceptDrop={::this._shouldAcceptDrop}
       >
         <Contenteditable
           ref="contenteditable"
