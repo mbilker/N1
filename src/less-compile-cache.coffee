@@ -2,8 +2,6 @@ _ = require 'underscore'
 path = require 'path'
 LessCache = require 'less-cache'
 
-fileCacheImportPaths = null
-
 # {LessCache} wrapper used by {ThemeManager} to read stylesheets.
 module.exports =
 class LessCompileCache
@@ -30,10 +28,9 @@ class LessCompileCache
   # from our backend FileListCache.
   setImportPaths: (importPaths=[]) ->
     fileCache = NylasEnv.fileListCache()
-    fileCacheImportPaths ?= fileCache.lessCacheImportPaths ? []
+    fileCacheImportPaths = fileCache.lessCacheImportPaths ? []
     fullImportPaths = importPaths.concat(@lessSearchPaths)
-    pathDiff = _.difference(fullImportPaths, fileCacheImportPaths)
-    if pathDiff.length isnt 0
+    if not _.isEqual(fullImportPaths, fileCacheImportPaths)
       @cache.setImportPaths(fullImportPaths)
       fileCache.lessCacheImportPaths = fullImportPaths
 

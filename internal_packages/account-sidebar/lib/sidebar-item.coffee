@@ -93,7 +93,6 @@ class SidebarItem
         return item.dataTransferType in event.dataTransfer.types
 
       onSelect: (item) ->
-        Actions.selectRootSheet(WorkspaceStore.Sheet.Threads)
         Actions.focusMailboxPerspective(item.perspective)
     }, opts)
 
@@ -133,6 +132,14 @@ class SidebarItem
   @forUnread: (accountIds, opts = {}) ->
     categories = accountIds.map (accId) =>
       CategoryStore.getStandardCategory(accId, 'inbox')
+
+    # NOTE: It's possible for an account to not yet have an `inbox`
+    # category. Since the `SidebarStore` triggers on `AccountStore`
+    # changes, it'll trigger the exact moment an account is added to the
+    # config. However, the API has not yet come back with the list of
+    # `categories` for that account.
+    categories = _.compact(categories)
+
     perspective = MailboxPerspective.forUnread(categories)
     id = 'Unread'
     id += "-#{opts.name}" if opts.name
@@ -141,9 +148,6 @@ class SidebarItem
   @forDrafts: (accountIds, opts = {}) ->
     perspective = MailboxPerspective.forDrafts(accountIds)
     id = "Drafts-#{opts.name}"
-    opts.onSelect = ->
-      Actions.focusMailboxPerspective(perspective)
-      Actions.selectRootSheet(WorkspaceStore.Sheet.Drafts)
     @forPerspective(id, perspective, opts)
 
 module.exports = SidebarItem

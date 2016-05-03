@@ -362,7 +362,7 @@ class NylasEnvConstructor
     @getWindowType() is 'work'
 
   isComposerWindow: ->
-    @getWindowType() is 'composer'
+    @getWindowType() in ["composer", "composer-preload"]
 
   getWindowType: ->
     @getLoadSettings().windowType
