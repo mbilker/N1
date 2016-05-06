@@ -1,10 +1,10 @@
 _ = require 'underscore'
 {remote} = require 'electron'
 request = require 'request'
-NylasLongConnection = require './nylas-long-connection'
+NylasLongConnection = require('./nylas-long-connection').default
 Utils = require './models/utils'
-Account = require './models/account'
-Message = require './models/message'
+Account = require('./models/account').default
+Message = require('./models/message').default
 Actions = require './actions'
 {APIError} = require './errors'
 PriorityUICoordinator = require '../priority-ui-coordinator'
@@ -122,6 +122,7 @@ class NylasAPI
   PermanentErrorCodes: PermanentErrorCodes
   CancelledErrorCode: CancelledErrorCode
   SampleTemporaryErrorCode: SampleTemporaryErrorCode
+  LongConnectionStatuses: NylasLongConnection.Statuses
 
   constructor: ->
     @_lockTracker = new NylasAPIChangeLockTracker()
@@ -348,10 +349,10 @@ class NylasAPI
     "event": require('./models/event')
     "label": require('./models/label')
     "folder": require('./models/folder')
-    "thread": require('./models/thread')
-    "draft": require('./models/message')
-    "account": require('./models/account')
-    "message": require('./models/message')
+    "thread": require('./models/thread').default
+    "draft": require('./models/message').default
+    "account": require('./models/account').default
+    "message": require('./models/message').default
     "contact": require('./models/contact')
     "calendar": require('./models/calendar')
 

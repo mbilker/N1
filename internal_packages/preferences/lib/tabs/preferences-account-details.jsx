@@ -12,12 +12,11 @@ class PreferencesAccountDetails extends Component {
 
   constructor(props) {
     super(props);
-
-    this.state = { account: _.clone(props.account) };
+    this.state = {account: props.account.clone()};
   }
 
   componentWillReceiveProps(nextProps) {
-    this.setState({ account: _.clone(nextProps.account) });
+    this.setState({account: nextProps.account.clone()});
   }
 
   componentWillUnmount() {
@@ -56,7 +55,7 @@ class PreferencesAccountDetails extends Component {
     this.props.onAccountUpdated(this.props.account, this.state.account);
   };
 
-  _setState = (updates, callback = () => {}) => {
+  _setState = (updates, callback = ()=>{}) => {
     const updated = _.extend({}, this.state.account, updates);
     this.setState({account: updated}, callback);
   };
@@ -127,7 +126,7 @@ class PreferencesAccountDetails extends Component {
           <div>Default for new messages:</div>
           <select value={defaultAlias} onChange={this._onDefaultAliasSelected}>
             <option value="None">{`${account.name} <${account.emailAddress}>`}</option>
-            {aliases.map((alias, idx)=> <option key={`alias-${idx}`} value={alias}>{alias}</option>)}
+            {aliases.map((alias, idx) => <option key={`alias-${idx}`} value={alias}>{alias}</option>)}
           </select>
         </div>
       );

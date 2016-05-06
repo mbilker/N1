@@ -8,7 +8,7 @@ export class Registry {
 
   static include = includeModule;
 
-  constructor(name, deprecationAdapter = (ext)=> ext) {
+  constructor(name, deprecationAdapter = (ext) => ext) {
     this.name = name;
     this._deprecationAdapter = deprecationAdapter;
     this._registry = new Map();
@@ -52,12 +52,6 @@ export class Registry {
 Registry.include(Publisher);
 Registry.include(Listener);
 
-export const Composer = new Registry(
-  'Composer',
-  composerExtAdapter
-);
+export const Composer = new Registry('Composer');
 
-export const MessageView = new Registry(
-  'MessageView',
-  messageViewExtAdapter
-);
+export const MessageView = new Registry('MessageView');

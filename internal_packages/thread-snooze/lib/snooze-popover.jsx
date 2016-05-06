@@ -1,4 +1,3 @@
-/** @babel */
 import _ from 'underscore';
 import React, {Component, PropTypes} from 'react';
 import {DateUtils, Actions} from 'nylas-exports'
@@ -49,7 +48,7 @@ class SnoozePopover extends Component {
   };
 
   static defaultProps = {
-    swipeCallback: ()=> {},
+    swipeCallback: () => {},
   };
 
   constructor() {
@@ -73,7 +72,7 @@ class SnoozePopover extends Component {
     Actions.popSheet();
   }
 
-  onSelectCustomDate = (date, inputValue)=> {
+  onSelectCustomDate = (date, inputValue) => {
     if (date) {
       this.onSnooze(date, "Custom");
     } else {
@@ -100,7 +99,7 @@ class SnoozePopover extends Component {
     )
   };
 
-  renderRow = (options, idx)=> {
+  renderRow = (options, idx) => {
     const items = _.map(options, this.renderItem);
     return (
       <div key={`snooze-popover-row-${idx}`} className="snooze-row">

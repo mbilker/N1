@@ -17,7 +17,6 @@ class LaunchServicesUnavailable
     throw new Error "registerForURLScheme is not available"
 
 class LaunchServicesLinux
-
   available: ->
     true
 
@@ -30,12 +29,12 @@ class LaunchServicesLinux
   resetURLScheme: (scheme, callback) ->
     exec "xdg-mime default thunderbird.desktop x-scheme-handler/#{scheme}", (err, stdout, stderr) ->
       return callback(err) if callback and err
-      callback(null, null)
+      callback(null, null) if callback
 
   registerForURLScheme: (scheme, callback) ->
     exec "xdg-mime default nylas.desktop x-scheme-handler/#{scheme}", (err, stdout, stderr) ->
       return callback(err) if callback and err
-      callback(null, null)
+      callback(null, null) if callback
 
 class LaunchServicesMac
   constructor: ->

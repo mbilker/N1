@@ -9,14 +9,14 @@ const {resourcePath} = NylasEnv.getLoadSettings();
 const light = new ThemePackage(resourcePath + '/internal_packages/ui-light');
 const dark = new ThemePackage(resourcePath + '/internal_packages/ui-dark');
 
-describe('ThemePicker', ()=> {
-  beforeEach(()=> {
+describe('ThemePicker', function themePicker() {
+  beforeEach(() => {
     spyOn(NylasEnv.themes, 'getLoadedThemes').andReturn([light, dark]);
     spyOn(NylasEnv.themes, 'getActiveTheme').andReturn(light);
     this.component = ReactTestUtils.renderIntoDocument(<ThemePicker />);
   });
 
-  it('changes the active theme when a theme is clicked', ()=> {
+  it('changes the active theme when a theme is clicked', () => {
     spyOn(ThemePicker.prototype, '_setActiveTheme').andCallThrough();
     spyOn(ThemePicker.prototype, '_rewriteIFrame');
     const themeOption = ReactDOM.findDOMNode(ReactTestUtils.scryRenderedDOMComponentsWithClass(this.component, 'clickable-theme-option')[1]);

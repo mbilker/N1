@@ -35,7 +35,7 @@ class DefaultMailClientItem extends React.Component {
   }
 
   render() {
-    if (process.platform !== "darwin") return false;
+    if (process.platform === "win32") return false;
     return (
       <div className="item">
         <input type="checkbox" id="default-client" checked={this.state.defaultClient} onChange={this.toggleDefaultMailClient}/>

@@ -38,7 +38,7 @@ class GithubProfile extends React.Component {
     const {profile} = this.props;
 
     // Transform the profile's array of repos into an array of React <GithubRepo> elements
-    const repoElements = _.map(profile.repos, (repo)=> {
+    const repoElements = _.map(profile.repos, (repo) => {
       return <GithubRepo key={repo.id} repo={repo} />
     });
 

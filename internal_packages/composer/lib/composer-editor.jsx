@@ -1,5 +1,5 @@
 import React, {Component, PropTypes} from 'react';
-import {ContenteditableExtension, ExtensionRegistry, DOMUtils} from 'nylas-exports';
+import {ExtensionRegistry, DOMUtils} from 'nylas-exports';
 import {DropZone, ScrollRegion, Contenteditable} from 'nylas-component-kit';
 
 /**
@@ -21,11 +21,13 @@ import {DropZone, ScrollRegion, Contenteditable} from 'nylas-component-kit';
  * associated with the parent container
  * @param {props.parentActions.getComposerBoundingRect} props.parentActions.getComposerBoundingRect
  * @param {props.parentActions.scrollTo} props.parentActions.scrollTo
- * @param {props.onFocus} props.onFocus
  * @param {props.onFilePaste} props.onFilePaste
  * @param {props.onBodyChanged} props.onBodyChanged
  * @class ComposerEditor
  */
+
+const NODE_END = false;
+const NODE_BEGINNING = true;
 
 class ComposerEditor extends Component {
   static displayName = 'ComposerEditor';
@@ -48,10 +50,6 @@ class ComposerEditor extends Component {
    * @param {DOMRect} options.rect - Bounding rect we want to scroll to
    */
   /**
-   * This function should be called when the editing region is focused by the user
-   * @callback props.onFocus
-   */
-  /**
    * This function should be called when the user pastes a file into the editing
    * region
    * @callback props.onFilePaste
@@ -70,8 +68,6 @@ class ComposerEditor extends Component {
     body: PropTypes.string.isRequired,
     draftClientId: PropTypes.string,
     initialSelectionSnapshot: PropTypes.object,
-    onFocus: PropTypes.func,
-    onBlur: PropTypes.func,
     onFilePaste: PropTypes.func,
     onBodyChanged: PropTypes.func,
     parentActions: PropTypes.shape({
@@ -85,22 +81,6 @@ class ComposerEditor extends Component {
     this.state = {
       extensions: ExtensionRegistry.Composer.extensions(),
     };
-
-    class ComposerFocusManager extends ContenteditableExtension {
-      static onFocus() {
-        if (props.onFocus) {
-          props.onFocus();
-        }
-      }
-
-      static onBlur() {
-        if (props.onBlur) {
-          props.onBlur();
-        }
-      }
-    }
-
-    this._coreExtension = ComposerFocusManager;
   }
 
   componentDidMount() {
@@ -142,18 +122,30 @@ class ComposerEditor extends Component {
     //
     this.refs.contenteditable.atomicEdit(({editor}) => {
       editor.rootNode.focus();
-      const lastNode = this._findLastNodeBeforeQuoteOrSignature(editor);
-      this._selectEndOfNode(lastNode);
+      const lastNode = this._findLastNodeBeforeQuoteOrSignature(editor)
+      if (lastNode) {
+        this._selectNode(lastNode, {collapseTo: NODE_END});
+      } else {
+        this._selectNode(editor.rootNode, {collapseTo: NODE_BEGINNING});
+      }
     });
   }
 
+  focusAbsoluteEnd() {
+    this.refs.contenteditable.atomicEdit(({editor}) => {
+      editor.rootNode.focus();
+      this._selectNode(editor.rootNode, {collapseTo: NODE_END});
+    });
+  }
+
+  // Note: This method returns null for new drafts, because the leading
+  // <br> tags contain no text nodes.
   _findLastNodeBeforeQuoteOrSignature(editor) {
     const walker = document.createTreeWalker(editor.rootNode, NodeFilter.SHOW_TEXT);
     const nodesBelowUserBody = editor.rootNode.querySelectorAll('signature, .gmail_quote, blockquote');
 
     let lastNode = null;
     let node = walker.nextNode();
-
     while (node != null) {
       let belowUserBody = false;
       for (let i = 0; i < nodesBelowUserBody.length; ++i) {
@@ -171,34 +163,13 @@ class ComposerEditor extends Component {
     return lastNode
   }
 
-  _findAbsoluteLastNode(editor) {
-    const walker = document.createTreeWalker(editor.rootNode, NodeFilter.SHOW_TEXT);
-    let lastNode = null;
-    let node = walker.nextNode();
-    while (node) {
-      lastNode = node;
-      node = walker.nextNode();
-    }
-    return lastNode;
-  }
-
-  _selectEndOfNode(node) {
-    if (node) {
-      const range = document.createRange();
-      range.selectNodeContents(node);
-      range.collapse(false);
-      const selection = window.getSelection();
-      selection.removeAllRanges();
-      selection.addRange(range);
-    }
-  }
-
-  focusAbsoluteEnd() {
-    this.refs.contenteditable.atomicEdit(({editor}) => {
-      editor.rootNode.focus();
-      const lastNode = this._findAbsoluteLastNode(editor);
-      this._selectEndOfNode(lastNode);
-    });
+  _selectNode(node, {collapseTo} = {}) {
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    range.collapse(collapseTo);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
   }
 
   /**
@@ -315,12 +286,11 @@ class ComposerEditor extends Component {
           onFilePaste={this.props.onFilePaste}
           onSelectionRestored={this._ensureSelectionVisible}
           initialSelectionSnapshot={this.props.initialSelectionSnapshot}
-          extensions={[this._coreExtension].concat(this.state.extensions)}
+          extensions={this.state.extensions}
         />
       </DropZone>
     );
   }
-
 }
 ComposerEditor.containerRequired = false
 

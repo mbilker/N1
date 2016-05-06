@@ -11,11 +11,11 @@ import Category from '../models/category'
 
 const TaskFactory = {
 
-  tasksForApplyingCategories({threads, categoriesToRemove = ()=>[], categoriesToAdd = ()=>[], taskDescription} = {}) {
+  tasksForApplyingCategories({threads, categoriesToRemove = () => [], categoriesToAdd = () => [], taskDescription} = {}) {
     const byAccount = {}
     const tasks = []
 
-    threads.forEach((thread)=> {
+    threads.forEach((thread) => {
       if (!(thread instanceof Thread)) {
         throw new Error("tasksForApplyingCategories: `threads` must be instances of Thread")
       }

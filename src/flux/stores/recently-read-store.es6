@@ -54,4 +54,5 @@ class RecentlyReadStore extends NylasStore {
   }
 }
 
-module.exports = new RecentlyReadStore();
+const store = new RecentlyReadStore()
+export default store

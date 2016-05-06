@@ -1,4 +1,3 @@
-/** @babel */
 import React, {Component, PropTypes} from 'react';
 import ReactDOM from 'react-dom';
 import {Actions, FocusedPerspectiveStore} from 'nylas-exports';
@@ -68,8 +67,6 @@ export class QuickActionSnooze extends Component {
   static propTypes = {
     thread: PropTypes.object,
   };
-
-  static containerRequired = false;
 
   getBoundingClientRect = () => {
     // Grab the parent node because of the zoom applied to this button. If we

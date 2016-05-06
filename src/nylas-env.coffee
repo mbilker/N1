@@ -13,7 +13,7 @@ fs = require 'fs-plus'
 
 WindowEventHandler = require './window-event-handler'
 StylesElement = require './styles-element'
-StoreRegistry = require './store-registry'
+StoreRegistry = require('./store-registry').default
 
 Utils = require './flux/models/utils'
 {APIError} = require './flux/errors'
@@ -103,9 +103,6 @@ class NylasEnvConstructor
   # Public: A {Config} instance
   config: null
 
-  # Public: A {Clipboard} instance
-  clipboard: null
-
   # Public: A {MenuManager} instance
   menu: null
 
@@ -148,10 +145,9 @@ class NylasEnvConstructor
     @loadTime = null
 
     Config = require './config'
-    KeymapManager = require './keymap-manager'
+    KeymapManager = require('./keymap-manager').default
     CommandRegistry = require './command-registry'
     PackageManager = require './package-manager'
-    Clipboard = require './clipboard'
     ThemeManager = require './theme-manager'
     StyleManager = require './style-manager'
     ActionBridge = require './flux/action-bridge'
@@ -187,7 +183,6 @@ class NylasEnvConstructor
     @styles = new StyleManager
     document.head.appendChild(new StylesElement)
     @themes = new ThemeManager({packageManager: @packages, configDirPath, resourcePath, safeMode})
-    @clipboard = new Clipboard()
     @menu = new MenuManager({resourcePath})
     if process.platform is 'win32'
       @getCurrentWindow().setMenuBarVisibility(false)
@@ -655,13 +650,12 @@ class NylasEnvConstructor
     {packageLoadingDeferred, windowType} = @getLoadSettings()
     @extendRxObservables()
     StoreRegistry.activateAllStores()
-    @keymaps.loadBundledKeymaps()
+    @keymaps.loadKeymaps()
     @themes.loadBaseStylesheets()
     @packages.loadPackages(windowType) unless packageLoadingDeferred
     @deserializePackageStates() unless packageLoadingDeferred
     @initializeReactRoot()
     @packages.activate() unless packageLoadingDeferred
-    @keymaps.loadUserKeymap()
     @menu.update()
 
   # Call this method when establishing a real application window.

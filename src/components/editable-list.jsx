@@ -105,13 +105,13 @@ class EditableList extends Component {
 
   static defaultProps = {
     items: [],
-    itemContent: (item)=> item,
+    itemContent: (item) => item,
     className: '',
     createInputProps: {},
     showEditIcon: false,
-    onDeleteItem: ()=> {},
-    onItemEdited: ()=> {},
-    onItemCreated: ()=> {},
+    onDeleteItem: () => {},
+    onItemEdited: () => {},
+    onItemCreated: () => {},
   };
 
   constructor(props) {
@@ -127,7 +127,7 @@ class EditableList extends Component {
   // Helpers
 
   _createItem = (value) => {
-    this._clearCreatingState(()=> {
+    this._clearCreatingState(() => {
       if (value) {
         this.props.onItemCreated(value);
       }
@@ -164,7 +164,7 @@ class EditableList extends Component {
   };
 
   _setStateAndFocus = (state, callback = () => {}) => {
-    this.setState(state, ()=> {
+    this.setState(state, () => {
       this._focusSelf();
       callback();
     });
@@ -297,7 +297,7 @@ class EditableList extends Component {
     event.dataTransfer.effectAllowed = "move";
   };
 
-  _onDragOver = (event)=> {
+  _onDragOver = (event) => {
     const wrapperNode = ReactDOM.findDOMNode(this.refs.itemsWrapper);
     const originListId = event.dataTransfer.getData('editablelist-listid')
     const originSameList = (originListId === this.listId);
@@ -323,11 +323,11 @@ class EditableList extends Component {
     }
   };
 
-  _onDragLeave = ()=> {
+  _onDragLeave = () => {
     this.setState({dropInsertionIndex: -1});
   };
 
-  _onDrop = (event)=> {
+  _onDrop = (event) => {
     if (this.state.dropInsertionIndex !== -1) {
       const startIdx = event.dataTransfer.getData('editablelist-index');
       if (startIdx && (this.state.dropInsertionIndex !== startIdx)) {
@@ -447,7 +447,7 @@ class EditableList extends Component {
   };
 
   render() {
-    let items = this.props.items.map((item, idx) => this._renderItem(item, idx));
+    let items = this.props.items.map( (item, idx) => this._renderItem(item, idx));
     if (this.state.creatingItem === true) {
       items = items.concat(this._renderCreateInput());
     }

@@ -213,19 +213,3 @@ describe "LaunchServices", ->
         spyOn(@services, 'writeDefaults')
         @services.registerForURLScheme('mailto')
         expect(@services.writeDefaults).toHaveBeenCalled()
-
-  describe "LaunchServicesLinux", ->
-    describe "available", ->
-      beforeEach ->
-        @services = new LaunchServices.LaunchServicesLinux()
-
-      it "should return true", ->
-        expect(@services.available()).toEqual(true)
-
-  describe "LaunchServicesUnavailable", ->
-    describe "available", ->
-      beforeEach ->
-        @services = new LaunchServices.LaunchServicesUnavailable()
-
-      it "should return false", ->
-        expect(@services.available()).toEqual(false)

@@ -25,6 +25,10 @@ class SelectedItemsStack extends Component {
     selectionCount: PropTypes.number,
   };
 
+  onClearSelection = () => {
+    ThreadListStore.dataSource().selection.clear()
+  };
+
   static containerRequired = false;
 
   onClearSelection = () => {

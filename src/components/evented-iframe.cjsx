@@ -4,7 +4,7 @@ ReactDOM = require 'react-dom'
  RegExpUtils,
  SearchableComponentMaker,
  SearchableComponentStore}= require 'nylas-exports'
-IFrameSearcher = require '../searchable-components/iframe-searcher'
+IFrameSearcher = require('../searchable-components/iframe-searcher').default
 url = require 'url'
 _ = require "underscore"
 
@@ -221,7 +221,7 @@ class EventedIFrame extends React.Component
         menu.append(new MenuItem({ label: "Copy Email Address", click:( -> clipboard.writeText(href.split('mailto:').pop()) )}))
       else
         menu.append(new MenuItem({ label: "Open Link", click:( -> NylasEnv.windowEventHandler.openLink({href}) )}))
-        menu.append(new MenuItem({ label: "Copy Link", click:( -> clipboard.writeText(href) )}))
+        menu.append(new MenuItem({ label: "Copy Link Address", click:( -> clipboard.writeText(href) )}))
       menu.append(new MenuItem({ type: 'separator' }))
 
     # Menu actions for images

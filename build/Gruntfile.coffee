@@ -1,7 +1,6 @@
 fs = require 'fs'
 path = require 'path'
 os = require 'os'
-babelOptions = require '../static/babelrc'
 
 # This is the main Gruntfile that manages building N1 distributions.
 # The reason it's inisde of the build/ folder is so everything can be
@@ -51,12 +50,10 @@ _.extend(global, require('harmony-collections')) unless global.WeakMap?
 module.exports = (grunt) ->
   grunt.loadNpmTasks('grunt-coffeelint-cjsx')
   grunt.loadNpmTasks('grunt-lesslint')
-  grunt.loadNpmTasks('grunt-babel')
   grunt.loadNpmTasks('grunt-cson')
   grunt.loadNpmTasks('grunt-contrib-csslint')
   grunt.loadNpmTasks('grunt-coffee-react')
   grunt.loadNpmTasks('grunt-contrib-coffee')
-  grunt.loadNpmTasks('grunt-eslint')
   grunt.loadNpmTasks('grunt-contrib-less')
   grunt.loadNpmTasks('grunt-shell')
   grunt.loadNpmTasks('grunt-markdown')
@@ -129,7 +126,7 @@ module.exports = (grunt) ->
       ext: '.js'
 
   babelConfig =
-    options: babelOptions
+    options: require("../static/babelrc")
     dist:
       files: [{
         expand: true
@@ -200,6 +197,29 @@ module.exports = (grunt) ->
         csonConfig.glob_to_multiple.src.push("#{directory}/**/*.cson")
         pegConfig.glob_to_multiple.src.push("#{directory}/**/*.pegjs")
 
+  COFFEE_SRC = [
+    'internal_packages/**/*.cjsx'
+    'internal_packages/**/*.coffee'
+    'dot-nylas/**/*.coffee'
+    'src/**/*.coffee'
+    'src/**/*.cjsx'
+    'spec/**/*.cjsx'
+    'spec/**/*.coffee'
+  ]
+  ES_SRC = [
+    'internal_packages/**/*.jsx'
+    'internal_packages/**/*.es6'
+    'internal_packages/**/*.es'
+    'dot-nylas/**/*.es6'
+    'dot-nylas/**/*.es'
+    'src/**/*.es6'
+    'src/**/*.es'
+    'src/**/*.jsx'
+    'spec/**/*.es6'
+    'spec/**/*.es'
+    'spec/**/*.jsx'
+  ]
+
   grunt.initConfig
     pkg: grunt.file.readJSON('package.json')
 
@@ -222,28 +242,12 @@ module.exports = (grunt) ->
     peg: pegConfig
 
     nylaslint:
-      src: [
-        'internal_packages/**/*.cjsx'
-        'internal_packages/**/*.coffee'
-        'dot-nylas/**/*.coffee'
-        'src/**/*.coffee'
-        'src/**/*.cjsx'
-        'spec/**/*.cjsx'
-        'spec/**/*.coffee'
-      ]
+      src: COFFEE_SRC.concat(ES_SRC)
 
     coffeelint:
       options:
         configFile: 'build/config/coffeelint.json'
-      src: [
-        'internal_packages/**/*.cjsx'
-        'internal_packages/**/*.coffee'
-        '!internal_packages/*/node_modules/**/*.cjsx'
-        '!internal_packages/*/node_modules/**/*.coffee'
-        'dot-nylas/**/*.coffee'
-        'src/**/*.coffee'
-        'src/**/*.cjsx'
-      ]
+      src: COFFEE_SRC
       build: [
         'build/tasks/**/*.coffee'
         'build/Gruntfile.coffee'
@@ -263,16 +267,10 @@ module.exports = (grunt) ->
       options:
         ignore: false
         configFile: 'build/config/eslint.json'
-      target: [
-        'internal_packages/**/*.jsx'
-        'internal_packages/**/*.es6'
-        'internal_packages/**/*.es'
-        'dot-nylas/**/*.es6'
-        'dot-nylas/**/*.es'
-        'src/**/*.es6'
-        'src/**/*.es'
-        'src/**/*.jsx'
-      ]
+      target: ES_SRC
+
+    eslintFixer:
+      src: ES_SRC
 
     csslint:
       options:

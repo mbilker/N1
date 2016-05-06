@@ -269,7 +269,8 @@ export default class CategoryPickerPopover extends Component {
           className="check-img dash"
           name="tagging-conflicted.png"
           mode={RetinaImg.Mode.ContentPreserve}
-          onClick={() => this._onSelectCategory(item)}/>
+          onClick={() => this._onSelectCategory(item)}
+        />
       );
     } else {
       checkStatus = (
@@ -277,7 +278,8 @@ export default class CategoryPickerPopover extends Component {
           className="check-img check"
           name="tagging-checkmark.png"
           mode={RetinaImg.Mode.ContentPreserve}
-          onClick={() => this._onSelectCategory(item)}/>
+          onClick={() => this._onSelectCategory(item)}
+        />
       );
     }
 
@@ -287,7 +289,8 @@ export default class CategoryPickerPopover extends Component {
           className="check-img check"
           name="tagging-checkbox.png"
           mode={RetinaImg.Mode.ContentPreserve}
-          onClick={() => this._onSelectCategory(item)}/>
+          onClick={() => this._onSelectCategory(item)}
+        />
         {checkStatus}
       </div>
     );
