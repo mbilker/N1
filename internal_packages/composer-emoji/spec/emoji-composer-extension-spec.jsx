@@ -79,7 +79,7 @@ describe('EmojiComposerExtension', function emojiComposerExtension() {
       waitsFor(() => {
         return EmojiComposerExtension._onSelectEmoji.calls.length > 0
       })
-      runs(()=> {
+      runs(() => {
         const platformEmoji = process.platform === 'darwin' ? 'apple' : 'twitter';
         expect(this.editableNode.innerHTML).toEqual(`Testing!&nbsp;<img class="emoji haircut" src="images/composer-emoji/${platformEmoji}/1f487.png" width="14" height="14" style="margin-top: -5px;">`);
       });

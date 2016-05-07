@@ -1,5 +1,4 @@
 import _ from 'underscore';
-import mkdirp from 'mkdirp';
 import fs from 'fs';
 import path from 'path';
 
@@ -8,11 +7,12 @@ const bundledHunspell = () => {
 
   try {
     // HACK: Special case being in an asar archive
-    const unpacked = dict.replace('.asar' + path.sep, '.asar.unpacked' + path.sep);
-    if (require('fs').statSyncNoException(unpacked)) {
+    const unpacked = dict.replace(`.asar${path.sep}`, `.asar.unpacked${path.sep}`);
+    if (fs.statSyncNoException(unpacked)) {
       dict = unpacked;
     }
   } catch (e) {
+    /* empty */
   }
 
   return dict;
@@ -21,16 +21,13 @@ const bundledHunspell = () => {
 const possibleLinuxDictionaryPaths = [
   '/usr/share/hunspell',
   '/usr/share/myspell',
-  bundledHunspell()
+  bundledHunspell(),
 ];
 
 let KeyboardLayout = null;
 let Spellchecker = null;
 
 export default class DictionaryManager {
-  constructor() {
-  }
-
   static shouldUseHunspell() {
     // Linux only has Hunspell available from `node-spellchecker`
     if (process.platform === 'linux') {
@@ -62,17 +59,17 @@ export default class DictionaryManager {
    *   installedLanguages (or the list of system installed languages),
    *   and values are {Spellchecker} instances
   */
-  static createInstancesForInstalledLanguages(installedLanguages=null) {
-    installedLanguages = installedLanguages || DictionaryManager.getInstalledLanguages();
+  static createInstancesForInstalledLanguages(installedLanguages = null) {
+    const kInstalledLanguages = installedLanguages || DictionaryManager.getInstalledLanguages();
+    const dictionaryPath = DictionaryManager.getDictionaryDirectory();
 
-    let dictionaryPath = DictionaryManager.getDictionaryDirectory();
-
-    return _.reduce(installedLanguages, (acc, lang) => {
-      let fixedLanguage = DictionaryManager.mapToDictionaryName(lang);
+    return _.reduce(kInstalledLanguages, (acc, lang) => {
+      const fixedLanguage = DictionaryManager.mapToDictionaryName(lang);
       console.log(`Mapping ${lang} => ${fixedLanguage}`);
 
+      // eslint-disable-next-line global-require
       Spellchecker = Spellchecker || require('spellchecker').Spellchecker;
-      let ret = new Spellchecker();
+      const ret = new Spellchecker();
 
       if (fixedLanguage && ret.setDictionary(fixedLanguage, dictionaryPath)) {
         acc[lang] = ret;
@@ -98,22 +95,22 @@ export default class DictionaryManager {
     if (!this.dictionaryInfo) {
       this.dictionaryInfo = {
         useHunspell: DictionaryManager.shouldUseHunspell(),
-        dictionaryDirectory: DictionaryManager.getDictionaryDirectory()
+        dictionaryDirectory: DictionaryManager.getDictionaryDirectory(),
       };
 
       if (fs.statSyncNoException(this.dictionaryInfo.dictionaryDirectory)) {
-        let files = fs.readdirSync(this.dictionaryInfo.dictionaryDirectory);
+        const files = fs.readdirSync(this.dictionaryInfo.dictionaryDirectory);
 
-        this.dictionaryInfo.localDictionaries = _.reduce(files, (acc,x) => {
+        this.dictionaryInfo.localDictionaries = _.reduce(files, (acc, x) => {
           if (!x.match(/\.dic/i)) return acc;
           if (x.match(/hyph_/i)) return acc;
 
           // Normalize en_US => en-US for `node-spellchecker`
-          let lang = x.substring(0, 5).replace(/_/, '-');
+          const lang = x.substring(0, 5).replace(/_/, '-');
           acc[lang] = x;
 
           // Mark en => en-US
-          acc[lang.substring(0,2)] = lang;
+          acc[lang.substring(0, 2)] = lang;
 
           return acc;
         }, {});
@@ -123,10 +120,10 @@ export default class DictionaryManager {
     if (!this.dictionaryInfo.useHunspell) return language;
 
     // Use an exact match if we have one
-    language = language.replace(/_/, '-');
-    if (this.dictionaryInfo.localDictionaries[language]) return language;
+    const kLanguage = language.replace(/_/, '-');
+    if (this.dictionaryInfo.localDictionaries[kLanguage]) return kLanguage;
 
-    let fullLang = this.dictionaryInfo.localDictionaries[language.substring(0,2)];
+    const fullLang = this.dictionaryInfo.localDictionaries[kLanguage.substring(0, 2)];
     if (fullLang) return fullLang;
 
     return null;
@@ -135,15 +132,17 @@ export default class DictionaryManager {
   static getInstalledLanguages() {
     if (process.platform !== 'linux') {
       try {
+        // eslint-disable-next-line global-require
         KeyboardLayout = KeyboardLayout || require('keyboard-layout');
+
         return KeyboardLayout.getInstalledKeyboardLanguages();
       } catch (e) {
         return [];
       }
     }
 
-    let dir = DictionaryManager.getDictionaryDirectory();
-    return _.reduce(fs.readdirSync(dir), (acc,x) => {
+    const dir = DictionaryManager.getDictionaryDirectory();
+    return _.reduce(fs.readdirSync(dir), (acc, x) => {
       if (!x.match(/\.dic$/i)) return acc;
 
       acc.push(x.replace(/\.dic$/, ''));

@@ -4,6 +4,8 @@ import DictionaryManager from './dictionary-manager';
 
 const { MenuItem } = remote;
 
+let KeyboardLayout = null;
+
 /**
  * Spellchecking Helper
  * Manages the spellcheckers
@@ -25,9 +27,9 @@ class NylasSpellcheck {
       spellCheck: (text) => {
         if (!this.current) return true;
 
-        let val = !(this.current.isMisspelled(text));
+        const val = !(this.current.isMisspelled(text));
         return val;
-      }
+      },
     });
   }
 
@@ -44,16 +46,16 @@ class NylasSpellcheck {
   /**
    * @return if the word provided is misspelled
    */
-   isMisspelled(word) {
-     if (!this.current) {
-       return false;
-     }
-     return this.current.isMisspelled(word);
-   }
+  isMisspelled(word) {
+    if (!this.current) {
+      return false;
+    }
+    return this.current.isMisspelled(word);
+  }
 
-   /**
-    * @return the corrections for a misspelled word
-    */
+  /**
+   * @return the corrections for a misspelled word
+   */
   getCorrectionsForMisspelling(word) {
     if (!this.current) {
       return [];
@@ -68,7 +70,7 @@ class NylasSpellcheck {
         corrections.forEach((correction) => {
           menu.append(new MenuItem({
             label: correction,
-            click: () => onCorrect(correction)
+            click: () => onCorrect(correction),
           }));
         });
       } else {
@@ -83,7 +85,7 @@ class NylasSpellcheck {
           if (onDidLearn) {
             onDidLearn(word);
           }
-        }
+        },
       }));
       menu.append(new MenuItem({ type: 'separator' }));
     }
@@ -98,7 +100,10 @@ class NylasSpellcheck {
       return 'en_US';
     }
 
-    return require('keyboard-layout').getCurrentKeyboardLanguage();
+    // eslint-disable-next-line global-require
+    KeyboardLayout = KeyboardLayout || require('keyboard-layout');
+
+    return KeyboardLayout.getCurrentKeyboardLanguage();
   }
 }
 
