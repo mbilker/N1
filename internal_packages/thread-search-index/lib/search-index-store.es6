@@ -23,19 +23,19 @@ class SearchIndexStore {
 
   activate() {
     NylasSyncStatusStore.whenSyncComplete().then(() => {
-      const date = Date.now();
-      console.log('Thread Search: Initializing thread search index...');
+      const date = Date.now()
+      console.log('Thread Search: Initializing thread search index...')
 
-      this.accountIds = _.pluck(AccountStore.accounts(), 'id');
+      this.accountIds = _.pluck(AccountStore.accounts(), 'id')
       this.initializeIndex()
       .then(() => {
-        console.log('Thread Search: Index built successfully in ' + ((Date.now() - date) / 1000) + 's')
+        console.log(`Thread Search: Index built successfully in ${((Date.now() - date) / 1000)}s`)
         this.unsubscribers = [
           AccountStore.listen(::this.onAccountsChanged),
           DatabaseStore.listen(::this.onDataChanged),
         ]
-      });
-    });
+      })
+    })
   }
 
   /**
@@ -50,17 +50,17 @@ class SearchIndexStore {
   initializeIndex() {
     return DatabaseStore.searchIndexSize(Thread)
     .then((size) => {
-      console.log('Thread Search: Current index size is ' + (size || 0) + ' threads');
+      console.log(`Thread Search: Current index size is ${(size || 0)} threads`)
       if (!size || size >= MAX_INDEX_SIZE || size === 0) {
-        return this.clearIndex().thenReturn(this.accountIds);
+        return this.clearIndex().thenReturn(this.accountIds)
       }
-      return this.getUnindexedAccounts();
+      return this.getUnindexedAccounts()
     })
     .then((accountIds) => {
       if (accountIds.length > 0) {
-        return this.buildIndex(accountIds);
+        return this.buildIndex(accountIds)
       }
-      return Promise.resolve();
+      return Promise.resolve()
     })
   }
 
@@ -85,7 +85,7 @@ class SearchIndexStore {
           return;
         }
         const date = Date.now()
-        console.log('Thread Search: Updating thread search index for accounts: ' + latestIds)
+        console.log(`Thread Search: Updating thread search index for accounts ${latestIds}`)
 
         const newIds = _.difference(latestIds, this.accountIds)
         const removedIds = _.difference(this.accountIds, latestIds)
@@ -102,7 +102,7 @@ class SearchIndexStore {
         this.accountIds = latestIds
         Promise.all(promises)
         .then(() => {
-          console.log('Thread Search: Index updated successfully in ' + ((Date.now() - date) / 1000) + 's')
+          console.log(`Thread Search: Index updated successfully in ${((Date.now() - date) / 1000)}s`)
         })
       })
     })

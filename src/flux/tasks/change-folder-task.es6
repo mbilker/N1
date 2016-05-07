@@ -115,13 +115,11 @@ export default class ChangeFolderTask extends ChangeMailTask {
 
   requestBodyForModel(model) {
     if (model instanceof Thread) {
-      return { folder: model.folders[0] ? model.folders[0].id : null };
+      return {folder: model.folders[0] ? model.folders[0].id : null};
     }
-
     if (model instanceof Message) {
-      return { folder: model.folder ? model.folder.id : null };
+      return {folder: model.folder ? model.folder.id : null};
     }
-
     return null;
   }
 }

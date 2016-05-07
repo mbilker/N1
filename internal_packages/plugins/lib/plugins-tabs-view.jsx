@@ -10,7 +10,14 @@ class PluginsTabs extends React.Component {
   static displayName = 'PluginsTabs';
 
   static propTypes = {
-    'onChange': React.PropTypes.Func,
+    onChange: React.PropTypes.Func,
+  };
+
+  static containerRequired = false;
+
+  static containerStyles = {
+    minWidth: 200,
+    maxWidth: 290,
   };
 
   static containerRequired = false;
@@ -47,8 +54,8 @@ class PluginsTabs extends React.Component {
   _renderItems() {
     return Tabs.map(({name, key, icon}, idx) => {
       const classes = classNames({
-        'tab': true,
-        'active': idx === this.state.tabIndex,
+        tab: true,
+        active: idx === this.state.tabIndex,
       });
       return (<li key={key} className={classes} onClick={() => PluginsActions.selectTabIndex(idx)}>{name}</li>);
     });

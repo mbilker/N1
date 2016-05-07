@@ -7,12 +7,6 @@ class TemplateStatusBar extends React.Component {
     draft: React.PropTypes.object.isRequired,
   };
 
-  static containerStyles = {
-    textAlign: 'center',
-    width: 580,
-    margin: 'auto',
-  };
-
   shouldComponentUpdate(nextProps) {
     return (this._usingTemplate(nextProps) !== this._usingTemplate(this.props));
   }
@@ -33,5 +27,11 @@ class TemplateStatusBar extends React.Component {
   }
 
 }
+
+TemplateStatusBar.containerStyles = {
+  textAlign: 'center',
+  width: 580,
+  margin: 'auto',
+};
 
 export default TemplateStatusBar;

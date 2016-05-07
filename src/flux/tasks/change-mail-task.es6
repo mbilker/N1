@@ -300,16 +300,16 @@ export default class ChangeMailTask extends Task {
 
     // Never give the undo task the Model objects - make it look them up!
     // This ensures that they never revert other fields
-    const toIds = (arr) => _.map(arr, v => { return _.isString(v) ? v : v.id });
+    const toIds = (arr) => _.map(arr, v => (_.isString(v) ? v : v.id));
     task.threads = toIds(this.threads);
     task.messages = (this.threads.length > 0) ? [] : toIds(this.messages);
     return task;
   }
 
   objectIds() {
-    return [].concat(this.threads, this.messages).map((v) => {
-      return _.isString(v) ? v : v.id
-    });
+    return [].concat(this.threads, this.messages).map((v) =>
+      (_.isString(v) ? v : v.id)
+    );
   }
 
   objectClass() {

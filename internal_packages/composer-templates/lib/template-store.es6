@@ -1,3 +1,5 @@
+/* eslint global-require: 0*/
+
 import {DraftStore, Actions, QuotedHTMLTransformer} from 'nylas-exports';
 import NylasStore from 'nylas-store';
 import path from 'path';
@@ -203,9 +205,7 @@ class TemplateStore extends NylasStore {
 
   deleteTemplate(name, callback) {
     const template = this._getTemplate(name);
-    if (!template) {
-      return;
-    }
+    if (!template) { return; }
 
     if (this._displayDialog(
         'Delete this template?',

@@ -8,7 +8,7 @@ class SearchableComponent {
   componentDidMount(superMethod, ...args) {
     if (superMethod) superMethod.apply(this, args);
     this.__regionId = Utils.generateTempId();
-    this._searchableListener = SearchableComponentStore.listen(() => {this._onSearchableComponentStoreChange()})
+    this._searchableListener = SearchableComponentStore.listen(() => { this._onSearchableComponentStoreChange() })
     SearchableComponentStore.registerSearchRegion(this.__regionId, ReactDOM.findDOMNode(this))
   }
 
@@ -55,7 +55,6 @@ class SearchableComponent {
       }
       return vDOM;
     }
-
     return null;
   }
 }

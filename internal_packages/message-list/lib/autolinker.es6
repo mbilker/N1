@@ -59,7 +59,7 @@ export function autolink(doc, {async} = {}) {
     ['mailto:', RegExpUtils.emailRegex(), {
       // Technically, gmail.com/bengotow@gmail.com is an email address. After
       // matching, manully exclude any email that follows the .*[/?].*@ pattern.
-      exclude: [/\..*[\/|\?].*\@/],
+      exclude: [/\..*[\/|\?].*@/],
     }],
     ['tel:', RegExpUtils.phoneRegex()],
     ['', RegExpUtils.urlRegex({matchEntireString: false})],
@@ -84,9 +84,9 @@ export function autolink(doc, {async} = {}) {
 
   // Traverse the new DOM tree and make sure everything with an href has a title.
   const aTagWalker = document.createTreeWalker(doc.body, NodeFilter.SHOW_ELEMENT, {
-    acceptNode: (node) => {
-      return node.href ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
-    },
+    acceptNode: (node) =>
+      (node.href ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP)
+    ,
   });
   while (aTagWalker.nextNode()) {
     aTagWalker.currentNode.title = aTagWalker.currentNode.getAttribute('href');

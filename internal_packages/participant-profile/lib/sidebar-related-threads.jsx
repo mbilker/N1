@@ -7,39 +7,36 @@ export default class RelatedThreads extends React.Component {
   static propTypes = {
     contact: React.PropTypes.object,
     contactThreads: React.PropTypes.array,
-  };
+  }
 
   static containerStyles = {
     order: 99,
-  };
+  }
 
   constructor(props) {
-    super(props);
-    this.state = { expanded: false };
-    this.DEFAULT_NUM = 3;
+    super(props)
+    this.state = {expanded: false}
+    this.DEFAULT_NUM = 3
   }
 
   _onClick(thread) {
-    Actions.setFocus({ collection: 'thread', item: thread });
+    Actions.setFocus({collection: 'thread', item: thread})
   }
 
   _toggle = () => {
-    this.setState({ expanded: !this.state.expanded });
+    this.setState({expanded: !this.state.expanded})
   }
 
   _renderToggle() {
-    if (!this._hasToggle()) {
-      return false;
-    }
-
+    if (!this._hasToggle()) { return false; }
     const msg = this.state.expanded ? "Collapse" : "Show more"
     return (
       <div className="toggle" onClick={this._toggle}>{msg}</div>
-    );
+    )
   }
 
   _hasToggle() {
-    return this.props.contactThreads.length > this.DEFAULT_NUM;
+    return (this.props.contactThreads.length > this.DEFAULT_NUM)
   }
 
   render() {
@@ -73,6 +70,6 @@ export default class RelatedThreads extends React.Component {
         {threads}
         {this._renderToggle()}
       </div>
-    );
+    )
   }
 }

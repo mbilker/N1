@@ -11,7 +11,7 @@ class PluginsView extends React.Component {
   static containerStyles = {
     minWidth: 500,
     maxWidth: 99999,
-  };
+  }
 
   constructor() {
     super();

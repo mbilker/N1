@@ -28,8 +28,9 @@ export function TableCell(props) {
 }
 
 TableCell.propTypes = {
-  className: PropTypes.string,
   isHeader: PropTypes.bool,
+  className: PropTypes.string,
+  children: PropTypes.children,
 };
 
 export class TableRow extends Component {

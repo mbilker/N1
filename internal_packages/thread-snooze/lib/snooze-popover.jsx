@@ -84,16 +84,16 @@ class SnoozePopover extends Component {
     const date = SnoozeDatesFactory[itemLabel]();
     const iconName = SnoozeIconNames[itemLabel];
     const iconPath = `nylas://thread-snooze/assets/ic-snoozepopover-${iconName}@2x.png`;
-    const onClick = this.onSnooze.bind(this, date, itemLabel);
-
     return (
       <div
         key={itemLabel}
         className="snooze-item"
-        onClick={onClick}>
+        onClick={() => this.onSnooze(date, itemLabel)}
+      >
         <RetinaImg
           url={iconPath}
-          mode={RetinaImg.Mode.ContentIsMask} />
+          mode={RetinaImg.Mode.ContentIsMask}
+        />
         {itemLabel}
       </div>
     )
@@ -117,7 +117,8 @@ class SnoozePopover extends Component {
         <DateInput
           className="snooze-input"
           dateFormat={DATE_FORMAT_LONG}
-          onSubmitDate={this.onSelectCustomDate} />
+          onSubmitDate={this.onSelectCustomDate}
+        />
       </div>
     );
   }

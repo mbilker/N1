@@ -1,7 +1,6 @@
 import React from 'react';
 import {RetinaImg, Flexbox} from 'nylas-component-kit';
 
-
 class AppearanceModeSwitch extends React.Component {
 
   static displayName = 'AppearanceModeSwitch';
@@ -33,7 +32,8 @@ class AppearanceModeSwitch extends React.Component {
         mode={mode}
         key={mode}
         active={this.state.value === mode}
-        onClick={() => this.setState({value: mode})} />
+        onClick={() => this.setState({value: mode})}
+      />
     );
   }
 
@@ -47,40 +47,38 @@ class AppearanceModeSwitch extends React.Component {
         <Flexbox
           direction="row"
           style={{alignItems: "center"}}
-          className="item">
+          className="item"
+        >
           {this._renderModeOptions()}
         </Flexbox>
         <div className={applyChangesClass} onClick={this._onApplyChanges}>Apply Layout</div>
       </div>
     );
   }
+
 }
 
-class AppearanceModeOption extends React.Component {
-  static propTypes = {
-    mode: React.PropTypes.string.isRequired,
-    active: React.PropTypes.bool,
-    onClick: React.PropTypes.func,
-  };
+const AppearanceModeOption = function AppearanceModeOption(props) {
+  let classname = "appearance-mode";
+  if (props.active) classname += " active";
 
-  render() {
-    let classname = "appearance-mode";
-    if (this.props.active) classname += " active";
+  const label = {
+    list: 'Single Panel',
+    split: 'Two Panel',
+  }[props.mode];
 
-    const label = {
-      'list': 'Single Panel',
-      'split': 'Two Panel',
-    }[this.props.mode];
-
-    return (
-      <div className={classname} onClick={this.props.onClick}>
-        <RetinaImg name={`appearance-mode-${this.props.mode}.png`} mode={RetinaImg.Mode.ContentIsMask}/>
-        <div>{label}</div>
-      </div>
-    );
-  }
+  return (
+    <div className={classname} onClick={props.onClick}>
+      <RetinaImg name={`appearance-mode-${props.mode}.png`} mode={RetinaImg.Mode.ContentIsMask} />
+      <div>{label}</div>
+    </div>
+  );
 }
-
+AppearanceModeOption.propTypes = {
+  mode: React.PropTypes.string.isRequired,
+  active: React.PropTypes.bool,
+  onClick: React.PropTypes.func,
+}
 
 class PreferencesAppearance extends React.Component {
 
@@ -95,7 +93,6 @@ class PreferencesAppearance extends React.Component {
     NylasEnv.commands.dispatch("window:launch-theme-picker");
   }
 
-
   render() {
     return (
       <div className="container-appearance">
@@ -105,7 +102,6 @@ class PreferencesAppearance extends React.Component {
       </div>
     );
   }
-
 }
 
 export default PreferencesAppearance;

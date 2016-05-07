@@ -11,6 +11,7 @@ import {PreferencesUIStore} from 'nylas-exports';
 import PreferencesTabsBar from './preferences-tabs-bar';
 
 class PreferencesRoot extends React.Component {
+
   static displayName = 'PreferencesRoot';
 
   static containerRequired = false;
@@ -51,7 +52,6 @@ class PreferencesRoot extends React.Component {
       tab: tab,
     }
   }
-
 
   _localHandlers() {
     const stopPropagation = (e) => {
@@ -100,8 +100,10 @@ class PreferencesRoot extends React.Component {
     return (
       <KeyCommandsRegion className="preferences-wrap" tabIndex="1" localHandlers={this._localHandlers()}>
         <Flexbox direction="column">
-          <PreferencesTabsBar tabs={this.state.tabs}
-                              selection={this.state.selection} />
+          <PreferencesTabsBar
+            tabs={this.state.tabs}
+            selection={this.state.selection}
+          />
           <ScrollRegion className="preferences-content">
             <ConfigPropContainer ref="content">
               {bodyElement}

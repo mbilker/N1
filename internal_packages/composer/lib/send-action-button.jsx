@@ -8,6 +8,8 @@ const CONFIG_KEY = "core.sending.defaultSendType";
 export default class SendActionButton extends React.Component {
   static displayName = "SendActionButton";
 
+  static containerRequired = false
+
   static propTypes = {
     draft: React.PropTypes.object,
     isValidDraft: React.PropTypes.func,
@@ -140,7 +142,8 @@ export default class SendActionButton extends React.Component {
         tabIndex={-1}
         className={"btn btn-toolbar btn-normal btn-emphasis btn-text btn-send"}
         style={{order: -100}}
-        onClick={this._onPrimaryClick}>
+        onClick={this._onPrimaryClick}
+      >
         {this._contentForAction(this.state.actionConfigs[0])}
       </button>
     );
@@ -152,7 +155,7 @@ export default class SendActionButton extends React.Component {
     const menu = (
       <Menu
         items={rest}
-        itemKey={ (actionConfig) => actionConfig.configKey }
+        itemKey={(actionConfig) => actionConfig.configKey}
         itemContent={this._contentForAction}
         onSelect={this._onSendWithAction}
       />

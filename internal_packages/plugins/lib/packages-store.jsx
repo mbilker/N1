@@ -1,5 +1,3 @@
-/* eslint max-len: 0 */
-
 import _ from 'underscore';
 import Reflux from 'reflux';
 import path from 'path';
@@ -283,7 +281,6 @@ const PackagesStore = Reflux.createStore({
           this._displayMessage('Could not create plugin', err.toString());
           return;
         }
-
         const {resourcePath} = NylasEnv.getLoadSettings();
         const packageTemplatePath = path.join(resourcePath, 'static', 'package-template');
         const packageJSON = {
@@ -298,8 +295,8 @@ const PackagesStore = Reflux.createStore({
             nylas: `>=${NylasEnv.getVersion().split('-')[0]}`,
           },
           windowTypes: {
-            default: true,
-            composer: true,
+            'default': true,
+            'composer': true,
           },
           description: "Enter a description of your package!",
           dependencies: {},

@@ -74,6 +74,10 @@ export default class NylasCalendar extends React.Component {
     height: "100%",
   };
 
+  static containerStyles = {
+    height: "100%",
+  }
+
   constructor(props) {
     super(props);
     this.state = {

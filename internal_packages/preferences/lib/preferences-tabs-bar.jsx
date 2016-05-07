@@ -29,18 +29,21 @@ class PreferencesTabItem extends React.Component {
     const {tabId, displayName} = this.props.tabItem;
 
     const classes = classNames({
-      "item": true,
-      "active": tabId === this.props.selection.get('tabId'),
+      item: true,
+      active: tabId === this.props.selection.get('tabId'),
     });
 
     let path = `icon-preferences-${displayName.toLowerCase().replace(" ", "-")}.png`
     if (!fs.existsSync(Utils.imageNamed(path))) {
       path = "icon-preferences-general.png";
     }
-    const icon = (<RetinaImg
-                    className="tab-icon"
-                    name={path}
-                    mode={RetinaImg.Mode.ContentPreserve} />);
+    const icon = (
+      <RetinaImg
+        className="tab-icon"
+        name={path}
+        mode={RetinaImg.Mode.ContentPreserve}
+      />
+    );
 
     return (
       <div className={classes} onClick={this._onClick}>
@@ -60,14 +63,15 @@ class PreferencesTabsBar extends React.Component {
   static propTypes = {
     tabs: React.PropTypes.instanceOf(Immutable.List).isRequired,
     selection: React.PropTypes.instanceOf(Immutable.Map).isRequired,
-  };
+  }
 
   renderTabs() {
     return this.props.tabs.map((tabItem) =>
       <PreferencesTabItem
         key={tabItem.tabId}
         tabItem={tabItem}
-        selection={this.props.selection} />
+        selection={this.props.selection}
+      />
     );
   }
 

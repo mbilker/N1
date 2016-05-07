@@ -1,7 +1,7 @@
+/* eslint global-require:0 */
 import _ from 'underscore'
 import url from 'url'
 import {Emitter} from 'event-kit'
-
 
 const CONNECTION_TIMEOUT = 60 * 60 * 1000
 const RESULTS_THROTTLE = 400
