@@ -1,5 +1,3 @@
-/** @babel */
-
 import _ from 'underscore';
 import mkdirp from 'mkdirp';
 import fs from 'fs';

@@ -1,5 +1,3 @@
-/** @babel */
-
 import { remote, webFrame } from 'electron';
 
 import DictionaryManager from './dictionary-manager';
