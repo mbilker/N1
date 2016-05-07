@@ -189,7 +189,7 @@ class NylasEnvConstructor
 
     # initialize spell checking
     #@spellchecker = require './nylas-spellchecker'
-    @spellchecker = require './spellcheck/spell-check'
+    @spellchecker = require('./spellcheck/spell-check').default
 
     @packages.onDidActivateInitialPackages => @watchThemes()
     @windowEventHandler = new WindowEventHandler()
