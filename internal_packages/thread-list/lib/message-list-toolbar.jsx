@@ -16,7 +16,7 @@ function getObservable() {
     }
     return items;
   });
-};
+}
 
 const MessageListToolbar = ({items, injectedButtons}) => {
   const shouldRender = items.length > 0;
