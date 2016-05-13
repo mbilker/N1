@@ -339,7 +339,7 @@ class NylasEnvConstructor
   # content trace visualizer (chrome://tracing). It's like Chromium Developer
   # Tools Profiler, but for all processes and threads.
   trace: ->
-    tracing = remote.require('electron').contentTracing
+    tracing = remote.contentTracing
     opts =
       categoryFilter: '*',
       traceOptions: 'record-until-full,enable-sampling,enable-systrace',

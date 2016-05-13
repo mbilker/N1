@@ -164,8 +164,8 @@ export default class ParticipantsTextField extends React.Component {
 
   _onShowContextMenu = (participant) => {
     // Warning: Menu is already initialized as Menu.cjsx!
-    const MenuClass = remote.require('menu');
-    const MenuItem = remote.require('menu-item');
+    const MenuClass = remote.Menu;
+    const MenuItem = remote.MenuItem;
 
     const menu = new MenuClass();
     menu.append(new MenuItem({
@@ -193,6 +193,7 @@ export default class ParticipantsTextField extends React.Component {
           ref="textField"
           matching={{role: 'Composer:ParticipantsTextField'}}
           fallback={TokenizingTextField}
+          requiredMethods={['focus']}
           exposedProps={{
             tokens: this.props.participants[this.props.field],
             tokenKey: (p) => p.email,
