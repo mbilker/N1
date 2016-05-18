@@ -1,5 +1,6 @@
 _ = require 'underscore'
 keytar = require 'keytar'
+NylasAPI = require '../../src/flux/nylas-api'
 AccountStore = require '../../src/flux/stores/account-store'
 Account = require('../../src/flux/models/account').default
 Actions = require '../../src/flux/actions'
@@ -38,6 +39,7 @@ describe "AccountStore", ->
         }]
 
       spyOn(NylasEnv.config, 'get').andCallFake (key) =>
+        return 'production' if key is 'env'
         return @configAccounts if key is 'nylas.accounts'
         return @configVersion if key is 'nylas.accountsVersion'
         return @configTokens if key is 'nylas.accountTokens'
@@ -76,6 +78,21 @@ describe "AccountStore", ->
       @instance = new @constructor
       expect(@instance.tokenForAccountId('A')).toEqual('A-TOKEN')
       expect(@instance.tokenForAccountId('B')).toEqual('B-TOKEN')
+
+    describe "in the work window and running on production", ->
+      it "should refresh the accounts", ->
+        spyOn(NylasEnv, 'isWorkWindow').andReturn(true)
+        @instance = new @constructor
+        spyOn(@instance, 'refreshHealthOfAccounts')
+        advanceClock(10000)
+        expect(@instance.refreshHealthOfAccounts).toHaveBeenCalledWith(['A', 'B'])
+
+    describe "in the main window", ->
+      it "should not refresh the accounts", ->
+        @instance = new @constructor
+        spyOn(@instance, 'refreshHealthOfAccounts')
+        advanceClock(10000)
+        expect(@instance.refreshHealthOfAccounts).not.toHaveBeenCalled()
 
   describe "accountForEmail", ->
     beforeEach ->
@@ -118,8 +135,9 @@ describe "AccountStore", ->
       expect(@instance._accounts.length).toBe 1
       expect(@instance._accounts[0]).toEqual account
       expect(NylasEnv.config.set.calls.length).toBe 3
-      expect(NylasEnv.config.set.calls[2].args).toEqual(['nylas.accountTokens', null])
-      expect(NylasEnv.config.save).toHaveBeenCalled()
+      expect(NylasEnv.config.set.calls[0].args).toEqual(['nylas.accountTokens', null])
+      # Version must be updated last since it will trigger other windows to load nylas.accounts
+      expect(NylasEnv.config.set.calls[2].args).toEqual(['nylas.accountsVersion', 1])
 
     it "selects the account", ->
       expect(Actions.focusDefaultMailboxPerspectiveForAccounts).toHaveBeenCalledWith(["B"])
@@ -164,3 +182,45 @@ describe "AccountStore", ->
         expect(@instance._accounts.length).toBe 2
         expect(@instance.accountForId('B')).toBe(undefined)
         expect(@instance.accountForId('NEVER SEEN BEFORE')).not.toBe(undefined)
+
+  describe "refreshHealthOfAccounts", ->
+    beforeEach ->
+      @spyOnConfig()
+      spyOn(NylasAPI, 'makeRequest').andCallFake (options) =>
+        if options.accountId is 'return-api-error'
+          Promise.reject(new Error("API ERROR"))
+        else
+          Promise.resolve({
+            sync_state: 'running',
+            id: options.accountId,
+            account_id: options.accountId
+          })
+      @instance = new @constructor
+      spyOn(@instance, '_save')
+
+    it "should GET /account for each of the provided account IDs", ->
+      @instance.refreshHealthOfAccounts(['A', 'B'])
+      expect(NylasAPI.makeRequest.callCount).toBe(2)
+      expect(NylasAPI.makeRequest.calls[0].args).toEqual([{path: '/account', accountId: 'A'}])
+      expect(NylasAPI.makeRequest.calls[1].args).toEqual([{path: '/account', accountId: 'B'}])
+
+    it "should update existing account objects and call save exactly once", ->
+      @instance.accountForId('A').syncState = 'invalid'
+      @instance.refreshHealthOfAccounts(['A', 'B'])
+      advanceClock()
+      expect(@instance.accountForId('A').syncState).toEqual('running')
+      expect(@instance._save.callCount).toBe(1)
+
+    it "should ignore accountIds which do not exist locally when the request completes", ->
+      @instance.accountForId('A').syncState = 'invalid'
+      @instance.refreshHealthOfAccounts(['gone', 'A', 'B'])
+      advanceClock()
+      expect(@instance.accountForId('A').syncState).toEqual('running')
+      expect(@instance._save.callCount).toBe(1)
+
+    it "should not stop if a single GET /account fails", ->
+      @instance.accountForId('B').syncState = 'invalid'
+      @instance.refreshHealthOfAccounts(['return-api-error', 'B']).catch (e) =>
+      advanceClock()
+      expect(@instance.accountForId('B').syncState).toEqual('running')
+      expect(@instance._save.callCount).toBe(1)

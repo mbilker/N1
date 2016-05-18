@@ -48,16 +48,14 @@ export default class AutoUpdateManager extends EventEmitter {
       this.feedURL = `https://edgehill.nylas.com/update-check?platform=${process.platform}&arch=${process.arch}&version=${this.version}&id=${updaterId}&emails=${updaterEmails}`;
     }
 
-    if (!this.specMode) {
-      process.nextTick(() => this.setupAutoUpdater());
-    }
+    process.nextTick(() => this.setupAutoUpdater());
   }
 
   setupAutoUpdater() {
     if (process.platform === 'win32') {
       autoUpdater = require('./windows-updater-squirrel-adapter');
     } else if (process.platform === 'linux') {
-      autoUpdater = require('./linux-updater-adapter');
+      autoUpdater = require('./linux-updater-adapter').default;
     } else {
       autoUpdater = require('electron').autoUpdater;
     }

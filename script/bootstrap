@@ -70,31 +70,6 @@ function bootstrap() {
 
   var gruntPath = '"' + path.resolve(__dirname, '..', 'build', 'node_modules', '.bin', 'grunt') + '"';
 
-  var packagesToDedupe = [
-    'abbrev',
-    'amdefine',
-    'atom-space-pen-views',
-    'cheerio',
-    'domelementtype',
-    'fs-plus',
-    'grim',
-    'highlights',
-    'humanize-plus',
-    'iconv-lite',
-    'inherits',
-    'loophole',
-    'oniguruma',
-    'q',
-    'request',
-    'rimraf',
-    'roaster',
-    'season',
-    'sigmund',
-    'semver',
-    'through',
-    'temp'
-  ];
-
   var buildInstallCommand = initialNpmCommand + npmFlags + 'install';
   var buildInstallOptions = {cwd: path.resolve(__dirname, '..', 'build')};
   var apmInstallCommand = npmPath + npmFlags + '--target=0.10.40 ' + 'install';
@@ -181,7 +156,7 @@ function bootstrap() {
     moduleInstallCommand,
   ];
   var afterPackageInstallCommands = [
-    dedupeApmCommand + ' ' + packagesToDedupe.join(' '),
+    dedupeApmCommand,
     {
       command: downloadElectronCmd,
       message: 'Getting Electron v' + targetElectronVersion

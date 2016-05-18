@@ -48,12 +48,11 @@
         { "label": "Go to Drafts", "command": "navigation:go-to-drafts" },
         { "label": "Go to All mail", "command": "navigation:go-to-all" },
         { "type": "separator" },
-        { "label": "Single Panel Mode", "type": "checkbox", "command": "application:select-list-mode" },
-        { "label": "Two Panel Mode", "type": "checkbox", "command": "application:select-split-mode" },
-        { "type": "separator" },
-        { "label": "Toggle &Full Screen", "command": "window:toggle-full-screen" }
+        { "label": "Enter Full Screen", "command": "window:toggle-full-screen" },
+        { "label": "Exit Full Screen", "command": "window:toggle-full-screen", "visible": false }
       ]
     },
+
     {
       "label": "Thread",
       "submenu": [
