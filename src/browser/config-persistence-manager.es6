@@ -23,12 +23,12 @@ export default class ConfigPersistenceManager {
   initializeConfigDirectory() {
     if (!fs.existsSync(this.configDirPath)) {
       fs.makeTreeSync(this.configDirPath);
-      const templateConfigDirPath = fs.resolve(this.resourcePath, 'dot-nylas');
+      const templateConfigDirPath = path.join(this.resourcePath, 'dot-nylas');
       fs.copySync(templateConfigDirPath, this.configDirPath);
     }
 
     if (!fs.existsSync(this.configFilePath)) {
-      const templateConfigPath = fs.resolve(this.resourcePath, 'dot-nylas', 'config.json');
+      const templateConfigPath = path.join(this.resourcePath, 'dot-nylas', 'config.json');
       const templateConfig = fs.readFileSync(templateConfigPath);
       fs.writeFileSync(this.configFilePath, templateConfig);
     }
@@ -104,28 +104,27 @@ export default class ConfigPersistenceManager {
     this._saveThrottled();
   }
 
-  getRawValues = () => {
-    return this.settings;
+  getRawValuesString = () => {
+    return JSON.stringify(this.settings);
   }
 
-  setRawValue = (keyPath, value) => {
+  setRawValue = (keyPath, value, sourceWebcontentsId) => {
     if (keyPath) {
       _.setValueForKeyPath(this.settings, keyPath, value);
     } else {
       this.settings = value;
     }
 
-    this.emitChangeEvent();
+    this.emitChangeEvent({sourceWebcontentsId});
     this.saveSoon();
-
-    return this.settings;
+    return null;
   }
 
-  emitChangeEvent = () => {
+  emitChangeEvent = ({sourceWebcontentsId} = {}) => {
     global.application.config.updateSettings(this.settings);
 
     BrowserWindow.getAllWindows().forEach((win) => {
-      if (win.webContents) {
+      if ((win.webContents) && (win.webContents.getId() !== sourceWebcontentsId)) {
         win.webContents.send('on-config-reloaded', this.settings);
       }
     });

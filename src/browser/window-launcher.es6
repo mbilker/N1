@@ -45,6 +45,11 @@ export default class WindowLauncher {
     if (this._mustUseColdWindow(opts)) {
       win = new NylasWindow(opts)
     } else {
+      // Check if the hot window has been deleted. This may happen when we are
+      // relaunching the app
+      if (!this.hotWindow) {
+        this.createHotWindow()
+      }
       win = this.hotWindow;
       this.createHotWindow();
 
@@ -85,7 +90,10 @@ export default class WindowLauncher {
   // events.  This is necessary for the app to quit promptly on Linux.
   // https://phab.nylas.com/T1282
   cleanupBeforeAppQuit() {
-    this.hotWindow.browserWindow.destroy()
+    if (this.hotWindow != null) {
+      this.hotWindow.browserWindow.destroy()
+    }
+    this.hotWindow = null
   }
 
   // Some properties, like the `frame` or `toolbar` can't be updated once
