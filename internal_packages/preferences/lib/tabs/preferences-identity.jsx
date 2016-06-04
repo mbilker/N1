@@ -67,7 +67,7 @@ class PreferencesIdentity extends React.Component {
 
   getStateFromStores() {
     return {
-      identity: IdentityStore.identity(),
+      identity: IdentityStore.identity() || {},
       subscriptionState: IdentityStore.subscriptionState(),
       trialDaysRemaining: IdentityStore.trialDaysRemaining(),
     };
@@ -76,19 +76,19 @@ class PreferencesIdentity extends React.Component {
   _renderPaymentRow() {
     const {identity, trialDaysRemaining, subscriptionState} = this.state
 
-    if (subscriptionState === IdentityStore.SubscriptionState.Trialing) {
+    if (subscriptionState === IdentityStore.State.Trialing) {
       return (
         <div className="row payment-row">
           <div>
             There {(trialDaysRemaining > 1) ? `are ${trialDaysRemaining} days ` : `is one day `}
             remaining in your 30-day trial of Nylas Pro.
           </div>
-          <OpenIdentityPageButton img="ic-upgrade.png" label="Upgrade to Nylas Pro" path="/dashboard#subscription" />
+          <OpenIdentityPageButton img="ic-upgrade.png" label="Upgrade to Nylas Pro" path="/payment" />
         </div>
       )
     }
 
-    if (subscriptionState === IdentityStore.SubscriptionState.Lapsed) {
+    if (subscriptionState === IdentityStore.State.Lapsed) {
       return (
         <div className="row payment-row">
           <div>
@@ -110,8 +110,9 @@ class PreferencesIdentity extends React.Component {
   }
 
   render() {
-    const {identity} = this.state
-    const {firstname, lastname, email} = identity
+    const {identity} = this.state;
+    const {firstname, lastname, email} = identity;
+
     return (
       <div className="container-identity">
         <div className="id-header">Nylas ID:</div>

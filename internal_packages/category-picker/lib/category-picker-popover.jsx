@@ -50,8 +50,8 @@ export default class CategoryPickerPopover extends Component {
   _registerObservables = (props = this.props) => {
     this._unregisterObservables();
     this.disposables = [
-      Categories.forAccount(props.account).subscribe(this._onCategoriesChanged),
-    ];
+      Categories.forAccount(props.account).sort().subscribe(this._onCategoriesChanged),
+    ]
   };
 
   _unregisterObservables = () => {
