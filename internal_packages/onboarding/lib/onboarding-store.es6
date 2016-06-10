@@ -77,7 +77,7 @@ class OnboardingStore extends NylasStore {
    */
   _openWelcomePage() {
     // open the external welcome page
-    const url = buildWelcomeURL(this.welcomeRoot);
+    const url = buildWelcomeURL(this.welcomeRoot, {source: "OnboardingStore"});
     shell.openExternal(url, {activate: false});
   }
 
@@ -99,7 +99,6 @@ class OnboardingStore extends NylasStore {
     } else if (type === 'exchange') {
       nextPage = "account-settings-exchange";
     }
-    Actions.recordUserEvent('Auth Flow Started', {type});
     this._onSetAccountInfo(Object.assign({}, this._accountInfo, {type}));
     this._onMoveToPage(nextPage);
   }
@@ -126,7 +125,6 @@ class OnboardingStore extends NylasStore {
     if (!json.seen_welcome_page) {
       this._openWelcomePage();
     }
-    Actions.recordUserEvent('Nylas Identity Set');
 
     setTimeout(() => {
       if (isFirstAccount) {
@@ -148,7 +146,7 @@ class OnboardingStore extends NylasStore {
       AccountStore.addAccountFromJSON(json);
       this._accountFromAuth = AccountStore.accountForEmail(json.email_address);
 
-      Actions.recordUserEvent('Auth Successful', {
+      Actions.recordUserEvent('Email Account Auth Succeeded', {
         provider: this._accountFromAuth.provider,
       });
       ipcRenderer.send('new-account-added');
@@ -156,7 +154,9 @@ class OnboardingStore extends NylasStore {
 
       if (isFirstAccount) {
         this._onMoveToPage('initial-preferences');
-        Actions.recordUserEvent('First Account Linked');
+        Actions.recordUserEvent('First Account Linked', {
+          provider: this._accountFromAuth.provider,
+        });
       } else {
         this._onOnboardingComplete();
       }

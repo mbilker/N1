@@ -252,11 +252,18 @@ Message(date DESC) WHERE draft = 1`,
   }
 
   // Public: Returns a set of uniqued message participants by combining the
-  // `to`, `cc`, && `from` fields.
-  participants() {
+  // `to`, `cc`, `bcc` && (optionally) `from` fields.
+  participants({includeFrom, includeBcc} = {includeFrom: true, includeBcc: false}) {
     const seen = {}
     const all = []
-    for (const contact of [].concat(this.to, this.cc, this.from)) {
+    let contacts = [].concat(this.to, this.cc)
+    if (includeFrom) {
+      contacts = _.union(contacts, (this.from || []))
+    }
+    if (includeBcc) {
+      contacts = _.union(contacts, (this.bcc || []))
+    }
+    for (const contact of contacts) {
       if (!contact.email) {
         continue
       }
@@ -355,5 +362,13 @@ Message(date DESC) WHERE draft = 1`,
 
   formattedDate() {
     return moment(this.date).format("MMM D YYYY, [at] h:mm a")
+  }
+
+  hasEmptyBody() {
+    if (!this.body) { return true }
+
+    // https://regex101.com/r/hR7zN3/1
+    const re = /(?:<signature>.*<\/signature>)|(?:<.+?>)|\s/gmi;
+    return this.body.replace(re, "").length === 0;
   }
 }

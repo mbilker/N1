@@ -64,12 +64,6 @@ export default class Application extends EventEmitter {
     this._databasePhase = 'setup';
     this.perf = new PerformanceMonitor()
 
-    if (this.devMode) {
-      console.log("In Dev Mode: Installing React Developer Tools...");
-      const reactPath = path.resolve('./static/devtools-extensions/react-devtools-0.14.11');
-      BrowserWindow.addDevToolsExtension(reactPath);
-    }
-
     this.setupJavaScriptArguments();
     this.handleEvents();
     this.handleLaunchOptions(options);
@@ -93,6 +87,7 @@ export default class Application extends EventEmitter {
       'N1-Personal-Level-Indicators': 'personal-level-indicators',
       'N1-Phishing-Detection': 'phishing-detection',
       'N1-Github-Contact-Card-Section': 'github-contact-card',
+      'N1-Keybase': 'keybase',
     }
     const exampleOldNames = Object.keys(exampleNewNames);
     let examplesEnabled = [];
@@ -333,15 +328,18 @@ export default class Application extends EventEmitter {
     });
 
     this.on('application:new-message', () => {
-      this.windowManager.sendToWindow(WindowManager.MAIN_WINDOW, 'new-message');
+      const main = this.windowManager.get(WindowManager.MAIN_WINDOW);
+      if (main) { main.sendMessage('new-message') }
     });
+
     this.on('application:view-help', () => {
       const helpUrl = 'https://nylas.zendesk.com/hc/en-us/sections/203638587-N1';
       require('electron').shell.openExternal(helpUrl);
     });
 
     this.on('application:open-preferences', () => {
-      this.windowManager.sendToWindow(WindowManager.MAIN_WINDOW, 'open-preferences');
+      const main = this.windowManager.get(WindowManager.MAIN_WINDOW);
+      if (main) { main.sendMessage('open-preferences') }
     });
 
     this.on('application:show-main-window', () => {
@@ -668,14 +666,16 @@ export default class Application extends EventEmitter {
   openUrl(urlToOpen) {
     const {protocol} = url.parse(urlToOpen);
     if (protocol === 'mailto:') {
-      this.windowManager.sendToWindow(WindowManager.MAIN_WINDOW, 'mailto', urlToOpen);
+      const main = this.windowManager.get(WindowManager.MAIN_WINDOW);
+      if (main) { main.sendMessage('mailto', urlToOpen) }
     } else {
       console.log(`Ignoring unknown URL type: ${urlToOpen}`);
     }
   }
 
   openComposerWithFiles(pathsToOpen) {
-    this.windowManager.sendToWindow(WindowManager.MAIN_WINDOW, 'mailfiles', pathsToOpen);
+    const main = this.windowManager.get(WindowManager.MAIN_WINDOW);
+    if (main) { main.sendMessage('mailfiles', pathsToOpen) }
   }
 
   // Opens up a new {NylasWindow} to run specs within.
