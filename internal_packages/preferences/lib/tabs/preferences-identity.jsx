@@ -60,6 +60,7 @@ class PreferencesIdentity extends React.Component {
   constructor() {
     super();
     this.state = this.getStateFromStores();
+    this.state.refreshing = false;
   }
 
   componentDidMount() {
@@ -76,20 +77,30 @@ class PreferencesIdentity extends React.Component {
     return {
       identity: IdentityStore.identity() || {},
       subscriptionState: IdentityStore.subscriptionState(),
-      trialDaysRemaining: IdentityStore.trialDaysRemaining(),
+      daysUntilSubscriptionRequired: IdentityStore.daysUntilSubscriptionRequired(),
     };
   }
 
+  _onRefresh = () => {
+    this.setState({refreshing: true});
+    IdentityStore.refreshStatus().finally(() => {
+      this.setState({refreshing: false});
+    });
+  }
+
   _renderPaymentRow() {
-    const {identity, trialDaysRemaining, subscriptionState} = this.state
+    const {identity, daysUntilSubscriptionRequired, subscriptionState} = this.state
 
     if (subscriptionState === IdentityStore.State.Trialing) {
+      let msg = "You have not upgraded to Nylas Pro.";
+      if (daysUntilSubscriptionRequired > 1) {
+        msg = `There are ${daysUntilSubscriptionRequired} days remaining in your 30-day trial of Nylas Pro.`;
+      } else if (daysUntilSubscriptionRequired === 1) {
+        msg = `There is one day remaining in your trial of Nylas Pro. Upgrade today!`;
+      }
       return (
         <div className="row payment-row">
-          <div>
-            There {(trialDaysRemaining > 1) ? `are ${trialDaysRemaining} days ` : `is one day `}
-            remaining in your 30-day trial of Nylas Pro.
-          </div>
+          <div>{msg}</div>
           <OpenIdentityPageButton img="ic-upgrade.png" label="Upgrade to Nylas Pro" path="/payment" campaign="Upgrade" source="Preferences" />
         </div>
       )
@@ -110,19 +121,37 @@ class PreferencesIdentity extends React.Component {
     return (
       <div className="row payment-row">
         <div>
-          Your subscription will renew on {new Date(identity.valid_until).toLocaleDateString()}. Enjoy N1!
+          Your subscription will renew on {new Date(identity.valid_until * 1000).toLocaleDateString()}. Enjoy N1!
         </div>
       </div>
     )
   }
 
   render() {
-    const {identity} = this.state;
+    const {identity, refreshing} = this.state;
     const {firstname, lastname, email} = identity;
+
+    let refresh = null;
+    if (refreshing) {
+      refresh = (
+        <a className="refresh spinning" onClick={this._onRefresh}>
+          Refreshing... <RetinaImg style={{verticalAlign: 'sub'}} name="ic-refresh.png" mode={RetinaImg.Mode.ContentIsMask} />
+        </a>
+      )
+    } else {
+      refresh = (
+        <a className="refresh" onClick={this._onRefresh}>
+          Refresh <RetinaImg style={{verticalAlign: 'sub'}} name="ic-refresh.png" mode={RetinaImg.Mode.ContentIsMask} />
+        </a>
+      )
+    }
 
     return (
       <div className="container-identity">
-        <div className="id-header">Nylas ID:</div>
+        <div className="id-header">
+          Nylas ID:
+          {refresh}
+        </div>
         <div className="identity-content-box">
           <div className="row info-row">
             <div className="logo">

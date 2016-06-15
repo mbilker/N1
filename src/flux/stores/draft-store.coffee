@@ -52,10 +52,10 @@ class DraftStore
 
     @listenTo Actions.composeReply, @_onComposeReply
     @listenTo Actions.composeForward, @_onComposeForward
-    @listenTo Actions.sendDraftSuccess, => @trigger()
     @listenTo Actions.composePopoutDraft, @_onPopoutDraftClientId
     @listenTo Actions.composeNewBlankDraft, @_onPopoutBlankDraft
     @listenTo Actions.sendDraftFailed, @_onSendDraftFailed
+    @listenTo Actions.sendDraftSuccess, @_onSendDraftSuccess
     @listenTo Actions.sendQuickReply, @_onSendQuickReply
 
     if NylasEnv.isMainWindow()
@@ -204,6 +204,7 @@ class DraftStore
         Actions.sendDraft(draft.clientId)
 
   _onComposeReply: ({thread, threadId, message, messageId, popout, type, behavior}) =>
+    Actions.recordUserEvent("Draft Created", {type})
     Promise.props(@_modelifyContext({thread, threadId, message, messageId}))
     .then ({message, thread}) =>
       DraftFactory.createOrUpdateDraftForReply({message, thread, type, behavior})
@@ -211,6 +212,7 @@ class DraftStore
       @_finalizeAndPersistNewMessage(draft, {popout})
 
   _onComposeForward: ({thread, threadId, message, messageId, popout}) =>
+    Actions.recordUserEvent("Draft Created", {type: "forward"})
     Promise.props(@_modelifyContext({thread, threadId, message, messageId}))
     .then(DraftFactory.createDraftForForward)
     .then (draft) =>
@@ -263,6 +265,7 @@ class DraftStore
     @_draftSessions[clientId] = new DraftEditingSession(clientId, draft)
 
   _onPopoutBlankDraft: =>
+    Actions.recordUserEvent("Draft Created", {type: "new"})
     NylasEnv.perf.start("Popout Draft")
     DraftFactory.createDraft().then (draft) =>
       @_finalizeAndPersistNewMessage(draft).then ({draftClientId}) =>
@@ -365,6 +368,10 @@ class DraftStore
       session.changes.add({files})
       session.changes.commit()
 
+  _onSendDraftSuccess: ({draftClientId}) =>
+    delete @_draftsSending[draftClientId]
+    @trigger(draftClientId)
+
   _onSendDraftFailed: ({draftClientId, threadId, errorMessage}) ->
     @_draftsSending[draftClientId] = false
     @trigger(draftClientId)
@@ -372,9 +379,12 @@ class DraftStore
       # We delay so the view has time to update the restored draft. If we
       # don't delay the modal may come up in a state where the draft looks
       # like it hasn't been restored or has been lost.
+      #
+      # We also need to delay because the old draft window needs to fully
+      # close. It takes windows currently (June 2016) 100ms to close by
       _.delay =>
         @_notifyUserOfError({draftClientId, threadId, errorMessage})
-      , 100
+      , 300
 
   _isPopout: ->
     NylasEnv.getWindowType() is "composer"

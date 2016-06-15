@@ -22,6 +22,8 @@ class IdentityStore extends NylasStore {
   constructor() {
     super();
 
+    this._subscriptionRequiredAfter = null;
+
     NylasEnv.config.onDidChange('env', this._onEnvChanged);
     this._onEnvChanged();
 
@@ -36,7 +38,7 @@ class IdentityStore extends NylasStore {
 
     this._loadIdentity();
 
-    if (NylasEnv.isWorkWindow() && ['staging', 'production'].includes(NylasEnv.config.get('env'))) {
+    if (NylasEnv.isMainWindow() && ['staging', 'production'].includes(NylasEnv.config.get('env'))) {
       setInterval(this.refreshStatus, 1000 * 60 * 60);
       this.refreshStatus();
     }
@@ -81,48 +83,30 @@ class IdentityStore extends NylasStore {
     if (!this._identity || (this._identity.valid_until === null)) {
       return State.Trialing;
     }
-    if (new Date(this._identity.valid_until) < new Date()) {
+    if (new Date(this._identity.valid_until * 1000) < new Date()) {
       return State.Lapsed;
     }
     return State.Valid;
   }
 
-  trialDaysRemaining() {
-    const daysToDate = (date) =>
-      Math.max(0, Math.round((date.getTime() - Date.now()) / (1000 * 24 * 60 * 60)))
-
-    if (this.subscriptionState() !== State.Trialing) {
+  daysUntilSubscriptionRequired() {
+    if (!this._subscriptionRequiredAfter) {
       return null;
     }
-
-    // Return the smallest number of days left in any linked account, or null
-    // if no trialExpirationDate is present on any account.
-    return AccountStore.accounts().map((a) =>
-      (a.subscriptionRequiredAfter ? daysToDate(a.subscriptionRequiredAfter) : null)
-    ).sort().shift();
+    return Math.max(0, Math.round((this._subscriptionRequiredAfter.getTime() - Date.now()) / (1000 * 24 * 60 * 60)));
   }
 
   refreshStatus = () => {
-    if (!this._identity || !this._identity.token) {
-      return;
-    }
-    request({
-      method: 'GET',
-      url: `${this.URLRoot}/n1/user`,
-      auth: {
-        username: this._identity.token,
-        password: '',
-        sendImmediately: true,
-      },
-    }, (error, response = {}, body) => {
-      if (response.statusCode === 200) {
-        try {
-          const nextIdentity = Object.assign({}, this._identity, JSON.parse(body));
-          this._onSetNylasIdentity(nextIdentity)
-        } catch (err) {
-          NylasEnv.reportError("IdentityStore.refreshStatus: invalid JSON in response body.")
-        }
-      }
+    return Promise.all([
+      this.fetchIdentity(),
+      Promise.all(AccountStore.accounts().map((a) =>
+        this.fetchSubscriptionRequiredDate(a))
+      ).then((subscriptionRequiredDates) => {
+        this._subscriptionRequiredAfter = subscriptionRequiredDates.sort().shift();
+        this.trigger();
+      }),
+    ]).catch((err) => {
+      console.error(`Unable to refresh IdentityStore status: ${err.message}`)
     });
   }
 
@@ -159,6 +143,7 @@ class IdentityStore extends NylasStore {
         url: `${this.URLRoot}/n1/login-link`,
         qs: qs,
         json: true,
+        timeout: 1500,
         body: {
           next_path: pathWithUtm,
           account_token: this._identity.token,
@@ -175,6 +160,45 @@ class IdentityStore extends NylasStore {
     });
   }
 
+  fetchSubscriptionRequiredDate = (account) => {
+    return this.fetchPath(`/n1/account/${account.id}`).then((json) => {
+      return json.subscription_required_after ? new Date(json.subscription_required_after * 1000) : null;
+    });
+  }
+
+  fetchIdentity = () => {
+    if (!this._identity || !this._identity.token) {
+      return Promise.resolve();
+    }
+    return this.fetchPath('/n1/user').then((json) => {
+      const nextIdentity = Object.assign({}, this._identity, json);
+      this._onSetNylasIdentity(nextIdentity);
+    });
+  }
+
+  fetchPath = (path) => {
+    return new Promise((resolve, reject) => {
+      request({
+        method: 'GET',
+        url: `${this.URLRoot}${path}`,
+        auth: {
+          username: this._identity.token,
+          password: '',
+          sendImmediately: true,
+        },
+      }, (error, response = {}, body) => {
+        if (response.statusCode === 200) {
+          try {
+            return resolve(JSON.parse(body));
+          } catch (err) {
+            NylasEnv.reportError(new Error(`IdentityStore.fetchPath: ${path} ${err.message}.`))
+          }
+        }
+        return reject(error || new Error(`IdentityStore.fetchPath: ${path} ${response.statusCode}.`));
+      });
+    });
+  }
+
   _onLogoutNylasIdentity = () => {
     keytar.deletePassword(keytarServiceName, keytarIdentityKey);
     NylasEnv.config.unset(configIdentityKey);
@@ -182,8 +206,10 @@ class IdentityStore extends NylasStore {
   }
 
   _onSetNylasIdentity = (identity) => {
-    keytar.replacePassword(keytarServiceName, keytarIdentityKey, identity.token);
-    delete identity.token;
+    if (identity.token) {
+      keytar.replacePassword(keytarServiceName, keytarIdentityKey, identity.token);
+      delete identity.token;
+    }
     NylasEnv.config.set(configIdentityKey, identity);
   }
 }
