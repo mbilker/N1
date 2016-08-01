@@ -9,6 +9,25 @@ export const testData = {
   ],
 }
 
+export const testDataUneven = {
+  columns: ['col1', 'col2', 'col3'],
+  rows: [
+    [1, 2],
+    [4, 5, 6],
+    [7, 8],
+  ],
+}
+
+export const testDataEmpty = {
+  columns: ['col1', 'col2', ''],
+  rows: [
+    [1, 2],
+    [4, 5, 6],
+    ['', ''],
+    [],
+  ],
+}
+
 class TestSource extends Table.TableDataSource {
   setRows(rows) {
     const data = {
@@ -20,6 +39,10 @@ class TestSource extends Table.TableDataSource {
 }
 
 export const testDataSource = new TestSource(testData)
+
+export const testDataSourceUneven = new TestSource(testDataUneven)
+
+export const testDataSourceEmpty = new TestSource(testDataEmpty)
 
 export const selection = {colIdx: 0, rowIdx: 0, key: null}
 

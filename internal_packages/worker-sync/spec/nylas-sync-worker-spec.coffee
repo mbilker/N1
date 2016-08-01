@@ -1,6 +1,6 @@
 _ = require 'underscore'
 {Actions, DatabaseStore, DatabaseTransaction, Account, Thread} = require 'nylas-exports'
-NylasLongConnection = require '../lib/nylas-long-connection'
+DeltaStreamingConnection = require('../lib/delta-streaming-connection').default
 NylasSyncWorker = require '../lib/nylas-sync-worker'
 
 describe "NylasSyncWorker", ->
@@ -8,6 +8,7 @@ describe "NylasSyncWorker", ->
     @apiRequests = []
     @api =
       APIRoot: 'https://api.nylas.com'
+      LongConnectionStatus: {'Closed', 'Connected'}
       pluginsSupported: true
       accessTokenForAccountId: =>
         '123'
@@ -17,6 +18,10 @@ describe "NylasSyncWorker", ->
         @apiRequests.push({account, model, params, requestOptions})
       getThreads: (account, params, requestOptions) =>
         @apiRequests.push({account, model:'threads', params, requestOptions})
+      longConnection: -> {
+        start: ->
+        _status: 'Closed'
+      }
 
     @apiCursorStub = undefined
     spyOn(NylasSyncWorker.prototype, 'fetchAllMetadata').andCallFake (cb) -> cb()
@@ -38,11 +43,11 @@ describe "NylasSyncWorker", ->
         return throw new Error("Not stubbed! #{key}")
 
 
+    spyOn(DeltaStreamingConnection.prototype, 'start')
     @account = new Account(clientId: TEST_ACCOUNT_CLIENT_ID, serverId: TEST_ACCOUNT_ID, organizationUnit: 'label')
     @worker = new NylasSyncWorker(@api, @account)
     @worker._metadata = {"a": [{"id":"b"}]}
     @connection = @worker.connection()
-    spyOn(@connection, 'start')
     advanceClock()
 
   it "should reset `busy` to false when reading state from disk", ->
@@ -139,7 +144,7 @@ describe "NylasSyncWorker", ->
 
   describe "delta streaming cursor", ->
     it "should read the cursor from the database, and the old config format", ->
-      spyOn(NylasLongConnection.prototype, 'withCursor').andCallFake =>
+      spyOn(DeltaStreamingConnection.prototype, 'latestCursor').andReturn Promise.resolve()
 
       @apiCursorStub = undefined
 
@@ -159,7 +164,7 @@ describe "NylasSyncWorker", ->
       connection = worker.connection()
       advanceClock()
       expect(connection.hasCursor()).toBe(true)
-      expect(connection._config.getCursor()).toEqual('old-school')
+      expect(connection._getCursor()).toEqual('old-school')
 
       # cursor present in database, overrides cursor in config
       @apiCursorStub = "new-school"
@@ -169,7 +174,18 @@ describe "NylasSyncWorker", ->
       expect(connection.hasCursor()).toBe(false)
       advanceClock()
       expect(connection.hasCursor()).toBe(true)
-      expect(connection._config.getCursor()).toEqual('new-school')
+      expect(connection._getCursor()).toEqual('new-school')
+
+    it "should set the cursor to the last cursor after receiving deltas", ->
+      spyOn(DeltaStreamingConnection.prototype, 'latestCursor').andReturn Promise.resolve()
+      worker = new NylasSyncWorker(@api, @account)
+      advanceClock()
+      connection = worker.connection()
+      deltas = [{cursor: '1'}, {cursor: '2'}]
+      connection._emitter.emit('results-stopped-arriving', deltas)
+      advanceClock()
+      expect(connection._getCursor()).toEqual('2')
+
 
   describe "when a count request completes", ->
     beforeEach ->
@@ -214,6 +230,9 @@ describe "NylasSyncWorker", ->
       expect(@worker.fetchCollection.calls.map (call) -> call.args[0]).toEqual(['threads', 'labels', 'drafts'])
 
     it "should be called when Actions.retrySync is received", ->
+      spyOn(DeltaStreamingConnection.prototype, 'latestCursor').andReturn Promise.resolve()
+
+      # TODO why do we need to call through?
       spyOn(@worker, 'resume').andCallThrough()
       Actions.retrySync()
       expect(@worker.resume).toHaveBeenCalled()

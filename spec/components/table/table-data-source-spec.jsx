@@ -1,4 +1,9 @@
-import {testData, testDataSource} from '../../fixtures/table-data'
+import {
+  testData,
+  testDataSource,
+  testDataSourceEmpty,
+  testDataSourceUneven,
+} from '../../fixtures/table-data'
 
 
 describe('TableDataSource', function describeBlock() {
@@ -41,6 +46,37 @@ describe('TableDataSource', function describeBlock() {
     });
   });
 
+  describe('isEmpty', () => {
+    it('throws if no args passed', () => {
+      expect(() => testDataSource.isEmpty()).toThrow()
+    });
+
+    it('throws if row does not exist', () => {
+      expect(() => testDataSource.isEmpty({rowIdx: 100})).toThrow()
+    });
+
+    it('throws if col does not exist', () => {
+      expect(() => testDataSource.isEmpty({colIdx: 100})).toThrow()
+    });
+
+    it('returns correct value when checking cell', () => {
+      expect(testDataSourceEmpty.isEmpty({rowIdx: 2, colIdx: 1})).toBe(true)
+      expect(testDataSourceEmpty.isEmpty({rowIdx: 3, colIdx: 1})).toBe(true)
+      expect(testDataSourceEmpty.isEmpty({rowIdx: 0, colIdx: 0})).toBe(false)
+    });
+
+    it('returns correct value when checking col', () => {
+      expect(testDataSourceEmpty.isEmpty({colIdx: 2})).toBe(true)
+      expect(testDataSourceEmpty.isEmpty({colIdx: 0})).toBe(false)
+    });
+
+    it('returns correct value when checking row', () => {
+      expect(testDataSourceEmpty.isEmpty({rowIdx: 2})).toBe(true)
+      expect(testDataSourceEmpty.isEmpty({rowIdx: 3})).toBe(true)
+      expect(testDataSourceEmpty.isEmpty({rowIdx: 1})).toBe(false)
+    });
+  });
+
   describe('rows', () => {
     it('returns all rows', () => {
       expect(testDataSource.rows()).toBe(testData.rows)
@@ -69,20 +105,29 @@ describe('TableDataSource', function describeBlock() {
     });
   });
 
-  describe('removeColumn', () => {
+  describe('removeLastColumn', () => {
     it('removes last column from the data source\'s columns', () => {
-      const res = testDataSource.removeColumn()
+      const res = testDataSource.removeLastColumn()
       expect(res.columns()).toEqual(['col1', 'col2'])
     });
 
     it('removes last column from every row', () => {
-      const res = testDataSource.removeColumn()
+      const res = testDataSource.removeLastColumn()
       expect(res.rows()).toEqual([
         [1, 2],
         [4, 5],
         [7, 8],
       ])
     });
+
+    it('removes the last column only from every row with that column', () => {
+      const res = testDataSourceUneven.removeLastColumn()
+      expect(res.rows()).toEqual([
+        [1, 2],
+        [4, 5],
+        [7, 8],
+      ])
+    })
   });
 
   describe('addRow', () => {
