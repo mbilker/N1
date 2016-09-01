@@ -2,9 +2,13 @@ import path from 'path';
 import pathWatcher from 'pathwatcher';
 import fs from 'fs-plus';
 import {BrowserWindow, dialog, app} from 'electron';
+import {atomicWriteFileSync} from '../fs-utils'
 
 let _ = require('underscore');
 _ = _.extend(_, require('../config-utils'));
+
+const RETRY_SAVES = 3
+
 
 export default class ConfigPersistenceManager {
   constructor({configDirPath, resourcePath} = {}) {
@@ -12,6 +16,7 @@ export default class ConfigPersistenceManager {
     this.resourcePath = resourcePath;
 
     this.userWantsToPreserveErrors = false
+    this.saveRetries = 0
     this.configFilePath = path.join(this.configDirPath, 'config.json')
     this.settings = {};
 
@@ -46,9 +51,15 @@ export default class ConfigPersistenceManager {
       this.settings = json['*'];
       this.emitChangeEvent();
     } catch (error) {
+      global.errorLogger.reportError(error, {event: 'Failed to load config.json'})
       const message = `Failed to load "${path.basename(this.configFilePath)}"`;
       let detail = (error.location) ? error.stack : error.message;
-      detail += `\n\nFix the formatting of ${this.configFilePath} to resolve this error, or reset your settings to continue using N1.`
+
+      if (error instanceof SyntaxError) {
+        detail += `\n\nThe file ${this.configFilePath} has incorrect JSON formatting or is empty. Fix the formatting to resolve this error, or reset your settings to continue using N1.`
+      } else {
+        detail += `\n\nWe were unable to read the file ${this.configFilePath}. Make sure you have permissions to access this file, and check that the file is not open or being edited and try again.`
+      }
 
       const clickedIndex = dialog.showMessageBox({
         type: 'error',
@@ -78,22 +89,60 @@ export default class ConfigPersistenceManager {
   }
 
   observe() {
-    try {
-      this.watchSubscription = pathWatcher.watch(this.configFilePath, (eventType) => {
-        if (eventType === 'change' && this.watchSubscription) {
-          if (Date.now() - this.lastSaveTimstamp < 100) {
-            return;
-          }
-          this.loadSoon();
+    // watch the config file for edits. This observer needs to be
+    // replaced if the config file is deleted.
+    let watcher = null;
+    const watchCurrentConfigFile = () => {
+      try {
+        if (watcher) {
+          watcher.close();
         }
+        watcher = pathWatcher.watch(this.configFilePath, (e) => {
+          if (e === 'change') {
+            this.loadSoon();
+          }
+        });
+      } catch (error) {
+        this.observeErrorOccurred(error);
+      }
+    }
+    watchCurrentConfigFile();
+
+    // watch the config directory (non-recursive) to catch the config file
+    // being deleted and replaced or atomically edited.
+    try {
+      let lastctime = null;
+      pathWatcher.watch(this.configDirPath, () => {
+        fs.stat(this.configFilePath, (err, stats) => {
+          if (err) { return; }
+
+          const ctime = stats.ctime.getTime();
+          if (ctime !== lastctime) {
+            if (Math.abs(ctime - this.lastSaveTimestamp) > 2000) {
+              this.loadSoon();
+            }
+            watchCurrentConfigFile();
+            lastctime = ctime;
+          }
+        });
       })
     } catch (error) {
-      this.notifyFailure("Configuration Error", `
-        Unable to watch path: ${path.basename(this.configFilePath)}. Make sure you have permissions to
-        ${this.configFilePath}. On linux there are currently problems with watch
-        sizes.
-      `);
+      this.observeErrorOccurred(error);
     }
+  }
+
+  observeErrorOccurred = (error) => {
+    global.errorLogger.reportError(error)
+    dialog.showMessageBox({
+      type: 'error',
+      message: 'Configuration Error',
+      detail: `
+      Unable to watch path: ${path.basename(this.configFilePath)}. Make sure you have permissions to
+      ${this.configFilePath}. On linux there are currently problems with watch
+      sizes.
+      `,
+      buttons: ['Okay'],
+    })
   }
 
   save = () => {
@@ -102,8 +151,29 @@ export default class ConfigPersistenceManager {
     }
     const allSettings = {'*': this.settings};
     const allSettingsJSON = JSON.stringify(allSettings, null, 2);
-    this.lastSaveTimstamp = Date.now();
-    fs.writeFileSync(this.configFilePath, allSettingsJSON);
+    this.lastSaveTimestamp = Date.now();
+
+    try {
+      atomicWriteFileSync(this.configFilePath, allSettingsJSON)
+      this.saveRetries = 0
+    } catch (error) {
+      if (this.saveRetries >= RETRY_SAVES) {
+        global.errorLogger.reportError(error, {event: 'Failed to save config.json'})
+        const clickedIndex = dialog.showMessageBox({
+          type: 'error',
+          message: `Failed to save "${path.basename(this.configFilePath)}"`,
+          detail: `\n\nWe were unable to save the file ${this.configFilePath}. Make sure you have permissions to access this file, and check that the file is not open or being edited and try again.`,
+          buttons: ['Okay', 'Try again'],
+        })
+        this.saveRetries = 0
+        if (clickedIndex === 1) {
+          this.saveSoon()
+        }
+      } else {
+        this.saveRetries++
+        this.saveSoon()
+      }
+    }
   }
 
   saveSoon = () => {
