@@ -1,14 +1,5 @@
 /* eslint global-require: "off" */
 
-import SystemTrayManager from './system-tray-manager';
-import WindowManager from './window-manager';
-import FileListCache from './file-list-cache';
-import ApplicationMenu from './application-menu';
-import AutoUpdateManager from './auto-update-manager';
-import PerformanceMonitor from './performance-monitor'
-import NylasProtocolHandler from './nylas-protocol-handler';
-import ConfigPersistenceManager from './config-persistence-manager';
-
 import {BrowserWindow, Menu, app, ipcMain, dialog} from 'electron';
 
 import fs from 'fs-plus';
@@ -16,6 +7,17 @@ import url from 'url';
 import path from 'path';
 import proc from 'child_process'
 import {EventEmitter} from 'events';
+
+import SystemTrayManager from './system-tray-manager';
+import WindowManager from './window-manager';
+import FileListCache from './file-list-cache';
+import ApplicationMenu from './application-menu';
+import AutoUpdateManager from './auto-update-manager';
+import PerformanceMonitor from './performance-monitor'
+import NylasProtocolHandler from './nylas-protocol-handler';
+import PackageMigrationManager from './package-migration-manager';
+import ConfigPersistenceManager from './config-persistence-manager';
+import DefaultClientHelper from '../default-client-helper';
 
 let clipboard = null;
 
@@ -44,7 +46,8 @@ export default class Application extends EventEmitter {
     this.configPersistenceManager = new ConfigPersistenceManager({configDirPath, resourcePath});
     config.load();
 
-    this.temporaryInitializeDisabledPackages();
+    this.packageMigrationManager = new PackageMigrationManager({config, configDirPath, version})
+    this.packageMigrationManager.migrate()
 
     let initializeInBackground = options.background;
     if (initializeInBackground === undefined) {
@@ -58,6 +61,7 @@ export default class Application extends EventEmitter {
       configDirPath: this.configDirPath,
       config: this.config,
       devMode: this.devMode,
+      specMode: this.specMode,
       safeMode: this.safeMode,
       initializeInBackground: initializeInBackground,
     });
@@ -68,59 +72,34 @@ export default class Application extends EventEmitter {
     this.setupJavaScriptArguments();
     this.handleEvents();
     this.handleLaunchOptions(options);
+
+    if (process.platform === 'linux') {
+      const helper = new DefaultClientHelper();
+      helper.registerForURLScheme('nylas');
+    } else {
+      app.setAsDefaultProtocolClient('nylas');
+    }
+
+    if (process.platform === 'darwin') {
+      const addedToDock = config.get('addedToDock');
+      const appPath = process.argv[0];
+      if (!addedToDock && appPath.includes('/Applications/') && appPath.includes('.app/')) {
+        proc.exec(`defaults write com.apple.dock persistent-apps -array-add "<dict><key>tile-data</key><dict><key>file-data</key><dict><key>_CFURLString</key><string>${appPath.split('.app/')[0]}.app/</string><key>_CFURLStringType</key><integer>0</integer></dict></dict></dict>"`);
+        config.set('addedToDock', true);
+      }
+    }
   }
 
   getMainWindow() {
     return this.windowManager.get(WindowManager.MAIN_WINDOW).browserWindow;
   }
 
-  isQuitting() {
-    return this.quitting;
+  getAllWindowDimensions() {
+    return this.windowManager.getAllWindowDimensions()
   }
 
-  temporaryInitializeDisabledPackages() {
-    if (this.config.get('core.disabledPackagesInitialized')) {
-      return;
-    }
-
-    const exampleNewNames = {
-      'N1-Message-View-on-Github': 'message-view-on-github',
-      'N1-Personal-Level-Indicators': 'personal-level-indicators',
-      'N1-Phishing-Detection': 'phishing-detection',
-      'N1-Github-Contact-Card-Section': 'github-contact-card',
-      'N1-Keybase': 'keybase',
-      'N1-Markdown': 'composer-markdown',
-    }
-    const exampleOldNames = Object.keys(exampleNewNames);
-    let examplesEnabled = [];
-
-    // Temporary: Find the examples that have been manually installed
-    if (fs.existsSync(path.join(this.configDirPath, 'packages'))) {
-      const packages = fs.readdirSync(path.join(this.configDirPath, 'packages'));
-      examplesEnabled = packages.filter((packageName) =>
-         exampleOldNames.includes(packageName) && (packageName[0] !== '.')
-      );
-
-      // Move old installed examples to a deprecated folder
-      const deprecatedPath = path.join(this.configDirPath, 'packages-deprecated')
-      if (!fs.existsSync(deprecatedPath)) {
-        fs.mkdirSync(deprecatedPath);
-      }
-      examplesEnabled.forEach((dir) => {
-        const prevPath = path.join(this.configDirPath, 'packages', dir)
-        const nextPath = path.join(deprecatedPath, dir)
-        fs.renameSync(prevPath, nextPath);
-      });
-    }
-
-    // Disable examples not specifically enabled
-    for (const oldName of Object.keys(exampleNewNames)) {
-      if (examplesEnabled.includes(oldName)) {
-        continue;
-      }
-      this.config.pushAtKeyPath('core.disabledPackages', exampleNewNames[oldName]);
-    }
-    this.config.set('core.disabledPackagesInitialized', true);
+  isQuitting() {
+    return this.quitting;
   }
 
   temporaryMigrateConfig() {
@@ -335,7 +314,7 @@ export default class Application extends EventEmitter {
     });
 
     this.on('application:view-help', () => {
-      const helpUrl = 'https://nylas.zendesk.com/hc/en-us/sections/203638587-N1';
+      const helpUrl = 'https://support.nylas.com/hc/en-us/categories/200419318-Help-for-N1-users';
       require('electron').shell.openExternal(helpUrl);
     });
 
@@ -353,17 +332,20 @@ export default class Application extends EventEmitter {
     });
 
     this.on('application:install-update', () => {
-      this.quitting = true
-      this.windowManager.cleanupBeforeAppQuit()
-      this.autoUpdateManager.install()
+      this.quitting = true;
+      this.windowManager.cleanupBeforeAppQuit();
+      this.autoUpdateManager.install();
     });
 
     this.on('application:toggle-dev', () => {
-      this.devMode = !this.devMode;
-      this.config.set('devMode', this.devMode ? true : undefined);
-      this.windowManager.destroyAllWindows();
-      this.windowManager.devMode = this.devMode;
-      this.openWindowsForTokenState();
+      let args = process.argv.slice(1);
+      if (args.includes('--dev')) {
+        args = args.filter(a => a !== '--dev');
+      } else {
+        args.push('--dev')
+      }
+      app.relaunch({args});
+      app.quit();
     });
 
     if (process.platform === 'darwin') {
@@ -583,7 +565,9 @@ export default class Application extends EventEmitter {
     })
 
     ipcMain.on("move-to-applications", () => {
-      if (process.platform !== "darwin") return;
+      if (process.platform !== "darwin") {
+        return;
+      }
       const re = /(^.*?\.app)/i;
       const appPath = (re.exec(process.argv[0]) || [])[0];
       if (!appPath) {
@@ -710,12 +694,40 @@ export default class Application extends EventEmitter {
   // Open a mailto:// url.
   //
   openUrl(urlToOpen) {
-    const {protocol} = url.parse(urlToOpen);
-    if (protocol === 'mailto:') {
-      const main = this.windowManager.get(WindowManager.MAIN_WINDOW);
-      if (main) { main.sendMessage('mailto', urlToOpen) }
+    const parts = url.parse(urlToOpen);
+    const main = this.windowManager.get(WindowManager.MAIN_WINDOW);
+
+    if (!main) {
+      console.log(`Ignoring URL - main window is not available, user may not be authed.`);
+      return;
+    }
+
+    if (parts.protocol === 'mailto:') {
+      main.sendMessage('mailto', urlToOpen);
+    } else if (parts.protocol === 'nylas:') {
+      if (parts.host === 'calendar') {
+        this.openCalendarURL(parts.path);
+      } else if (parts.host === 'plugins') {
+        main.sendMessage('changePluginStateFromUrl', urlToOpen);
+      } else {
+        main.sendMessage('openExternalThread', urlToOpen);
+      }
     } else {
       console.log(`Ignoring unknown URL type: ${urlToOpen}`);
+    }
+  }
+
+  openCalendarURL(command) {
+    if (command === '/open') {
+      this.windowManager.ensureWindow(WindowManager.CALENDAR_WINDOW, {
+        windowKey: WindowManager.CALENDAR_WINDOW,
+        windowType: WindowManager.CALENDAR_WINDOW,
+        title: "Calendar",
+        hidden: false,
+      });
+    } else if (command === '/close') {
+      const win = this.windowManager.get(WindowManager.CALENDAR_WINDOW);
+      if (win) { win.hide(); }
     }
   }
 
@@ -745,9 +757,9 @@ export default class Application extends EventEmitter {
 
     let bootstrapScript = null;
     try {
-      bootstrapScript = require.resolve(path.resolve(this.resourcePath, 'spec', 'spec-bootstrap'));
+      bootstrapScript = require.resolve(path.resolve(this.resourcePath, 'spec', 'n1-spec-runner', 'spec-bootstrap'));
     } catch (error) {
-      bootstrapScript = require.resolve(path.resolve(__dirname, '..', '..', 'spec', 'spec-bootstrap'));
+      bootstrapScript = require.resolve(path.resolve(__dirname, '..', '..', 'spec', 'n1-spec-runner', 'spec-bootstrap'));
     }
 
     // Important: Use .nylas-spec instead of .nylas to avoid overwriting the

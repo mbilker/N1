@@ -5,6 +5,7 @@ import {EventedIFrame} from 'nylas-component-kit';
 import {Utils, QuotedHTMLTransformer, MessageStore} from 'nylas-exports';
 import {autolink} from './autolinker';
 import {autoscaleImages} from './autoscale-images';
+import {addInlineDownloadPrompts} from './inline-download-prompts';
 import EmailFrameStylesStore from './email-frame-styles-store';
 
 export default class EmailFrame extends React.Component {
@@ -69,6 +70,7 @@ export default class EmailFrame extends React.Component {
 
     autolink(doc, {async: true});
     autoscaleImages(doc);
+    addInlineDownloadPrompts(doc);
 
     for (const extension of MessageStore.extensions()) {
       if (!extension.renderedMessageBodyIntoDocument) {
@@ -100,19 +102,16 @@ export default class EmailFrame extends React.Component {
   _getFrameHeight = (doc) => {
     let height = 0;
 
-    if (doc && doc.body) {
-      // Why reset the height? body.scrollHeight will always be 0 if the height
-      // of the body is dependent on the iframe height e.g. if height ===
-      // 100% in inline styles or an email stylesheet
-      const style = window.getComputedStyle(doc.body)
+    // If documentElement has a scroll height, prioritize that as height
+    // If not, fall back to body scroll height by setting it to auto
+    if (doc && doc.documentElement && doc.documentElement.scrollHeight > 0) {
+      height = doc.documentElement.scrollHeight;
+    } else if (doc && doc.body) {
+      const style = window.getComputedStyle(doc.body);
       if (style.height === '0px') {
-        doc.body.style.height = "auto"
+        doc.body.style.height = "auto";
       }
       height = doc.body.scrollHeight;
-    }
-
-    if (doc && doc.documentElement) {
-      height = doc.documentElement.scrollHeight;
     }
 
     // scrollHeight does not include space required by scrollbar

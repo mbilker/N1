@@ -1,7 +1,7 @@
 _ = require 'underscore'
 React = require 'react'
 ReactDOM = require 'react-dom'
-classNames = require 'classnames'
+classnames = require 'classnames'
 
 {MultiselectList,
  FocusContainer,
@@ -18,6 +18,7 @@ classNames = require 'classnames'
  WorkspaceStore,
  AccountStore,
  CategoryStore,
+ ExtensionRegistry,
  FocusedContentStore,
  FocusedPerspectiveStore} = require 'nylas-exports'
 
@@ -101,6 +102,7 @@ class ThreadList extends React.Component
           scrollTooltipComponent={ThreadListScrollTooltip}
           emptyComponent={EmptyListState}
           keymapHandlers={@_keymapHandlers()}
+          onDoubleClick={(thread) -> Actions.popoutThread(thread)}
           onDragStart={@_onDragStart}
           onDragEnd={@_onDragEnd}
           draggable="true" />
@@ -108,9 +110,15 @@ class ThreadList extends React.Component
     </FluxContainer>
 
   _threadPropsProvider: (item) ->
+    classes = classnames({
+      'unread': item.unread
+    })
+    classes += ExtensionRegistry.ThreadList.extensions()
+    .filter((ext) => ext.cssClassNamesForThreadListItem?)
+    .reduce(((prev, ext) => prev + ' ' + ext.cssClassNamesForThreadListItem(item)), ' ')
+
     props =
-      className: classNames
-        'unread': item.unread
+      className: classes
 
     props.shouldEnableSwipe = =>
       perspective = FocusedPerspectiveStore.current()
@@ -197,7 +205,8 @@ class ThreadList extends React.Component
 
     canvas = CanvasUtils.canvasWithThreadDragImage(data.threadIds.length)
     event.dataTransfer.setDragImage(canvas, 10, 10)
-    event.dataTransfer.setData('nylas-threads-data', JSON.stringify(data))
+    event.dataTransfer.setData("nylas-threads-data", JSON.stringify(data))
+    event.dataTransfer.setData("nylas-accounts=#{data.accountIds.join(',')}", "1")
     return
 
   _onDragEnd: (event) =>
@@ -301,21 +310,21 @@ class ThreadList extends React.Component
   _onSelectRead: =>
     dataSource = ThreadListStore.dataSource()
     items = dataSource.itemsCurrentlyInViewMatching (item) -> not item.unread
-    dataSource.selection.set(items)
+    @refs.list.handler().onSelect(items)
 
   _onSelectUnread: =>
     dataSource = ThreadListStore.dataSource()
     items = dataSource.itemsCurrentlyInViewMatching (item) -> item.unread
-    dataSource.selection.set(items)
+    @refs.list.handler().onSelect(items)
 
   _onSelectStarred: =>
     dataSource = ThreadListStore.dataSource()
     items = dataSource.itemsCurrentlyInViewMatching (item) -> item.starred
-    dataSource.selection.set(items)
+    @refs.list.handler().onSelect(items)
 
   _onSelectUnstarred: =>
     dataSource = ThreadListStore.dataSource()
     items = dataSource.itemsCurrentlyInViewMatching (item) -> not item.starred
-    dataSource.selection.set(items)
+    @refs.list.handler().onSelect(items)
 
 module.exports = ThreadList

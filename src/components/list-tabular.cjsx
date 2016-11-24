@@ -5,8 +5,8 @@ ScrollRegion = require './scroll-region'
 Spinner = require './spinner'
 {Utils} = require 'nylas-exports'
 
-ListDataSource = require './list-data-source'
-ListSelection = require './list-selection'
+ListDataSource = require('./list-data-source').default
+ListSelection = require('./list-selection').default
 ListTabularItem = require './list-tabular-item'
 
 class ListColumn
@@ -158,7 +158,7 @@ class ListTabular extends React.Component
     @setState(@buildStateForRange(start: rangeStart, end: rangeEnd))
 
   render: =>
-    otherProps = Utils.fastOmit(@props, Object.keys(@constructor.propTypes))
+    {onDragStart, onDragEnd, draggable} = @props
 
     innerStyles =
       height: @state.count * @props.itemHeight
@@ -173,7 +173,13 @@ class ListTabular extends React.Component
         onScroll={@onScroll}
         tabIndex="-1"
         scrollTooltipComponent={@props.scrollTooltipComponent}>
-        <div className="list-rows" style={innerStyles} {...otherProps}>
+        <div
+          className="list-rows"
+          style={innerStyles}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+          draggable={draggable}
+        >
           {@_rows()}
         </div>
       </ScrollRegion>

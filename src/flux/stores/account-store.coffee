@@ -1,9 +1,9 @@
 _ = require 'underscore'
 NylasStore = require 'nylas-store'
-Actions = require '../actions'
+Actions = require('../actions').default
 Account = require('../models/account').default
 Utils = require '../models/utils'
-DatabaseStore = require './database-store'
+DatabaseStore = require('./database-store').default
 keytar = require 'keytar'
 NylasAPI = null
 
@@ -25,11 +25,6 @@ class AccountStore extends NylasStore
     @listenTo Actions.removeAccount, @_onRemoveAccount
     @listenTo Actions.updateAccount, @_onUpdateAccount
     @listenTo Actions.reorderAccount, @_onReorderAccount
-
-    if NylasEnv.isWorkWindow() and ['staging', 'production'].includes(NylasEnv.config.get('env'))
-      setTimeout( =>
-        @refreshHealthOfAccounts(@_accounts.map((a) -> a.id))
-      , 2000)
 
     NylasEnv.config.onDidChange configVersionKey, (change) =>
       # If we already have this version of the accounts config, it means we
@@ -246,6 +241,11 @@ class AccountStore extends NylasStore
   accountForId: (id) =>
     @_cachedGetter "accountForId:#{id}", => _.findWhere(@_accounts, {id})
 
+  emailAddresses: ->
+    addresses = _.pluck((@accounts() ? []), "emailAddress")
+    addresses = addresses.concat(_.pluck((@aliases() ? []), "email"))
+    return _.unique(addresses)
+
   aliases: =>
     @_cachedGetter "aliases", =>
       aliases = []
@@ -279,7 +279,7 @@ class AccountStore extends NylasStore
     Message = require('../models/message').default
     Account = require('../models/account').default
     Thread = require('../models/thread').default
-    Label = require '../models/label'
+    Label = require('../models/label').default
 
     @_caches = {}
 

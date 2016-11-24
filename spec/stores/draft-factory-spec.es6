@@ -192,14 +192,6 @@ describe('DraftFactory', function draftFactory() {
           });
         });
       });
-      it("should sanitize the HTML", () => {
-        waitsForPromise(() => {
-          return DraftFactory.createDraftForReply({thread: fakeThread, message: fakeMessage1, type: 'reply'}).then(() => {
-            expect(InlineStyleTransformer.run).toHaveBeenCalled();
-            expect(SanitizeTransformer.run).toHaveBeenCalled();
-          });
-        });
-      });
 
       it("should make the subject the subject of the message, not the thread", () => {
         fakeMessage1.subject = "OLD SUBJECT";
@@ -561,16 +553,6 @@ describe('DraftFactory', function draftFactory() {
     });
   });
 
-  describe("_prepareBodyForQuoting", () => {
-    it("should transform inline styles and sanitize unsafe html", () => {
-      const input = "test 123";
-      DraftFactory._prepareBodyForQuoting(input);
-      expect(InlineStyleTransformer.run).toHaveBeenCalledWith(input);
-      advanceClock();
-      expect(SanitizeTransformer.run).toHaveBeenCalledWith(input, SanitizeTransformer.Preset.UnsafeOnly);
-    });
-  });
-
   describe("createDraftForMailto", () => {
     describe("parameters in the URL", () => {
       beforeEach(() => {
@@ -597,6 +579,16 @@ describe('DraftFactory', function draftFactory() {
         waitsForPromise(() => {
           return DraftFactory.createDraftForMailto(`mailto:asdf@asdf.com?SUBJECT=${this.expected}`).then((draft) => {
             expect(draft.subject).toBe(this.expected);
+          });
+        });
+      });
+      ['mailto', 'mail', ''].forEach((url) => {
+        it(`rejects gracefully on super mangled mailto link: ${url}`, () => {
+          waitsForPromise(() => {
+            return DraftFactory.createDraftForMailto(url).then(() => {
+              expect('resolved').toBe(false);
+            }).catch(() => {
+            });
           });
         });
       });
@@ -644,50 +636,50 @@ describe('DraftFactory', function draftFactory() {
         ),
         new Message(
           {cc: [new Contact({name: 'cc@nylas.com', email: 'cc@nylas.com'})],
-          subject: 'Martha Stewart'}
+            subject: 'Martha Stewart'}
         ),
         new Message(
           {to: [new Contact({name: 'bengotow@gmail.com', email: 'bengotow@gmail.com'})],
-          cc: [new Contact({name: 'cc@nylas.com', email: 'cc@nylas.com'})],
-          subject: 'Martha Stewart'}
+            cc: [new Contact({name: 'cc@nylas.com', email: 'cc@nylas.com'})],
+            subject: 'Martha Stewart'}
         ),
         new Message(
           {to: [new Contact({name: 'bengotow@gmail.com', email: 'bengotow@gmail.com'})],
-          cc: [new Contact({name: 'cc@nylas.com', email: 'cc@nylas.com'})],
-          bcc: [new Contact({name: 'bcc@nylas.com', email: 'bcc@nylas.com'})],
-          subject: 'Martha Stewart'}
+            cc: [new Contact({name: 'cc@nylas.com', email: 'cc@nylas.com'})],
+            bcc: [new Contact({name: 'bcc@nylas.com', email: 'bcc@nylas.com'})],
+            subject: 'Martha Stewart'}
         ),
         new Message(
           {to: [new Contact({name: 'bengotow@gmail.com', email: 'bengotow@gmail.com'})],
-          cc: [new Contact({name: 'cc@nylas.com', email: 'cc@nylas.com'})],
-          bcc: [new Contact({name: 'Ben', email: 'bcc@nylas.com'})],
-          subject: 'Martha Stewart'}
+            cc: [new Contact({name: 'cc@nylas.com', email: 'cc@nylas.com'})],
+            bcc: [new Contact({name: 'Ben', email: 'bcc@nylas.com'})],
+            subject: 'Martha Stewart'}
         ),
         new Message(
           {to: [new Contact({name: 'Ben Gotow', email: 'bengotow@gmail.com'}), new Contact({name: 'Shawn', email: 'shawn@nylas.com'})],
-          subject: 'Yes this is really valid'}
+            subject: 'Yes this is really valid'}
         ),
         new Message(
           {to: [new Contact({name: 'Ben Gotow', email: 'bengotow@gmail.com'}), new Contact({name: 'Shawn', email: 'shawn@nylas.com'})],
-          subject: 'Yes this is really valid'}
+            subject: 'Yes this is really valid'}
         ),
         new Message(
           {to: [new Contact({name: 'Reply', email: 'd+AORGpRdj0KXKUPBE1LoI0a30F10Ahj3wu3olS-aDk5_7K5Wu6WqqqG8t1HxxhlZ4KEEw3WmrSdtobgUq57SkwsYAH6tG57IrNqcQR0K6XaqLM2nGNZ22D2k@docs.google.com'})],
-          subject: 'Nilas Message to Customers'}
+            subject: 'Nilas Message to Customers'}
         ),
         new Message(
           {to: [new Contact({name: 'email@address.com', email: 'email@address.com'})],
-          subject: 'test',
-          body: 'type your\nmessage here'}
+            subject: 'test',
+            body: 'type your<br/>message here'}
         ),
         new Message(
           {to: [],
-          body: 'type your\r\nmessage\r\nhere'}
+            body: 'type your<br/><br/>message<br/><br/>here'}
         ),
         new Message(
           {to: [],
-          subject: 'Issues · atom/electron · GitHub',
-          body: 'https://github.com/atom/electron/issues?utf8=&q=is%3Aissue+is%3Aopen+123\n\n'},
+            subject: 'Issues · atom/electron · GitHub',
+            body: 'https://github.com/atom/electron/issues?utf8=&q=is%3Aissue+is%3Aopen+123<br/><br/>'},
         ),
       ];
 

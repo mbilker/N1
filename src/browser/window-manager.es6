@@ -1,15 +1,16 @@
 import _ from 'underscore';
-import WindowLauncher from './window-launcher';
 import {app} from 'electron';
+import WindowLauncher from './window-launcher';
 
 const MAIN_WINDOW = "default"
 const WORK_WINDOW = "work"
 const SPEC_WINDOW = "spec"
 const ONBOARDING_WINDOW = "onboarding"
+const CALENDAR_WINDOW = "calendar"
 
 export default class WindowManager {
 
-  constructor({devMode, safeMode, resourcePath, configDirPath, initializeInBackground, config}) {
+  constructor({devMode, safeMode, specMode, resourcePath, configDirPath, initializeInBackground, config}) {
     this.initializeInBackground = initializeInBackground;
     this._windows = {};
 
@@ -17,7 +18,7 @@ export default class WindowManager {
       this._registerWindow(win);
       this._didCreateNewWindow(win);
     }
-    this.windowLauncher = new WindowLauncher({devMode, safeMode, resourcePath, configDirPath, config, onCreatedHotWindow});
+    this.windowLauncher = new WindowLauncher({devMode, safeMode, specMode, resourcePath, configDirPath, config, onCreatedHotWindow});
   }
 
   get(windowKey) {
@@ -37,6 +38,20 @@ export default class WindowManager {
       (win.loadSettings().mainWindow ? 1000 : win.browserWindow.id);
 
     return values.sort((a, b) => score(b) - score(a));
+  }
+
+  getAllWindowDimensions() {
+    const dims = {}
+    Object.keys(this._windows).forEach((key) => {
+      const win = this._windows[key];
+      if (win.windowType !== WindowLauncher.EMPTY_WINDOW) {
+        const {x, y, width, height} = win.browserWindow.getBounds()
+        const maximized = win.browserWindow.isMaximized()
+        const fullScreen = win.browserWindow.isFullScreen()
+        dims[key] = {x, y, width, height, maximized, fullScreen}
+      }
+    });
+    return dims
   }
 
   newWindow(options = {}) {
@@ -224,4 +239,5 @@ export default class WindowManager {
 WindowManager.MAIN_WINDOW = MAIN_WINDOW;
 WindowManager.WORK_WINDOW = WORK_WINDOW;
 WindowManager.SPEC_WINDOW = SPEC_WINDOW;
+WindowManager.CALENDAR_WINDOW = CALENDAR_WINDOW;
 WindowManager.ONBOARDING_WINDOW = ONBOARDING_WINDOW;

@@ -78,7 +78,7 @@ export default class KeymapManager {
   constructor({configDirPath, resourcePath}) {
     this.configDirPath = configDirPath;
     this.resourcePath = resourcePath;
-    this._emitter = new Emitter;
+    this._emitter = new Emitter();
     this._registered = {};
     this._files = [];
   }
@@ -181,7 +181,9 @@ export default class KeymapManager {
         if (!this._commandsCache[keystrokes]) {
           this._commandsCache[keystrokes] = [];
         }
-        this._commandsCache[keystrokes].push(command);
+        if (!this._commandsCache[keystrokes].includes(command)) {
+          this._commandsCache[keystrokes].push(command);
+        }
       }
     }
 

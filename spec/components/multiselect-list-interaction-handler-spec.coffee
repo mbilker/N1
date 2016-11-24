@@ -2,7 +2,7 @@ MultiselectListInteractionHandler = require '../../src/components/multiselect-li
 WorkspaceStore = require '../../src/flux/stores/workspace-store'
 FocusedContentStore = require '../../src/flux/stores/focused-content-store'
 Thread = require('../../src/flux/models/thread').default
-Actions = require '../../src/flux/actions'
+Actions = require('../../src/flux/actions').default
 _ = require 'underscore'
 
 describe "MultiselectListInteractionHandler", ->
@@ -80,17 +80,17 @@ describe "MultiselectListInteractionHandler", ->
       @handler.onEnter()
       expect(@onFocusItem).toHaveBeenCalledWith(@itemKeyboardFocus)
 
-  describe "onSelect (x key on keyboard)", ->
+  describe "onSelectKeyboardItem (x key on keyboard)", ->
     describe "on the root view", ->
       it "should toggle the selection of the keyboard item", ->
         @isRootSheet = true
-        @handler.onSelect()
+        @handler.onSelectKeyboardItem()
         expect(@dataSource.selection.toggle).toHaveBeenCalledWith(@itemKeyboardFocus)
 
     describe "on the thread view", ->
       it "should toggle the selection of the focused item", ->
         @isRootSheet = false
-        @handler.onSelect()
+        @handler.onSelectKeyboardItem()
         expect(@dataSource.selection.toggle).toHaveBeenCalledWith(@itemFocus)
 
   describe "onShift", ->

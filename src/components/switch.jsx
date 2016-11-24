@@ -9,14 +9,14 @@ import React from 'react';
 */
 
 const Switch = (props) => {
-  let classnames = "slide-switch";
+  let classnames = `${props.className || ""} slide-switch`;
   if (props.checked) {
     classnames += " active";
   }
 
   return (
     <div className={classnames} onClick={props.onChange}>
-      <div className="handle"></div>
+      <div className="handle" />
     </div>
   );
 }
@@ -24,6 +24,7 @@ const Switch = (props) => {
 Switch.propTypes = {
   checked: React.PropTypes.bool,
   onChange: React.PropTypes.func.isRequired,
+  className: React.PropTypes.string,
 };
 
 export default Switch;

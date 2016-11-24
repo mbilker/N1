@@ -175,9 +175,10 @@ class MessageList extends React.Component
           <div className="headers" style={position:'relative'}>
             <InjectedComponentSet
               className="message-list-headers"
-              matching={role:"MessageListHeaders"}
-              exposedProps={thread: @state.currentThread}
-              direction="column"/>
+              matching={{role: "MessageListHeaders"}}
+              exposedProps={{thread: @state.currentThread, messages: @state.messages}}
+              direction="column"
+            />
           </div>
           {@_messageElements()}
         </ScrollRegion>
@@ -193,7 +194,12 @@ class MessageList extends React.Component
       <MailImportantIcon thread={@state.currentThread}/>
       <div style={flex: 1}>
         <span className="message-subject">{subject}</span>
-        <MailLabelSet removable={true} thread={@state.currentThread} includeCurrentCategories={true} />
+        <MailLabelSet
+          removable={true}
+          messages={@state.messages}
+          thread={@state.currentThread}
+          includeCurrentCategories={true}
+        />
       </div>
       {@_renderIcons()}
     </div>
@@ -204,6 +210,7 @@ class MessageList extends React.Component
       <div onClick={@_onPrintThread}>
         <RetinaImg name="print.png" title="Print Thread" mode={RetinaImg.Mode.ContentIsMask}/>
       </div>
+      {@_renderPopoutToggle()}
     </div>
 
   _renderExpandToggle: =>
@@ -217,6 +224,17 @@ class MessageList extends React.Component
       <div onClick={@_onToggleAllMessagesExpanded}>
         <RetinaImg name={"collapse.png"} title={"Collapse All"} mode={RetinaImg.Mode.ContentIsMask}/>
       </div>
+
+  _renderPopoutToggle: =>
+    if NylasEnv.isThreadWindow()
+      <div onClick={@_onPopThreadIn}>
+        <RetinaImg name="thread-popin.png" title="Pop thread in" mode={RetinaImg.Mode.ContentIsMask}/>
+      </div>
+    else
+      <div onClick={@_onPopoutThread}>
+        <RetinaImg name="thread-popout.png" title="Popout thread" mode={RetinaImg.Mode.ContentIsMask}/>
+      </div>
+
 
   _renderReplyArea: =>
     <div className="footer-reply-area-wrap" onClick={@_onClickReplyArea} key='reply-area'>
@@ -250,6 +268,18 @@ class MessageList extends React.Component
     node = ReactDOM.findDOMNode(@)
     Actions.printThread(@state.currentThread, node.innerHTML)
 
+  _onPopThreadIn: =>
+    return unless @state.currentThread
+    Actions.focusThreadMainWindow(@state.currentThread)
+    NylasEnv.close()
+
+  _onPopoutThread: =>
+    return unless @state.currentThread
+    Actions.popoutThread(@state.currentThread)
+    # This returns the single-pane view to the inbox, and does nothing for
+    # double-pane view because we're at the root sheet.
+    Actions.popSheet()
+
   _onClickReplyArea: =>
     return unless @state.currentThread
     Actions.composeReply({
@@ -275,14 +305,17 @@ class MessageList extends React.Component
       isBeforeReplyArea = isLastMsg and hasReplyArea
 
       elements.push(
-        <MessageItemContainer key={message.clientId}
-                              ref={"message-container-#{message.clientId}"}
-                              thread={@state.currentThread}
-                              message={message}
-                              collapsed={collapsed}
-                              isLastMsg={isLastMsg}
-                              isBeforeReplyArea={isBeforeReplyArea}
-                              scrollTo={@_scrollTo} />
+        <MessageItemContainer
+          key={message.clientId}
+          ref={"message-container-#{message.clientId}"}
+          thread={@state.currentThread}
+          message={message}
+          messages={@state.messages}
+          collapsed={collapsed}
+          isLastMsg={isLastMsg}
+          isBeforeReplyArea={isBeforeReplyArea}
+          scrollTo={@_scrollTo}
+        />
       )
 
     if hasReplyArea

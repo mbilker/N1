@@ -1,35 +1,28 @@
-import _ from 'underscore'
 import React from 'react'
 import ReactDOM from 'react-dom'
 import {remote} from 'electron'
-
 import {
   Utils,
   Actions,
   DraftStore,
   DraftHelpers,
-  FileDownloadStore,
 } from 'nylas-exports'
-
 import {
   DropZone,
   RetinaImg,
   ScrollRegion,
   TabGroupRegion,
+  AttachmentItem,
   InjectedComponent,
   KeyCommandsRegion,
   OverlaidComponents,
+  ImageAttachmentItem,
   InjectedComponentSet,
 } from 'nylas-component-kit'
-
-import FileUpload from './file-upload'
-import ImageFileUpload from './image-file-upload'
-
 import ComposerEditor from './composer-editor'
 import ComposerHeader from './composer-header'
 import SendActionButton from './send-action-button'
 import ActionBarPlugins from './action-bar-plugins'
-
 import Fields from './fields'
 
 // The ComposerView is a unique React component because it (currently) is a
@@ -219,7 +212,7 @@ export default class ComposerView extends React.Component {
         getComposerBoundingRect: this._getComposerBoundingRect,
         scrollTo: this.props.scrollTo,
       },
-      onFilePaste: this._onFilePaste,
+      onFilePaste: this._onFileReceived,
       onBodyChanged: this._onBodyChanged,
     };
 
@@ -275,7 +268,7 @@ export default class ComposerView extends React.Component {
       DraftHelpers.appendQuotedTextToDraft(this.props.draft)
       .then((draftWithQuotedText) => {
         this.props.session.changes.add({
-          body: `${draftWithQuotedText.body}<div id="n1-quoted-text-marker"></div>`,
+          body: `${draftWithQuotedText.body}<div id="n1-quoted-text-marker" />`,
         })
       })
     })
@@ -285,7 +278,7 @@ export default class ComposerView extends React.Component {
     event.stopPropagation()
     const {session, draft} = this.props
     session.changes.add({
-      body: `${draft.body}<div id="n1-quoted-text-marker"></div>`,
+      body: `${draft.body}<div id="n1-quoted-text-marker" />`,
     })
     this.setState({
       showQuotedText: false,
@@ -320,54 +313,51 @@ export default class ComposerView extends React.Component {
   }
 
   _renderFileAttachments() {
-    const {files} = this.props.draft;
-    const nonImageFiles = this._nonImageFiles(files).map(file =>
-      this._renderFileAttachment(file, "Attachment")
-    );
-    const imageFiles = this._imageFiles(files).map(file =>
-      this._renderFileAttachment(file, "Attachment:Image")
-    );
-    return nonImageFiles.concat(imageFiles);
-  }
-
-  _renderFileAttachment(file, role) {
-    const props = {
-      file: file,
-      removable: true,
-      targetPath: FileDownloadStore.pathForFile(file),
-      messageClientId: this.props.draft.clientId,
-    };
-
-    const className = (role === "Attachment") ? "file-wrap" : "file-wrap file-image-wrap";
-
+    const {files, clientId: messageClientId} = this.props.draft
     return (
       <InjectedComponent
-        key={file.id}
-        matching={{role}}
-        className={className}
-        exposedProps={props}
+        matching={{role: 'MessageAttachments'}}
+        exposedProps={{files, messageClientId, canRemoveAttachments: true}}
       />
-    );
+    )
+  }
+
+  _imageFiles(files) {
+    return files.filter(f => Utils.shouldDisplayAsImage(f));
+  }
+
+  _nonImageFiles(files) {
+    return files.filter(f => !Utils.shouldDisplayAsImage(f));
   }
 
   _renderUploadAttachments() {
     const {uploads} = this.props.draft;
 
-    const nonImageUploads = this._nonImageFiles(uploads).map(upload =>
-      <FileUpload key={upload.id} upload={upload} />
-    );
-    const imageUploads = this._imageFiles(uploads).map(upload =>
-      <ImageFileUpload key={upload.id} upload={upload} />
-    );
+    const nonImageUploads = this._nonImageFiles(uploads)
+      .map((upload) =>
+        <AttachmentItem
+          key={upload.id}
+          className="file-upload"
+          draggable={false}
+          filePath={upload.targetPath}
+          displayName={upload.filename}
+          fileIconName={`file-${upload.extension}.png`}
+          onRemoveAttachment={() => Actions.removeAttachment(upload)}
+        />
+      );
+    const imageUploads = this._imageFiles(uploads)
+      .filter(u => !u.inline)
+      .map((upload) =>
+        <ImageAttachmentItem
+          key={upload.id}
+          className="file-upload"
+          draggable={false}
+          filePath={upload.targetPath}
+          displayName={upload.filename}
+          onRemoveAttachment={() => Actions.removeAttachment(upload)}
+        />
+      );
     return nonImageUploads.concat(imageUploads);
-  }
-
-  _imageFiles(files) {
-    return _.filter(files, Utils.shouldDisplayAsImage);
-  }
-
-  _nonImageFiles(files) {
-    return _.reject(files, Utils.shouldDisplayAsImage);
   }
 
   _renderActionsWorkspaceRegion() {
@@ -423,7 +413,7 @@ export default class ComposerView extends React.Component {
           matching={{role: "Composer:SendActionButton"}}
           fallback={SendActionButton}
           requiredMethods={[
-            'primaryClick',
+            'primarySend',
           ]}
           exposedProps={{
             draft: this.props.draft,
@@ -506,22 +496,41 @@ export default class ComposerView extends React.Component {
   }
 
   _onDrop = (event) => {
-    const {clientId} = this.props.draft;
-
     // Accept drops of real files from other applications
     for (const file of Array.from(event.dataTransfer.files)) {
-      Actions.addAttachment({filePath: file.path, messageClientId: clientId});
+      this._onFileReceived(file.path);
     }
 
     // Accept drops from attachment components / images within the app
     const uri = this._nonNativeFilePathForDrop(event);
     if (uri) {
-      Actions.addAttachment({filePath: uri, messageClientId: clientId});
+      this._onFileReceived(uri);
     }
   }
 
-  _onFilePaste = (path) => {
-    Actions.addAttachment({filePath: path, messageClientId: this.props.draft.clientId});
+  _onFileReceived = (filePath) => {
+    // called from onDrop and onFilePaste - assume images should be inline
+    Actions.addAttachment({
+      filePath: filePath,
+      messageClientId: this.props.draft.clientId,
+      onUploadCreated: (upload) => {
+        if (Utils.shouldDisplayAsImage(upload)) {
+          const {draft, session} = this.props;
+
+          const uploads = [].concat(draft.uploads);
+          const matchingUpload = uploads.find(u => u.id === upload.id);
+          if (matchingUpload) {
+            matchingUpload.inline = true;
+            session.changes.add({uploads})
+
+            Actions.insertAttachmentIntoDraft({
+              draftClientId: draft.clientId,
+              uploadId: matchingUpload.id,
+            });
+          }
+        }
+      },
+    });
   }
 
   _onBodyChanged = (event) => {
@@ -568,7 +577,7 @@ export default class ComposerView extends React.Component {
   }
 
   _onPrimarySend = () => {
-    this.refs.sendActionButton.primaryClick();
+    this.refs.sendActionButton.primarySend();
   }
 
   _onDestroyDraft = () => {
@@ -615,7 +624,8 @@ export default class ComposerView extends React.Component {
                 {this._renderActionsWorkspaceRegion()}
               </div>
 
-              <div className="composer-action-bar-wrap">
+              <div className="composer-action-bar-wrap" data-tooltips-anchor>
+                <div className="tooltips-container" />
                 {this._renderActionsRegion()}
               </div>
             </DropZone>

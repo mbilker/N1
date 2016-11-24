@@ -15,19 +15,12 @@ notifications:
   slack:
     secure: "UDQxBtbZV570kV7l8JKjhlt1KrVfi0LuYAB4QEQJwPUasuxNb4sRcO0txR03ay0X6+SDaMiXZKhF6jDwd0Kbr2oNFchECeSUe0whprORif++y3beWou23Q6pppg2fO9pzZbJjAZ5kYF+WuQJAyETgjH2hiw4oSwOo8Bu7Io2mVg2HvLWER+sRrrV8UU53RYrJGsMdUwg33j82jCSLYHhBYbHoGSWNgAOdoKoQhVIXZh8wGPdJbNgkfomRObVMBrVuG7AH7a99feBgqCMvs4V+qXD89YPmrjBexzT1XgJqhejRGEFlttU/4zJlDGGnESAsX1rnLf8BYOf3GIVuZh4KM6tzGWb4R9ywSz1OyggNcreAhf2ZfbphZIygmtAO6CNuk6RTXLeLGcGvvuPk1H3+svc7j8cfWF5iceyseCMYR+MKQkGmOTMbgiogOL8BcJOufw3dcId1RHvUykq9q2TD3/xmIyTF3Ivu8KRzfF6HI4q/1SmU8ZnbOzLJmfqcw4Gl9YVxiJ39aMv49hY98h9b1SnHD9Ste4FBK7EXX5xj7X1e0hjMX0CAD8uQOCX7JTbNKdg46hGcj7erPPIelEKU3ewA+93KKdYzqlxfOR8bicU20zQgwtzEec3+gmHnTnxxEEXYlgIWKkEieUrXBILOisySMkIGaLoJ9CMx2Xc1Oc="
 
-# Trusty image already has a few Node.js versions preinstalled,
-# including 0.10, 0.12, and 4.1, but not 4.2 and 5. Explicitly
-# denote installation of these versions
 matrix:
   include:
   - os: linux
-    env: NODE_VERSION=4.2 NODE_INSTALL=1
-  - os: linux
-    env: NODE_VERSION=5 NODE_INSTALL=1
+    env: NODE_VERSION=6.9
   - os: osx
-    env: NODE_VERSION=4.2
-  - os: osx
-    env: NODE_VERSION=5
+    env: NODE_VERSION=6.9
 
 install:
 - if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
@@ -46,9 +39,16 @@ before_script:
   sh -e /etc/init.d/xvfb start;
   fi
 
-script: script/cibuild
+script:
+  - script/bootstrap && npm test && script/grunt ci --stack --no-color
 
 cache:
   directories:
   - node_modules
+  - apm/node_modules
   - build/node_modules
+
+# The NYLAS_GITHUB_OAUTH_TOKEN is overriden by build/resources/certs/set_unix_env.sh
+env:
+  global:
+  - NYLAS_GITHUB_OAUTH_TOKEN=cb200be7c921f73a1c35930f6a4ac8758b271be0

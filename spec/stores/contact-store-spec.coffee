@@ -1,11 +1,11 @@
 _ = require 'underscore'
 Rx = require 'rx-lite'
 {NylasTestUtils} = require 'nylas-exports'
-Contact = require '../../src/flux/models/contact'
+Contact = require('../../src/flux/models/contact').default
 NylasAPI = require '../../src/flux/nylas-api'
 ContactStore = require '../../src/flux/stores/contact-store'
 ContactRankingStore = require '../../src/flux/stores/contact-ranking-store'
-DatabaseStore = require '../../src/flux/stores/database-store'
+DatabaseStore = require('../../src/flux/stores/database-store').default
 AccountStore = require '../../src/flux/stores/account-store'
 
 {mockObservable} = NylasTestUtils
@@ -51,7 +51,7 @@ describe "ContactStore", ->
         "evanc@nylas.com": 0.1
 
       spyOn(DatabaseStore, 'findAll').andCallFake =>
-        Promise.resolve([@c3, @c1, @c2, @c4])
+        return {background: => Promise.resolve([@c3, @c1, @c2, @c4])}
 
       waitsForPromise =>
         ContactStore._updateRankedContactCache().then =>

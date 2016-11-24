@@ -12,7 +12,7 @@ NylasStore = require 'nylas-store'
  FocusedPerspectiveStore} = require 'nylas-exports'
 {ListTabular} = require 'nylas-component-kit'
 
-ThreadListDataSource = require './thread-list-data-source'
+ThreadListDataSource = require('./thread-list-data-source').default
 
 class ThreadListStore extends NylasStore
   constructor: ->
@@ -43,8 +43,6 @@ class ThreadListStore extends NylasStore
   # Inbound Events
 
   _onPerspectiveChanged: =>
-    if FocusedPerspectiveStore.current().searchQuery is undefined
-      Actions.dismissNotificationsMatching({tag: 'search-error'})
     @createListDataSource()
 
   _onDataChanged: ({previous, next} = {}) =>

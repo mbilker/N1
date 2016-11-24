@@ -5,10 +5,10 @@ Utils = require './models/utils'
 Account = require('./models/account').default
 Message = require('./models/message').default
 IdentityStore = require('./stores/identity-store').default
-Actions = require './actions'
+Actions = require('./actions').default
 {APIError} = require './errors'
-PriorityUICoordinator = require '../priority-ui-coordinator'
-DatabaseStore = require './stores/database-store'
+PriorityUICoordinator = require('../priority-ui-coordinator').default
+DatabaseStore = require('./stores/database-store').default
 async = require 'async'
 
 # A 0 code is when an error returns without a status code. These are
@@ -261,16 +261,16 @@ class NylasAPI
         obj.metadata = metadataToAttach[obj.id]
 
   _apiObjectToClassMap:
-    "file": require('./models/file')
-    "event": require('./models/event')
-    "label": require('./models/label')
-    "folder": require('./models/folder')
+    "file": require('./models/file').default
+    "event": require('./models/event').default
+    "label": require('./models/label').default
+    "folder": require('./models/folder').default
     "thread": require('./models/thread').default
     "draft": require('./models/message').default
     "account": require('./models/account').default
     "message": require('./models/message').default
-    "contact": require('./models/contact')
-    "calendar": require('./models/calendar')
+    "contact": require('./models/contact').default
+    "calendar": require('./models/calendar').default
 
   getThreads: (accountId, params = {}, requestOptions = {}) ->
     requestSuccess = requestOptions.success

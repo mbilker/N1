@@ -83,7 +83,7 @@ class PreferencesIdentity extends React.Component {
 
   _onRefresh = () => {
     this.setState({refreshing: true});
-    IdentityStore.refreshStatus().finally(() => {
+    IdentityStore.refreshIdentityAndAccounts().finally(() => {
       this.setState({refreshing: false});
     });
   }
@@ -94,7 +94,7 @@ class PreferencesIdentity extends React.Component {
     if (subscriptionState === IdentityStore.State.Trialing) {
       let msg = "You have not upgraded to Nylas Pro.";
       if (daysUntilSubscriptionRequired > 1) {
-        msg = `There are ${daysUntilSubscriptionRequired} days remaining in your 30-day trial of Nylas Pro.`;
+        msg = `There are ${daysUntilSubscriptionRequired} days remaining in your trial of Nylas Pro.`;
       } else if (daysUntilSubscriptionRequired === 1) {
         msg = `There is one day remaining in your trial of Nylas Pro. Subscribe today!`;
       }
@@ -111,7 +111,7 @@ class PreferencesIdentity extends React.Component {
         <div className="row payment-row">
           <div>
             Your subscription has been canceled or your billing information has expired.
-            We've paused your mailboxes! Renew your subscription to continue using N1.
+            We&#39;ve paused your mailboxes! Renew your subscription to continue using N1.
           </div>
           <OpenIdentityPageButton img="ic-upgrade.png" label="Update Subscription" path="/dashboard#subscription" campaign="Renew" source="Preferences" />
         </div>

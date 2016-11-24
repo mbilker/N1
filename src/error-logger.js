@@ -2,12 +2,13 @@
 // Coffeescript interpreter. Note that it runs in both browser and
 // renderer processes.
 
-var os = require('os');
-var fs = require('fs-plus');
-var path = require('path');
-var electron = require('electron');
+const os = require('os');
+const fs = require('fs-plus');
+const path = require('path');
+const electron = require('electron');
 
-var app, ipcRenderer;
+let app = null;
+let ipcRenderer = null;
 
 if (process.type === 'renderer') {
   app = electron.remote.app;
@@ -187,10 +188,12 @@ module.exports = (function() {
           if (logFilter.test(file) === true) {
             var filepath = path.join(tmpPath, file);
             fs.stat(filepath, function(err, stats) {
-              var lastModified = new Date(stats['mtime']);
-              var fileAge = Date.now() - lastModified.getTime();
-              if (fileAge > (1000 * 60 * 60 * 24 * 1)) { // one day
-                fs.unlink(filepath);
+              if (!err && stats) {
+                var lastModified = new Date(stats['mtime']);
+                var fileAge = Date.now() - lastModified.getTime();
+                if (fileAge > (1000 * 60 * 60 * 24 * 2)) { // two days
+                  fs.unlink(filepath);
+                }
               }
             });
           }
@@ -208,7 +211,7 @@ module.exports = (function() {
       flags: 'a',
       encoding: 'utf8',
       fd: null,
-      mode: 0666
+      mode: 666,
     });
   }
 
@@ -244,7 +247,7 @@ module.exports = (function() {
     command = arguments[0]
     args = 2 <= arguments.length ? Array.prototype.slice.call(arguments, 1) : [];
     for (var i=0; i < this.extensions.length; i++) {
-      extension = this.extensions[i]
+      const extension = this.extensions[i]
       extension[command].apply(this, args);
     }
   }

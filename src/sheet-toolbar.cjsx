@@ -1,7 +1,7 @@
 React = require 'react'
 ReactDOM = require 'react-dom'
 Sheet = require './sheet'
-Flexbox = require './components/flexbox'
+Flexbox = require('./components/flexbox').default
 RetinaImg = require('./components/retina-img').default
 Utils = require './flux/models/utils'
 {remote} = require 'electron'
@@ -44,8 +44,8 @@ class ToolbarBack extends React.Component
   # These stores are only required when this Toolbar is actually needed.
   # This is because loading these stores has database side effects.
   constructor: (@props) ->
-    Category ?= require './flux/models/category'
-    FocusedPerspectiveStore ?= require './flux/stores/focused-perspective-store'
+    Category ?= require('./flux/models/category').default
+    FocusedPerspectiveStore ?= require('./flux/stores/focused-perspective-store').default
     @state =
       categoryName: FocusedPerspectiveStore.current().name
 
@@ -179,13 +179,16 @@ class Toolbar extends React.Component
         {@_flexboxForComponents(components)}
       </div>
 
-    <div style={style} className={"sheet-toolbar-container mode-#{@state.mode}"}>
+    <div
+      style={style}
+      className={"sheet-toolbar-container mode-#{@state.mode}"}
+      data-id={@props.data.id}>
       {toolbars}
     </div>
 
   _flexboxForComponents: (components) =>
-    elements = components.map (component) =>
-      <component key={component.displayName} {...@props} />
+    elements = components.map (Component) =>
+      <Component key={Component.displayName} {...@props} />
 
     <Flexbox className="item-container" direction="row">
       {elements}

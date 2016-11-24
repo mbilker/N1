@@ -2,13 +2,19 @@ window.eval = global.eval = function() {
   throw new Error("Sorry, N1 does not support window.eval() for security reasons.");
 }
 
+var util = require('util')
 var path = require('path');
 var electron = require('electron');
 var remote = electron.remote;
 
+console.inspect = function consoleInspect(val) {
+  console.log(util.inspect(val, true, depth=7, colorize=true));
+}
+
 function setLoadTime (loadTime) {
   if (global.NylasEnv) {
-    global.NylasEnv.loadTime = loadTime
+    global.NylasEnv.loadTime = loadTime;
+    if (NylasEnv.inSpecMode()) return;
     console.log('Window load time: ' + global.NylasEnv.getWindowLoadTime() + 'ms')
   }
 }
@@ -38,11 +44,6 @@ function setupWindow (loadSettings) {
   }
 
   var CompileCache = require('../src/compile-cache')
-
-  // TODO: Re-enable hotreloading when react-proxy is added.
-  var hotreload = false
-  CompileCache.setHotReload(hotreload)
-
   CompileCache.setHomeDirectory(loadSettings.configDirPath)
 
   var ModuleCache = require('../src/module-cache')
@@ -59,13 +60,8 @@ function setupWindow (loadSettings) {
   // })
 
   setupVmCompatibility()
-  setupCsonCache(CompileCache.getCacheDirectory())
 
   require(loadSettings.bootstrapScript)
-}
-
-function setupCsonCache (cacheDir) {
-  require('season').setCacheDir(path.join(cacheDir, 'cson'))
 }
 
 function setupVmCompatibility () {

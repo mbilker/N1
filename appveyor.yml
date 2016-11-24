@@ -11,11 +11,7 @@ branches:
   - master
   - ci-test
   - stable
-
-test: off
-
-# We deploy via grunt publish-nylas-build instead of AppVeyor
-deploy: off
+  - /ci-build\/.*/
 
 # We need to only clone the main module because our submodule requires the
 # encrypted ssh key to access submodules
@@ -25,16 +21,16 @@ build:
 install:
 - ps: Install-Product node $env:NODE_VERSION $env:PLATFORM
 - ps: nuget install secure-file -ExcludeVersion
+- ps: npm config set msvs_version 2013
 
 # We need to extract the encrypted private ssh key to clone the submodule.
 - ps: |
     if ($env:DECRYPTION_PASSWORD) {
       secure-file\tools\secure-file -decrypt build\resources\ssh\nylas-n1-ci-ssh-secure-file.enc -secret $env:DECRYPTION_PASSWORD
       mv -Force build\resources\ssh\nylas-n1-ci-ssh-secure-file c:\users\appveyor\.ssh\id_rsa
-      git submodule init
 
       # http://stackoverflow.com/questions/21002919/running-a-remote-powershell-script-with-a-git-command-in-it-results-in-nativecom
-      Start-Process -FilePath git.exe -ArgumentList 'submodule update'  -Wait -NoNewWindow
+      Start-Process -FilePath git.exe -ArgumentList 'submodule update --init --recursive'  -Wait -NoNewWindow
 
       secure-file\tools\secure-file -decrypt src\pro\encrypted_certificates\appveyor\win-nylas-n1.p12.enc -secret $env:DECRYPTION_PASSWORD
       secure-file\tools\secure-file -decrypt src\pro\encrypted_certificates\appveyor\set_win_env.ps1.enc -secret $env:DECRYPTION_PASSWORD
@@ -42,13 +38,22 @@ install:
     }
 
 build_script:
-- ps: .\script\cibuild.ps1
+- cmd: script\bootstrap.cmd
+
+test_script:
+- ps: npm test
+
+deploy_script:
+- cmd: script\grunt.cmd ci --stack --no-color
 
 environment:
   matrix:
-  - NODE_VERSION: 4.2
+  - NODE_VERSION: 6.9
+    PUBLISH_BUILD: true
 
 cache:
-- 'C:\projects\n1\build\node_modules'
-- 'C:\projects\n1\node_modules'
-- '%USERPROFILE%\.nylas\.apm'
+  - node_modules -> package.json
+  - apm\node_modules -> apm\package.json
+  - build\node_modules -> build\package.json
+  - '%USERPROFILE%\.nylas\.apm'
+  - '%USERPROFILE%\.npm'

@@ -1,5 +1,4 @@
-const {dialog} = require('electron').remote
-import {ipcRenderer} from 'electron'
+import {ipcRenderer, remote} from 'electron'
 
 /**
  * We want to make sure that people have installed the app in a
@@ -11,7 +10,7 @@ import {ipcRenderer} from 'electron'
  * erased!).
  */
 
-function onNotificationActionTaken(numAsks) {
+function onDialogActionTaken(numAsks) {
   return (buttonIndex) => {
     if (buttonIndex === 0) {
       ipcRenderer.send("move-to-applications")
@@ -51,29 +50,22 @@ export function activate() {
   let buttons;
   if (numAsks >= 1) {
     buttons = [
-      "Move to Applications Folder",
+      "Move to Applications folder",
       "Don't ask again",
-      "Do Not Move",
+      "Do not move",
     ]
   } else {
     buttons = [
-      "Move to Applications Folder",
-      "Do Not Move",
+      "Move to Applications folder",
+      "Do not move",
     ]
   }
 
-  const re = /(^.*?\.app)/i;
-  let enclosingFolder = (re.exec(process.argv[0]) || [])[0].split("/");
-  enclosingFolder = enclosingFolder[enclosingFolder.length - 2]
-
-  let msg = `I can move myself to your Applications folder if you'd like.`
-  if (enclosingFolder) {
-    msg += ` This will keep your ${enclosingFolder} folder uncluttered.`
-  }
+  const msg = `We recommend that you move N1 to your Applications folder to get updates correctly and keep this folder uncluttered.`
 
   const CANCEL_ID = 3;
 
-  dialog.showMessageBox({
+  remote.dialog.showMessageBox({
     type: "question",
     buttons: buttons,
     title: "A Better Place to Install N1",
@@ -81,7 +73,7 @@ export function activate() {
     detail: msg,
     defaultId: 0,
     cancelId: CANCEL_ID,
-  }, onNotificationActionTaken(numAsks))
+  }, onDialogActionTaken(numAsks))
 }
 
 export function deactivate() {

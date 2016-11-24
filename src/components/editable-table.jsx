@@ -1,8 +1,10 @@
 /* eslint no-use-before-define: 0 */
 
 import React, {Component, PropTypes} from 'react'
-import RetinaImg from './retina-img'
+import {pickHTMLProps} from 'pick-react-known-prop'
 import ReactDOM from 'react-dom'
+
+import RetinaImg from './retina-img'
 import SelectableTable, {SelectableTableCell} from './selectable-table'
 
 
@@ -79,7 +81,7 @@ export class EditableTableCell extends Component {
 
   static defaultProps = {
     inputProps: {},
-    InputRenderer: 'input',
+    InputRenderer: (props) => <input {...pickHTMLProps(props)} defaultValue={props.defaultValue} />,
   }
 
   componentDidMount() {
@@ -94,7 +96,7 @@ export class EditableTableCell extends Component {
     }
   }
 
-  onInputBlur(event) {
+  onInputBlur = (event) => {
     const {target: {value}} = event
     const {tableDataSource, isHeader, rowIdx, colIdx, onCellEdited} = this.props
     const currentValue = tableDataSource.cellAt({rowIdx, colIdx})
@@ -103,7 +105,7 @@ export class EditableTableCell extends Component {
     }
   }
 
-  onInputKeyDown(event) {
+  onInputKeyDown = (event) => {
     const {key} = event
     const {onAddRow} = this.props
 
@@ -140,8 +142,8 @@ export class EditableTableCell extends Component {
             tableDataSource={tableDataSource}
             isHeader={isHeader}
             defaultValue={cellValue}
-            onBlur={::this.onInputBlur}
-            onKeyDown={::this.onInputKeyDown}
+            onBlur={this.onInputBlur}
+            onKeyDown={this.onInputKeyDown}
             {...inputProps}
           />
         </div>
@@ -159,7 +161,7 @@ function EditableTable(props) {
     onRemoveRow,
     onAddColumn,
     onRemoveColumn,
-    ...otherProps,
+    ...otherProps
   } = props
 
   const tableProps = {

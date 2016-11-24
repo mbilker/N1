@@ -16,10 +16,7 @@
   },
   "windowTypes": {
     "default": true,
-    "composer": true
-  },
-  "dependencies": {
-    "marked": "^0.3",
-    "simplemde": "^1.11.2"
+    "composer": true,
+    "thread-popout": true
   }
 }

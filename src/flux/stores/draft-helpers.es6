@@ -1,11 +1,14 @@
-import _ from 'underscore'
 import Actions from '../actions'
 import DatabaseStore from './database-store'
 import Message from '../models/message'
-import * as ExtensionRegistry from '../../extension-registry'
+import * as ExtensionRegistry from '../../registries/extension-registry'
 import SyncbackDraftFilesTask from '../tasks/syncback-draft-files-task'
 import DOMUtils from '../../dom-utils'
+
 import QuotedHTMLTransformer from '../../services/quoted-html-transformer'
+import InlineStyleTransformer from '../../services/inline-style-transformer'
+import SanitizeTransformer from '../../services/sanitize-transformer'
+import MessageUtils from '../models/message-utils'
 
 
 export const AllowedTransformFields = ['to', 'from', 'cc', 'bcc', 'subject', 'body']
@@ -40,6 +43,19 @@ export function shouldAppendQuotedText({body = '', replyToMessageId = false} = {
     !body.includes(`nylas-quote-id-${replyToMessageId}`)
 }
 
+export function prepareBodyForQuoting(body = "") {
+  // TODO: Fix inline images
+  const cidRE = MessageUtils.cidRegexString;
+
+  // Be sure to match over multiple lines with [\s\S]*
+  // Regex explanation here: https://regex101.com/r/vO6eN2/1
+  body.replace(new RegExp(`<img.*${cidRE}[\\s\\S]*?>`, "igm"), "")
+
+  return InlineStyleTransformer.run(body).then((inlineStyled) =>
+    SanitizeTransformer.run(inlineStyled, SanitizeTransformer.Preset.UnsafeOnly)
+  )
+}
+
 export function messageMentionsAttachment({body} = {}) {
   if (body == null) { throw new Error('DraftHelpers::messageMentionsAttachment - Message has no body loaded') }
   let cleaned = QuotedHTMLTransformer.removeQuotedHTML(body.toLowerCase().trim());
@@ -50,81 +66,74 @@ export function messageMentionsAttachment({body} = {}) {
   return (cleaned.indexOf("attach") >= 0);
 }
 
-export function queueDraftFileUploads(draft) {
-  if (draft.files.length > 0 || draft.uploads.length > 0) {
-    Actions.queueTask(new SyncbackDraftFilesTask(draft.clientId))
-  }
-}
-
 export function appendQuotedTextToDraft(draft) {
-  return DatabaseStore.find(Message, draft.replyToMessageId)
-  .include(Message.attributes.body)
-  .then((prevMessage) => {
-    const quotedText = `
-      <div class="gmail_quote nylas-quote nylas-quote-id-${draft.replyToMessageId}">
-        <br>
-        ${DOMUtils.escapeHTMLCharacters(prevMessage.replyAttributionLine())}
-        <br>
-        <blockquote class="gmail_quote"
-          style="margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex;">
-          ${prevMessage.body}
-        </blockquote>
-      </div>`
-    draft.body = draft.body + quotedText
-    return Promise.resolve(draft)
+  const query = DatabaseStore.find(Message, draft.replyToMessageId).include(Message.attributes.body);
+
+  return query.then((prevMessage) => {
+    if (!prevMessage) {
+      return Promise.resolve(draft);
+    }
+    return prepareBodyForQuoting(prevMessage.body).then((prevBodySanitized) => {
+      draft.body = `${draft.body}
+        <div class="gmail_quote nylas-quote nylas-quote-id-${draft.replyToMessageId}">
+          <br>
+          ${DOMUtils.escapeHTMLCharacters(prevMessage.replyAttributionLine())}
+          <br>
+          <blockquote class="gmail_quote"
+            style="margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex;">
+            ${prevBodySanitized}
+          </blockquote>
+        </div>`;
+      return Promise.resolve(draft);
+    });
   })
 }
 
-export function applyExtensionTransformsToDraft(draft) {
-  let latestTransformed = draft
-  const extensions = ExtensionRegistry.Composer.extensions()
-  const transformPromise = (
-    Promise.each(extensions, (ext) => {
-      const extApply = ext.applyTransformsToDraft
-      const extUnapply = ext.unapplyTransformsToDraft
+export function applyExtensionTransforms(draft) {
+  const extensions = ExtensionRegistry.Composer.extensions();
 
-      if (!extApply || !extUnapply) {
-        return Promise.resolve()
-      }
+  const fragment = document.createDocumentFragment();
+  const draftBodyRootNode = document.createElement('root');
+  fragment.appendChild(draftBodyRootNode);
+  draftBodyRootNode.innerHTML = draft.body;
 
-      return Promise.resolve(extUnapply({draft: latestTransformed})).then((cleaned) => {
-        const base = cleaned === 'unnecessary' ? latestTransformed : cleaned;
-        return Promise.resolve(extApply({draft: base})).then((transformed) => (
-          Promise.resolve(extUnapply({draft: transformed.clone()})).then((reverted) => {
-            const untransformed = reverted === 'unnecessary' ? base : reverted;
-            if (!_.isEqual(_.pick(untransformed, AllowedTransformFields), _.pick(base, AllowedTransformFields))) {
-              console.log("-- BEFORE --")
-              console.log(base.body)
-              console.log("-- TRANSFORMED --")
-              console.log(transformed.body)
-              console.log("-- UNTRANSFORMED (should match BEFORE) --")
-              console.log(untransformed.body)
-              // FIXME: We're removing the error reporting for now, but the real fix is finding out why the console opens when dev mode is false.
-              // NylasEnv.reportError(new Error(`Extension ${ext.name} applied a transform to the draft that it could not reverse.`))
-            }
-            latestTransformed = transformed
-            return Promise.resolve()
-          })
-        ))
-      })
-    })
-  )
-  return transformPromise
-  .then(() => Promise.resolve(latestTransformed))
+  return Promise.each(extensions, (ext) => {
+    const extApply = ext.applyTransformsForSending;
+    const extUnapply = ext.unapplyTransformsForSending;
+
+    if (!extApply || !extUnapply) {
+      return Promise.resolve();
+    }
+
+    return Promise.resolve(extUnapply({draft, draftBodyRootNode})).then(() => {
+      return Promise.resolve(extApply({draft, draftBodyRootNode}));
+    });
+  }).then(() => {
+    draft.body = draftBodyRootNode.innerHTML;
+    return draft;
+  });
 }
 
 export function prepareDraftForSyncback(session) {
   return session.ensureCorrectAccount({noSyncback: true})
-  .then(() => applyExtensionTransformsToDraft(session.draft()))
+  .then(() => {
+    return applyExtensionTransforms(session.draft())
+  })
   .then((transformed) => {
     if (!transformed.replyToMessageId || !shouldAppendQuotedText(transformed)) {
-      return Promise.resolve(transformed)
+      return Promise.resolve(transformed);
     }
-    return appendQuotedTextToDraft(transformed)
+    return appendQuotedTextToDraft(transformed);
   })
-  .then((draft) => (
-    DatabaseStore.inTransaction((t) => t.persistModel(draft))
-    .then(() => Promise.resolve(queueDraftFileUploads(draft)))
+  .then((draft) => {
+    return DatabaseStore.inTransaction((t) =>
+      t.persistModel(draft)
+    )
+    .then(() => {
+      if (draft.files.length > 0 || draft.uploads.length > 0) {
+        Actions.queueTask(new SyncbackDraftFilesTask(draft.clientId))
+      }
+    })
     .thenReturn(draft)
-  ))
+  })
 }

@@ -1,4 +1,3 @@
-import _ from 'underscore'
 import React from 'react';
 import {Actions, FocusedContactsStore} from 'nylas-exports'
 
@@ -42,10 +41,9 @@ export default class SidebarParticipantPicker extends React.Component {
   }
 
   _onSelectContact = (event) => {
+    const {sortedContacts} = this.state
     const [email, name] = event.target.value.split(SPLIT_KEY);
-    const contact = _.filter(this.state.sortedContacts, (c) => {
-      return c.name === name && c.email === email;
-    })[0];
+    const contact = sortedContacts.find((c) => c.name === name && c.email === email)
     return Actions.focusContact(contact);
   }
 
@@ -64,13 +62,13 @@ export default class SidebarParticipantPicker extends React.Component {
   render() {
     const {sortedContacts, focusedContact} = this.state
     const value = this._getKeyForContact(focusedContact)
-    if (sortedContacts.length === 0) {
+    if (sortedContacts.length === 0 || !value) {
       return false
     }
     return (
       <div className="sidebar-participant-picker">
         <select tabIndex={-1} value={value} onChange={this._onSelectContact}>
-        {this._renderSortedContacts()}
+          {this._renderSortedContacts()}
         </select>
       </div>
     )

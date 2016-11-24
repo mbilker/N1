@@ -1,13 +1,16 @@
 React = require 'react'
 _ = require 'underscore'
 EmailFrame = require('./email-frame').default
-{DraftHelpers,
- CanvasUtils,
- NylasAPI,
- MessageUtils,
- MessageBodyProcessor,
- QuotedHTMLTransformer,
- FileDownloadStore} = require 'nylas-exports'
+{encodedAttributeForFile} = require('./inline-download-prompts')
+{
+  DraftHelpers,
+  CanvasUtils,
+  NylasAPI,
+  MessageUtils,
+  MessageBodyProcessor,
+  QuotedHTMLTransformer,
+  FileDownloadStore
+} = require 'nylas-exports'
 {InjectedComponentSet, RetinaImg} = require 'nylas-component-kit'
 
 TransparentPixel = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNikAQAACIAHF/uBd8AAAAASUVORK5CYII="
@@ -19,7 +22,7 @@ class MessageItemBody extends React.Component
     downloads: React.PropTypes.object.isRequired
 
   constructor: (@props) ->
-    @_unmounted = false
+    @_mounted = false
     @state =
       showQuotedText: DraftHelpers.isForwardedMessage(@props.message)
       processedBody: null
@@ -30,6 +33,7 @@ class MessageItemBody extends React.Component
       @setState({processedBody})
 
   componentDidMount: =>
+    @_mounted = true
     @_onFetchBody() if not _.isString(@props.message.body)
 
   componentWillReceiveProps: (nextProps) ->
@@ -39,7 +43,7 @@ class MessageItemBody extends React.Component
         @setState({processedBody})
 
   componentWillUnmount: =>
-    @_unmounted = true
+    @_mounted = false
     @_unsub?()
 
   render: =>
@@ -89,19 +93,22 @@ class MessageItemBody extends React.Component
       accountId: @props.message.accountId
       returnsModel: true
     .then =>
-      return if @_unmounted
+      return unless @_mounted
       @setState({error: null})
       # message will be put into the database and the MessageBodyProcessor
       # will provide us with the new body once it's been processed.
     .catch (error) =>
-      return if @_unmounted
+      return unless @_mounted
       @setState({error})
 
   _mergeBodyWithFiles: (body) =>
-    # Replace cid:// references with the paths to downloaded files
+    # Replace cid: references with the paths to downloaded files
     for file in @props.message.files
       download = @props.downloads[file.id]
-      cidRegexp = new RegExp("cid:#{file.contentId}(['\"]+)", 'gi')
+
+      # Note: I don't like doing this with RegExp before the body is inserted into
+      # the DOM, but we want to avoid "could not load cid://" in the console.
+      cidRegexp = new RegExp("cid:#{file.contentId}(['\"])", 'gi')
 
       if download and download.state isnt 'finished'
         # Render a spinner and inject a `style` tag that injects object-position / object-fit
@@ -109,11 +116,13 @@ class MessageItemBody extends React.Component
           dataUri = CanvasUtils.dataURIForLoadedPercent(download.percent)
           "#{dataUri}#{quoteCharacter} style=#{quoteCharacter} object-position: 50% 50%; object-fit: none; "
       else
-        # Render the completed download
+        # Render the completed download. We include data-nylas-file so that if the image fails
+        # to load, we can parse the file out and call `Actions.fetchFile` to retrieve it.
+        # (Necessary when attachment download mode is set to "manual")
         body = body.replace cidRegexp, (text, quoteCharacter) ->
-          "file://#{FileDownloadStore.pathForFile(file)}#{quoteCharacter}"
+          "file://#{FileDownloadStore.pathForFile(file)}#{quoteCharacter} data-nylas-file=\"#{encodedAttributeForFile(file)}\" "
 
-    # Replace remaining cid:// references - we will not display them since they'll
+    # Replace remaining cid: references - we will not display them since they'll
     # throw "unknown ERR_UNKNOWN_URL_SCHEME". Show a transparent pixel so that there's
     # no "missing image" region shown, just a space.
     body = body.replace(MessageUtils.cidRegex, "src=\"#{TransparentPixel}\"")

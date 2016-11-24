@@ -76,10 +76,10 @@ describe('SendDraftTask', function sendDraftTask() {
         from: [new Contact({email: TEST_ACCOUNT_EMAIL})],
         subject: 'New Draft',
         body: 'hello world',
-        to: {
+        to: [new Contact({
           name: 'Dummy',
           email: 'dummythis.nylas.com',
-        },
+        })],
       };
 
       spyOn(NylasAPI, 'makeRequest').andCallFake((options) => {
@@ -92,7 +92,6 @@ describe('SendDraftTask', function sendDraftTask() {
       spyOn(DBt, 'unpersistModel').andReturn(Promise.resolve());
       spyOn(DBt, 'persistModel').andReturn(Promise.resolve());
       spyOn(SoundRegistry, "playSound");
-      spyOn(Actions, "postNotification");
       spyOn(Actions, "sendDraftSuccess");
     });
 
@@ -489,10 +488,10 @@ describe('SendDraftTask', function sendDraftTask() {
           subject: 'New Draft',
           draft: true,
           body: 'hello world',
-          to: {
+          to: [new Contact({
             name: 'Dummy',
             email: 'dummythis.nylas.com',
-          },
+          })],
           uploads: [],
         });
 
@@ -543,10 +542,10 @@ describe('SendDraftTask', function sendDraftTask() {
         subject: 'New Draft',
         draft: true,
         body: 'hello world',
-        to: {
+        to: [new Contact({
           name: 'Dummy',
           email: 'dummythis.nylas.com',
-        },
+        })],
         uploads: [],
       });
       this.task.draft.applyPluginMetadata('open-tracking', true);

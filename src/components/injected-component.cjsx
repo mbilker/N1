@@ -2,7 +2,7 @@ React = require 'react'
 ReactDOM = require 'react-dom'
 _ = require 'underscore'
 UnsafeComponent = require './unsafe-component'
-InjectedComponentLabel = require './injected-component-label'
+InjectedComponentLabel = require('./injected-component-label').default
 
 {Actions,
  WorkspaceStore,
@@ -104,17 +104,22 @@ class InjectedComponent extends React.Component
     className = @props.className ? ""
     className += " registered-region-visible" if @state.visible
 
-    component = @state.component
-    if component.containerRequired is false
-      element = <component ref="inner" key={component.displayName} {...exposedProps} />
+    Component = @state.component
+    if Component.containerRequired is false
+      privateProps = {
+        key: Component.displayName,
+      }
+      if React.Component.isPrototypeOf(Component)
+        privateProps.ref = 'inner'
+      element = <Component {...privateProps} {...exposedProps} />
     else
       element = (
         <UnsafeComponent
           ref="inner"
           style={@props.style}
           className={className}
-          key={component.displayName}
-          component={component}
+          key={Component.displayName}
+          component={Component}
           onComponentDidRender={@props.onComponentDidRender}
           {...exposedProps} />
       )
@@ -152,14 +157,15 @@ class InjectedComponent extends React.Component
     else
       target = ReactDOM.findDOMNode(@)
 
-    target[method].bind(target)(args...)
+    if target[method]
+      target[method].bind(target)(args...)
 
   _setRequiredMethods: (methods) =>
     methods.forEach (method) =>
       Object.defineProperty(@, method,
         configurable: true
         enumerable: true
-        value: (args...)=>
+        value: (args...) =>
           @_runInnerDOMMethod(method, args...)
       )
 

@@ -16,7 +16,7 @@ let winNum = 0;
 export default class WindowLauncher {
   static EMPTY_WINDOW = "emptyWindow"
 
-  constructor({devMode, safeMode, resourcePath, configDirPath, onCreatedHotWindow, config}) {
+  constructor({devMode, safeMode, specMode, resourcePath, configDirPath, onCreatedHotWindow, config}) {
     this.defaultWindowOpts = {
       frame: process.platform !== "darwin",
       hidden: false,
@@ -31,16 +31,12 @@ export default class WindowLauncher {
     }
     this.config = config;
     this.onCreatedHotWindow = onCreatedHotWindow;
+    if (specMode) return;
     this.createHotWindow();
   }
 
   newWindow(options) {
-    // Normally, you enter dev mode by passing the --dev command line flag.
-    // But for developers using the compiled app, it's easier to toggle dev
-    // mode from the menu and have it persist through relaunch.
-    const devOpt = this.config.get('devMode') ? {devMode: true} : {};
-
-    const opts = Object.assign({}, this.defaultWindowOpts, devOpt, options);
+    const opts = Object.assign({}, this.defaultWindowOpts, options);
 
     let win;
     if (this._mustUseColdWindow(opts)) {
@@ -64,8 +60,15 @@ export default class WindowLauncher {
       // packages.
       win.windowKey = opts.windowKey || `${opts.windowType}-${winNum}`;
       winNum += 1;
-      win.windowKey = opts.windowKey;
       win.windowType = opts.windowType;
+
+      if (options.bounds) {
+        win.browserWindow.setBounds(options.bounds);
+      }
+      if (options.width && options.height) {
+        win.browserWindow.setSize(options.width, options.height);
+      }
+
       win.setLoadSettings(newLoadSettings);
     }
 

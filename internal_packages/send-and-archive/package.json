@@ -10,8 +10,8 @@
   },
   "windowTypes": {
     "default": true,
-    "composer": true
-  },
-  "dependencies": {
+    "composer": true,
+    "thread-popout": true,
+    "work": true
   }
 }

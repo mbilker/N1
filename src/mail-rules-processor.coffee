@@ -1,12 +1,12 @@
 _ = require 'underscore'
 
 Task = require('./flux/tasks/task').default
-Actions = require './flux/actions'
-Category = require './flux/models/category'
+Actions = require('./flux/actions').default
+Category = require('./flux/models/category').default
 Thread = require('./flux/models/thread').default
 Message = require('./flux/models/message').default
 AccountStore = require './flux/stores/account-store'
-DatabaseStore = require './flux/stores/database-store'
+DatabaseStore = require('./flux/stores/database-store').default
 TaskQueueStatusStore = require './flux/stores/task-queue-status-store'
 
 {ConditionMode, ConditionTemplates} = require './mail-rules-templates'

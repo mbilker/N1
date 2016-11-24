@@ -6,11 +6,11 @@ path = require 'path'
 CoffeeHelpers = require '../coffee-helpers'
 
 Task = require("../tasks/task").default
-TaskRegistry = require('../../task-registry').default
+TaskRegistry = require('../../registries/task-registry').default
 Utils = require "../models/utils"
 Reflux = require 'reflux'
-Actions = require '../actions'
-DatabaseStore = require './database-store'
+Actions = require('../actions').default
+DatabaseStore = require('./database-store').default
 
 {APIError,
  TimeoutError} = require '../errors'
@@ -57,12 +57,6 @@ Actions.dequeueMatchingTask({
 })
 ```
 
-## Creating Tasks
-
-Support for creating custom {Task} subclasses in third-party packages is coming soon.
-This is currently blocked by the ActionBridge, which is responsible for sending actions
-between windows, since it's JSON serializer is not extensible.
-
 Section: Stores
 ###
 class TaskQueue
@@ -78,6 +72,17 @@ class TaskQueue
     @_currentSequentialId = Date.now()
 
     @_restoreQueue()
+
+    @_savedOnUnload = false
+    NylasEnv.onBeforeUnload((finishUnload) =>
+      if @_savedOnUnload then return true
+      @_saveQueue()
+      .finally(=>
+        @_savedOnUnload = true
+        finishUnload()
+      )
+      return false
+    )
 
     @listenTo Actions.queueTask, @enqueue
     @listenTo Actions.queueTasks, (tasks) =>
@@ -127,17 +132,27 @@ class TaskQueue
 
   enqueue: (task) =>
     if not (task instanceof Task)
-      throw new Error("You must queue a `Task` instance")
+      console.log(task)
+      throw new Error("You must queue a `Task` instance. Be sure you have the task registered with the TaskRegistry. If this is a task for a custom plugin, you must export a `taskConstructors` array with your `Task` constructors in it. You must all subclass the base Nylas `Task`.")
     if not (TaskRegistry.isInRegistry(task.constructor.name))
+      console.log(task)
       throw new Error("You must queue a `Task` instance which is registred with the TaskRegistry")
     if not task.id
+      console.log(task)
       throw new Error("Tasks must have an ID prior to being queued. Check that your Task constructor is calling `super`")
     if not task.queueState
+      console.log(task)
       throw new Error("Tasks must have a queueState prior to being queued. Check that your Task constructor is calling `super`")
     task.sequentialId = ++@_currentSequentialId
 
     @_dequeueObsoleteTasks(task)
-    task.runLocal().then =>
+    runLocalStart = Date.now()
+    task.runLocal()
+    .then =>
+      runLocalTime = Date.now() - runLocalStart
+      if runLocalTime >= 500
+        err = new Error("Task peformLocal took more than 500ms")
+        NylasEnv.reportError(err, {task: task.toJSON(), duration: runLocalTime, taskName: task.constructor.name})
       @_queue.push(task)
       @_updateSoon()
 
@@ -325,10 +340,14 @@ class TaskQueue
       @_queue = queue
       @_updateSoon()
 
+  _saveQueue: =>
+    return DatabaseStore.inTransaction((t) =>
+      return t.persistJSONBlob(JSONBlobStorageKey, @_queue ? [])
+    )
+
   _updateSoon: =>
     @_updateSoonThrottled ?= _.throttle =>
-      DatabaseStore.inTransaction (t) =>
-        t.persistJSONBlob(JSONBlobStorageKey, @_queue ? [])
+      @_saveQueue()
       _.defer =>
         @_processQueue()
         @_ensurePeriodicUpdates()

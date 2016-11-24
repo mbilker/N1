@@ -2,7 +2,6 @@ import Task from './task';
 import {APIError} from '../errors';
 import Message from '../models/message';
 import DatabaseStore from '../stores/database-store';
-import Actions from '../actions';
 import NylasAPI from '../nylas-api';
 import BaseDraftTask from './base-draft-task';
 
@@ -54,7 +53,7 @@ export default class DestroyDraftTask extends BaseDraftTask {
       const inboxMsg = (err.body && err.body.message) ? err.body.message : '';
 
       // Draft has already been deleted, this is not really an error
-      if ([404, 409].inclues(err.statusCode)) {
+      if ([404, 409].includes(err.statusCode)) {
         return Promise.resolve(Task.Status.Continue);
       }
       // Draft has been sent, and can't be deleted. Not much we can do but finish
@@ -65,10 +64,7 @@ export default class DestroyDraftTask extends BaseDraftTask {
         return Promise.resolve(Task.Status.Retry);
       }
 
-      Actions.postNotification({
-        message: "Unable to delete this draft. Restoring...",
-        type: "error",
-      });
+      NylasEnv.showErrorDialog("Unable to delete this draft. Restoring...");
 
       return DatabaseStore.inTransaction((t) =>
         t.persistModel(this.draft)

@@ -2,7 +2,7 @@ import React from 'react';
 import _ from 'underscore';
 
 import {remote, clipboard} from 'electron';
-import {Utils, Contact, ContactStore} from 'nylas-exports';
+import {Utils, Contact, ContactStore, RegExpUtils} from 'nylas-exports';
 import {TokenizingTextField, Menu, InjectedComponent, InjectedComponentSet} from 'nylas-component-kit';
 
 const TokenRenderer = (props) => {
@@ -15,8 +15,8 @@ const TokenRenderer = (props) => {
     <div className="participant">
       <InjectedComponentSet
         matching={{role: "Composer:RecipientChip"}}
-        exposedProps={{contact: props.token}}
-        direction="column"
+        exposedProps={{contact: props.token, collapsed: false}}
+        direction="row"
         inline
       />
       <span className="participant-primary">{chipText}</span>
@@ -72,8 +72,10 @@ export default class ParticipantsTextField extends React.Component {
   }
 
   _completionNode = (p) => {
+    const CustomComponent = p.customComponent
+    if (CustomComponent) return (<CustomComponent token={p} />)
     return (
-      <Menu.NameEmailItem name={p.name} email={p.email} />
+      <Menu.NameEmailItem name={p.name} email={p.email} key={p.id} />
     );
   }
 
@@ -182,6 +184,21 @@ export default class ParticipantsTextField extends React.Component {
     menu.popup(remote.getCurrentWindow());
   }
 
+  _onInputTrySubmit = (inputValue, completions = [], selectedItem) => {
+    if (RegExpUtils.emailRegex().test(inputValue)) {
+      return inputValue // no token default to raw value.
+    }
+    return selectedItem || completions[0] // first completion if any
+  }
+
+  _shouldBreakOnKeydown = (event) => {
+    const val = event.target.value.trim();
+    if (RegExpUtils.emailRegex().test(val) && event.key === " ") {
+      return true
+    }
+    return [",", ";"].includes(event.key)
+  }
+
   render() {
     const classSet = {
       [this.props.field]: true,
@@ -202,6 +219,8 @@ export default class ParticipantsTextField extends React.Component {
             tokenIsValid: (p) => ContactStore.isValidContact(p),
             tokenRenderer: TokenRenderer,
             onRequestCompletions: (input) => ContactStore.searchContacts(input),
+            shouldBreakOnKeydown: this._shouldBreakOnKeydown,
+            onInputTrySubmit: this._onInputTrySubmit,
             completionNode: this._completionNode,
             onAdd: this._add,
             onRemove: this._remove,

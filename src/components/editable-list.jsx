@@ -1,11 +1,13 @@
+/* eslint jsx-a11y/tabindex-no-positive: 0 */
 import _ from 'underscore';
 import uuid from 'node-uuid';
 import classNames from 'classnames';
+import React, {Component, PropTypes} from 'react';
+import ReactDOM from 'react-dom';
+
 import ScrollRegion from './scroll-region';
 import KeyCommandsRegion from './key-commands-region';
 import RetinaImg from './retina-img';
-import React, {Component, PropTypes} from 'react';
-import ReactDOM from 'react-dom';
 
 /**
  * Renders a list of items and renders controls to add/edit/remove items.
@@ -290,19 +292,24 @@ class EditableList extends Component {
     }
 
     event.dataTransfer.setData('editablelist-index', row.dataset.itemIdx);
-    event.dataTransfer.setData('editablelist-listid', this.listId);
+    event.dataTransfer.setData(`editablelist-listid:${this.listId}`, 'true');
     event.dataTransfer.effectAllowed = "move";
   };
 
   _onDragOver = (event) => {
     const wrapperNode = ReactDOM.findDOMNode(this.refs.itemsWrapper);
-    const originListId = event.dataTransfer.getData('editablelist-listid')
+
+    // As of Chromium 53, we cannot access the contents of the drag pasteboard
+    // until the user drops for security reasons. Pull the list id from the
+    // drag datatype itself.
+    const originListType = event.dataTransfer.types.find(t => t.startsWith('editablelist-listid:'));
+    const originListId = originListType ? originListType.split(':').pop() : null;
     const originSameList = (originListId === this.listId);
     let dropInsertionIndex = 0;
 
     if ((event.currentTarget === wrapperNode) && originSameList) {
       const itemNodes = wrapperNode.querySelectorAll('[data-item-idx]')
-      for (let i = 0; i < itemNodes.length; i ++) {
+      for (let i = 0; i < itemNodes.length; i++) {
         const itemNode = itemNodes[i];
         const rect = itemNode.getBoundingClientRect();
         if (event.clientY > rect.top + (rect.height / 2)) {
@@ -442,7 +449,7 @@ class EditableList extends Component {
 
   _renderDropInsertion = () => {
     return (
-      <div className="insertion-point"><div></div></div>
+      <div className="insertion-point"><div /></div>
     )
   };
 

@@ -1,12 +1,12 @@
 Message = require('../models/message').default
-Actions = require '../actions'
+Actions = require('../actions').default
 NylasAPI = require '../nylas-api'
 AccountStore = require './account-store'
 ContactStore = require './contact-store'
-DatabaseStore = require './database-store'
+DatabaseStore = require('./database-store').default
 UndoStack = require('../../undo-stack').default
 DraftHelpers = require '../stores/draft-helpers'
-ExtensionRegistry = require '../../extension-registry'
+ExtensionRegistry = require '../../registries/extension-registry'
 {Listener, Publisher} = require '../modules/reflux-coffee'
 SyncbackDraftTask = require('../tasks/syncback-draft-task').default
 CoffeeHelpers = require '../coffee-helpers'
@@ -103,7 +103,7 @@ class DraftEditingSession
   @include Listener
 
   constructor: (@draftClientId, draft = null) ->
-    DraftStore ?= require './draft-store'
+    DraftStore ?= require('./draft-store').default
     @listenTo DraftStore, @_onDraftChanged
 
     @_draft = false
@@ -151,7 +151,7 @@ class DraftEditingSession
     warnings = []
     errors = []
     allRecipients = [].concat(@_draft.to, @_draft.cc, @_draft.bcc)
-    bodyIsEmpty = @_draft.body is @draftPristineBody()
+    bodyIsEmpty = @_draft.body is @draftPristineBody() or @_draft.body is "<br>"
     forwarded = DraftHelpers.isForwardedMessage(@_draft)
     hasAttachment = @_draft.files?.length > 0 or @_draft.uploads?.length > 0
 
@@ -209,14 +209,21 @@ class DraftEditingSession
     if !draft.body?
       throw new Error("DraftEditingSession._setDraft - new draft has no body!")
 
-    # Reverse draft transformations performed by third-party plugins when the draft
-    # was last saved to disk
-    return Promise.each ExtensionRegistry.Composer.extensions(), (ext) ->
-      if ext.applyTransformsToDraft and ext.unapplyTransformsToDraft
-        Promise.resolve(ext.unapplyTransformsToDraft({draft})).then (untransformed) ->
-          unless untransformed is 'unnecessary'
-            draft = untransformed
+    extensions = ExtensionRegistry.Composer.extensions()
+
+    # Run `extensions[].unapplyTransformsForSending`
+    fragment = document.createDocumentFragment()
+    draftBodyRootNode = document.createElement('root')
+    fragment.appendChild(draftBodyRootNode)
+    draftBodyRootNode.innerHTML = draft.body
+
+    return Promise.each extensions, (ext) ->
+      if ext.applyTransformsForSending and ext.unapplyTransformsForSending
+        Promise.resolve(ext.unapplyTransformsForSending({
+          draftBodyRootNode: draftBodyRootNode,
+          draft: draft}))
     .then =>
+      draft.body = draftBodyRootNode.innerHTML
       @_draft = draft
 
       # We keep track of the draft's initial body if it's pristine when the editing

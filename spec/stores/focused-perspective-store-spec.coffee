@@ -1,17 +1,17 @@
 _ = require 'underscore'
 
-Actions = require '../../src/flux/actions'
-Category = require '../../src/flux/models/category'
+Actions = require('../../src/flux/actions').default
+Category = require('../../src/flux/models/category').default
 MailboxPerspective = require '../../src/mailbox-perspective'
 
 CategoryStore = require '../../src/flux/stores/category-store'
 AccountStore = require '../../src/flux/stores/account-store'
-FocusedPerspectiveStore = require '../../src/flux/stores/focused-perspective-store'
+FocusedPerspectiveStore = require('../../src/flux/stores/focused-perspective-store').default
 
 describe "FocusedPerspectiveStore", ->
   beforeEach ->
     spyOn(FocusedPerspectiveStore, 'trigger')
-    FocusedPerspectiveStore._perspective = null
+    FocusedPerspectiveStore._current = MailboxPerspective.forNothing()
     @account = AccountStore.accounts()[0]
 
     @inboxCategory = new Category(id: 'id-123', name: 'inbox', displayName: "INBOX", accountId: @account.id)
@@ -20,52 +20,106 @@ describe "FocusedPerspectiveStore", ->
     @userPerspective = MailboxPerspective.forCategory(@userCategory)
 
     spyOn(CategoryStore, "getStandardCategory").andReturn @inboxCategory
-    spyOn(CategoryStore, "byId").andCallFake (id) =>
-      return @inboxCategory if id is @inboxCategory.id
-      return @userCategory if id is @userCategory.id
+    spyOn(CategoryStore, "byId").andCallFake (aid, cid) =>
+      return {id: 'A'} if aid is 1 and cid is 'A'
+      return @inboxCategory if cid is @inboxCategory.id
+      return @userCategory if cid is @userCategory.id
       return null
 
-  describe "_loadSavedPerspective", ->
+  describe "_initializeFromSavedState", ->
     beforeEach ->
-      @default = 'default'
-      @accounts = [{id: 1}, {id: 2}]
+      @default = MailboxPerspective.forCategory(@inboxCategory)
+      spyOn(AccountStore, 'accountIds').andReturn([1, 2])
       spyOn(MailboxPerspective, 'fromJSON').andCallFake (json) -> json
       spyOn(FocusedPerspectiveStore, '_defaultPerspective').andReturn @default
+      spyOn(FocusedPerspectiveStore, '_setPerspective')
 
     it "uses default perspective when no perspective has been saved", ->
-      current = FocusedPerspectiveStore._loadSavedPerspective(undefined, @accounts)
-      expect(current).toEqual @default
+      NylasEnv.savedState.sidebarAccountIds = undefined
+      NylasEnv.savedState.perspective = undefined
+      FocusedPerspectiveStore._initializeFromSavedState()
+      expect(FocusedPerspectiveStore._setPerspective).toHaveBeenCalledWith(@default, @default.accountIds)
 
-    it "uses default if saved perspective has more account ids not present in current accounts", ->
-      saved = {accountIds: [1,2,3]}
-      current = FocusedPerspectiveStore._loadSavedPerspective(saved, @accounts)
-      expect(current).toEqual @default
+    it "uses default if the saved perspective has account ids no longer present", ->
+      NylasEnv.savedState.sidebarAccountIds = [1, 2, 3]
+      NylasEnv.savedState.perspective =
+        accountIds: [1, 2, 3],
+        categories: => [{accountId: 1, id: 'A'}],
+      FocusedPerspectiveStore._initializeFromSavedState()
+      expect(FocusedPerspectiveStore._setPerspective).toHaveBeenCalledWith(@default, @default.accountIds)
 
-      saved = {accountIds: [3]}
-      current = FocusedPerspectiveStore._loadSavedPerspective(saved, @accounts)
-      expect(current).toEqual @default
+      NylasEnv.savedState.sidebarAccountIds = [1, 2, 3]
+      NylasEnv.savedState.perspective =
+        accountIds: [3]
+        categories: => [{accountId: 3, id: 'A'}]
+      FocusedPerspectiveStore._initializeFromSavedState()
+      expect(FocusedPerspectiveStore._setPerspective).toHaveBeenCalledWith(@default, @default.accountIds)
 
-    it "uses saved perspective if all accounts in saved perspective are present in the current accounts", ->
-      saved = {accountIds: [1,2]}
-      current = FocusedPerspectiveStore._loadSavedPerspective(saved, @accounts)
-      expect(current).toEqual saved
+    it "uses default if the saved perspective has category ids no longer present", ->
+      NylasEnv.savedState.sidebarAccountIds = [2]
+      NylasEnv.savedState.perspective =
+        accountIds: [2]
+        categories: => [{accountId: 2, id: 'C'}]
+      FocusedPerspectiveStore._initializeFromSavedState()
+      expect(FocusedPerspectiveStore._setPerspective).toHaveBeenCalledWith(@default, @default.accountIds)
 
-      saved = {accountIds: [1]}
-      current = FocusedPerspectiveStore._loadSavedPerspective(saved, @accounts)
-      expect(current).toEqual saved
+    it "does not honor sidebarAccountIds if it includes account ids no longer present", ->
+      NylasEnv.savedState.sidebarAccountIds = [1, 2, 3]
+      NylasEnv.savedState.perspective =
+        accountIds: [1]
+        categories: => [{accountId: 1, id: 'A'}]
+      FocusedPerspectiveStore._initializeFromSavedState()
+      expect(FocusedPerspectiveStore._setPerspective).toHaveBeenCalledWith(NylasEnv.savedState.perspective, [1])
+
+    it "uses the saved perspective if it is still valid", ->
+      NylasEnv.savedState.sidebarAccountIds = [1, 2]
+      NylasEnv.savedState.perspective =
+        accountIds: [1, 2]
+        categories: => [{accountId: 1, id: 'A'}]
+      FocusedPerspectiveStore._initializeFromSavedState()
+      expect(FocusedPerspectiveStore._setPerspective).toHaveBeenCalledWith(NylasEnv.savedState.perspective, [1, 2])
+
+      NylasEnv.savedState.sidebarAccountIds = [1, 2]
+      NylasEnv.savedState.perspective =
+        accountIds: [1]
+        categories: => []
+        type: 'DraftsMailboxPerspective'
+
+      FocusedPerspectiveStore._initializeFromSavedState()
+      expect(FocusedPerspectiveStore._setPerspective).toHaveBeenCalledWith(NylasEnv.savedState.perspective, [1, 2])
+
+      NylasEnv.savedState.sidebarAccountIds = [1]
+      NylasEnv.savedState.perspective =
+        accountIds: [1]
+        categories: => []
+        type: 'DraftsMailboxPerspective'
+
+      FocusedPerspectiveStore._initializeFromSavedState()
+      expect(FocusedPerspectiveStore._setPerspective).toHaveBeenCalledWith(NylasEnv.savedState.perspective, [1])
 
   describe "_onCategoryStoreChanged", ->
-    it "should load the saved perspective if the perspective has not been initialized", ->
-      spyOn(FocusedPerspectiveStore, '_loadSavedPerspective').andReturn(@inboxPerspective)
+    it "should try to initialize if the curernt perspective hasn't been fully initialized", ->
+      spyOn(FocusedPerspectiveStore, '_initializeFromSavedState')
+
+      FocusedPerspectiveStore._current = @inboxPerspective
+      FocusedPerspectiveStore._initialized = true
       FocusedPerspectiveStore._onCategoryStoreChanged()
-      expect(FocusedPerspectiveStore.current()).toEqual(@inboxPerspective)
+      expect(FocusedPerspectiveStore._initializeFromSavedState).not.toHaveBeenCalled()
+
+      FocusedPerspectiveStore._current = MailboxPerspective.forNothing()
+      FocusedPerspectiveStore._initialized = false
+      FocusedPerspectiveStore._onCategoryStoreChanged()
+      expect(FocusedPerspectiveStore._initializeFromSavedState).toHaveBeenCalled()
 
     it "should set the current category to default when the current category no longer exists in the CategoryStore", ->
       defaultPerspective = @inboxPerspective
+      FocusedPerspectiveStore._initialized = true
       spyOn(FocusedPerspectiveStore, '_defaultPerspective').andReturn(defaultPerspective)
+
       otherAccountInbox = @inboxCategory.clone()
       otherAccountInbox.serverId = 'other-id'
       FocusedPerspectiveStore._current = MailboxPerspective.forCategory(otherAccountInbox)
+
       FocusedPerspectiveStore._onCategoryStoreChanged()
       expect(FocusedPerspectiveStore.current()).toEqual(defaultPerspective)
 

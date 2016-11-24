@@ -1,7 +1,8 @@
-import OnboardingActions from './onboarding-actions';
 import {AccountStore, Actions, IdentityStore} from 'nylas-exports';
 import {ipcRenderer} from 'electron';
 import NylasStore from 'nylas-store';
+
+import OnboardingActions from './onboarding-actions';
 
 function accountTypeForProvider(provider) {
   if (provider === 'eas') {
@@ -30,7 +31,9 @@ class OnboardingStore extends NylasStore {
 
     const {existingAccount, addingAccount} = NylasEnv.getWindowProps();
 
+    const hasAccounts = (AccountStore.accounts().length > 0)
     const identity = IdentityStore.identity();
+
     if (identity) {
       this._accountInfo = {
         name: `${identity.firstname || ""} ${identity.lastname || ""}`,
@@ -56,11 +59,13 @@ class OnboardingStore extends NylasStore {
       // but don't want to re-login to Nylas account. Very useful when
       // switching environments.
       this._pageStack = ['account-choose'];
+    } else if (hasAccounts) {
+      // Should only happen when the user has "signed out" of their Nylas ID,
+      // but already has accounts synced. Or is upgrading from a very old build.
+      // We used to show "Welcome Back", but now just jump to sign in.
+      this._pageStack = ['authenticate'];
     } else {
       // Standard new user onboarding flow.
-      // Note: If accounts are already connected, but no Nylas ID is, then
-      // the welcome page will show a separate page for returning users to
-      // create a Nylas Pro ID.
       this._pageStack = ['welcome'];
     }
   }
@@ -96,6 +101,11 @@ class OnboardingStore extends NylasStore {
     } else if (type === 'exchange') {
       nextPage = "account-settings-exchange";
     }
+
+    Actions.recordUserEvent('Selected Account Type', {
+      provider: type,
+    });
+
     this._onSetAccountInfo(Object.assign({}, this._accountInfo, {type}));
     this._onMoveToPage(nextPage);
   }
@@ -179,7 +189,7 @@ class OnboardingStore extends NylasStore {
       }
     } catch (e) {
       NylasEnv.reportError(e)
-      NylasEnv.showErrorDialog("Unable to Connect Accounts", "Sorry, something went wrong on your instance of the sync engine. Please try again.")
+      NylasEnv.showErrorDialog("Unable to Connect Accounts", `Sorry, something went wrong on your instance of the sync engine. Please try again. Detail: ${e.toString()}`)
     }
   }
 

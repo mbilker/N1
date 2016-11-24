@@ -29,8 +29,13 @@ RegExpUtils =
   # NOTE: This does not match full urls with `http` protocol components.
   domainRegex: -> new RegExp("^(?!:\\/\\/)([a-zA-Z#{UnicodeEmailChars}0-9-_]+\\.)*[a-zA-Z#{UnicodeEmailChars}0-9][a-zA-Z#{UnicodeEmailChars}0-9-_]+\\.[a-zA-Z]{2,11}?", 'i')
 
+  # http://www.regexpal.com/?fam=95875
+  hashtagOrMentionRegex: -> new RegExp(/\s([@#])([\w_-]+)/i)
+
   # https://www.safaribooksonline.com/library/view/regular-expressions-cookbook/9780596802837/ch07s16.html
   ipAddressRegex: -> new RegExp(/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/i)
+
+  nylasCommandRegex: -> new RegExp(/nylas:\S+/i)
 
   # Test cases: https://regex101.com/r/pD7iS5/3
   urlRegex: ({matchEntireString} = {}) ->
@@ -101,7 +106,7 @@ RegExpUtils =
 
           # optionally followed by: a query string and/or a #location
           # (last character must not be puncation, hence two groups)
-          '(?:(\\?[\\-\\+=&;%@\\.\\w_]*[\\-\\+=&;%@\\w_\\/]+)?#?(?:[\'\\$\\&\\(\\)\\*\\+,;=\\.\\!\\/\\\\\\w%-]*[\\/\\\\\\w]+)?)?'
+          '(?:(\\?[\\-\\+=&;%@\\.\\w_\\#]*[\\#\\-\\+=&;%@\\w_\\/]+)?#?(?:[\'\\$\\&\\(\\)\\*\\+,;=\\.\\!\\/\\\\\\w%-]*[\\/\\\\\\w]+)?)?'
         ')?'
       ')'
     ]
@@ -134,6 +139,14 @@ RegExpUtils =
   # https://regex101.com/r/zG7aW4/3
   imageTagRegex: -> /<img\s+[^>]*src="([^"]*)"[^>]*>/g
 
+  # Regex that matches our link tracking urls, surrounded by quotes
+  # ("link.nylas.com...?redirect=")
+  # Test cases: https://regex101.com/r/rB4fO4/3
+  # Returns the following capturing groups
+  # 1.The redirect url: the actual url you want to visit by clicking a url
+  # that matches this regex
+  trackedLinkRegex: -> /[\"|\']https:\/\/link\.nylas\.com\/link\/.*?\?.*?redirect=([^&\"\']*).*?[\"|\']/g
+
   punctuation: ({exclude}={}) ->
     exclude ?= []
     punctuation = [ '.', ',', '\\/', '#', '!', '$', '%', '^', '&', '*',
@@ -165,7 +178,7 @@ RegExpUtils =
 
   illegalPathCharactersRegexp: ->
     #https://msdn.microsoft.com/en-us/library/windows/desktop/aa365247(v=vs.85).aspx
-    /[\\\/:|?*><"]/g
+    /[\\\/:|?*><"#]/g
 
   # https://regex101.com/r/nC0qL2/2
   signatureRegex: ->

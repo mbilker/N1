@@ -5,7 +5,6 @@ path = require 'path'
 {ipcRenderer, remote, shell} = require 'electron'
 
 _ = require 'underscore'
-{deprecate} = require 'grim'
 {Emitter} = require 'event-kit'
 fs = require 'fs-plus'
 {convertStackTrace, convertLine} = require 'coffeestack'
@@ -13,7 +12,7 @@ fs = require 'fs-plus'
 
 WindowEventHandler = require './window-event-handler'
 StylesElement = require './styles-element'
-StoreRegistry = require('./store-registry').default
+StoreRegistry = require('./registries/store-registry').default
 
 Utils = require './flux/models/utils'
 {APIError} = require './flux/errors'
@@ -132,12 +131,6 @@ class NylasEnvConstructor
   #
   # Call after this instance has been assigned to the `NylasEnv` global.
   initialize: ->
-    # Disable deprecations unless in dev mode or spec mode so that regular
-    # editor performance isn't impacted by generating stack traces for
-    # deprecated calls.
-    unless @inDevMode() or @inSpecMode()
-      require('grim').deprecate = ->
-
     @enhanceEventObject()
 
     @setupErrorLogger()
@@ -146,12 +139,12 @@ class NylasEnvConstructor
 
     Config = require './config'
     KeymapManager = require('./keymap-manager').default
-    CommandRegistry = require './command-registry'
+    CommandRegistry = require('./registries/command-registry').default
     PackageManager = require './package-manager'
     ThemeManager = require './theme-manager'
     StyleManager = require './style-manager'
-    ActionBridge = require './flux/action-bridge'
-    MenuManager = require './menu-manager'
+    ActionBridge = require('./flux/action-bridge').default
+    MenuManager = require('./menu-manager').default
 
     {devMode, safeMode, resourcePath, configDirPath, windowType} = @getLoadSettings()
 
@@ -188,8 +181,7 @@ class NylasEnvConstructor
       @getCurrentWindow().setMenuBarVisibility(false)
 
     # initialize spell checking
-    #@spellchecker = require './nylas-spellchecker'
-    @spellchecker = require('./spellcheck/spell-check').default
+    @spellchecker = require('./spellchecker').default
 
     @packages.onDidActivateInitialPackages => @watchThemes()
     @windowEventHandler = new WindowEventHandler()
@@ -270,7 +262,7 @@ class NylasEnvConstructor
     @emitter.emit('will-throw-error', event)
     return if event.defaultPrevented
 
-    console.error(error.stack)
+    console.error(error.stack, extra)
     @lastUncaughtError = error
 
     extra.pluginIds = @_findPluginsFromError(error)
@@ -279,7 +271,7 @@ class NylasEnvConstructor
       jasmine.getEnv().currentSpec.fail(error)
     else if @inDevMode() and not noWindows
       @openDevTools()
-      @executeJavaScriptInDevTools('DevToolsAPI.showConsole()')
+      @executeJavaScriptInDevTools("DevToolsAPI.showPanel('console')")
 
     @errorLogger.reportError(error, extra)
 
@@ -360,6 +352,9 @@ class NylasEnvConstructor
 
   isComposerWindow: ->
     @getWindowType() in ["composer", "composer-preload"]
+
+  isThreadWindow: ->
+    @getWindowType() is 'thread-popout'
 
   getWindowType: ->
     @getLoadSettings().windowType
@@ -570,6 +565,9 @@ class NylasEnvConstructor
   toggleFullScreen: ->
     @setFullScreen(!@isFullScreen())
 
+  getAllWindowDimensions: ->
+    remote.getGlobal('application').getAllWindowDimensions()
+
   # Get the dimensions of this window.
   #
   # Returns an {Object} with the following keys:
@@ -723,9 +721,6 @@ class NylasEnvConstructor
 
     @emitter.emit('window-props-received', loadSettings.windowProps ? {})
 
-    {width, height} = loadSettings
-    if width and height
-      @setWindowDimensions({width, height})
     browserWindow = @getCurrentWindow()
     if browserWindow.isResizable() isnt loadSettings.resizable
       browserWindow.setResizable(loadSettings.resizable)
@@ -846,11 +841,8 @@ class NylasEnvConstructor
     @packages.packageStates = @savedState.packageStates ? {}
     delete @savedState.packageStates
 
-  loadThemes: ->
-    @themes.load()
-
   loadConfig: ->
-    @config.setSchema null, {type: 'object', properties: _.clone(require('./config-schema'))}
+    @config.setSchema null, {type: 'object', properties: _.clone(require('./config-schema').default)}
     @config.load()
 
   watchThemes: ->
@@ -969,3 +961,7 @@ class NylasEnvConstructor
       overriddenStop.apply(@, arguments)
     Event::isPropagationStopped = ->
       @propagationStopped
+
+  registerGlobalActions: (args...) ->
+    return if @inSpecMode()
+    @actionBridge.registerGlobalActions(args...)

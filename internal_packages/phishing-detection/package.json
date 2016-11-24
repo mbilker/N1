@@ -12,9 +12,7 @@
   },
   "windowTypes": {
     "default": true,
-    "composer": true
-  },
-  "dependencies": {
-    "tld": "^0.0.2"
+    "composer": true,
+    "thread-popout": true
   }
 }

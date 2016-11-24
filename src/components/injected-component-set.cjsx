@@ -1,8 +1,8 @@
 React = require 'react'
 _ = require 'underscore'
 UnsafeComponent = require './unsafe-component'
-Flexbox = require './flexbox'
-InjectedComponentLabel = require './injected-component-label'
+Flexbox = require('./flexbox').default
+InjectedComponentLabel = require('./injected-component-label').default
 {Utils,
  Actions,
  WorkspaceStore,
@@ -94,15 +94,15 @@ class InjectedComponentSet extends React.Component
     flexboxClassName = @props.className ? ""
     exposedProps = @props.exposedProps ? {}
 
-    elements = @state.components.map (component) =>
-      if @props.containersRequired is false or component.containerRequired is false
-        return <component key={component.displayName} {...exposedProps} />
+    elements = @state.components.map (Component) =>
+      if @props.containersRequired is false or Component.containerRequired is false
+        return <Component key={Component.displayName} {...exposedProps} />
       else
         return (
           <UnsafeComponent
-            key={component.displayName}
-            component={component}
-            onComponentDidRender={@_onComponentDidRender.bind(@, component.displayName)}
+            key={Component.displayName}
+            component={Component}
+            onComponentDidRender={@_onComponentDidRender.bind(@, Component.displayName)}
             {...exposedProps} />
         )
 

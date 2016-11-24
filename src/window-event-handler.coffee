@@ -39,13 +39,12 @@ class WindowEventHandler
       # throttled in case more work needs to be done before closing
 
       # In Electron, returning any value other than undefined cancels the close.
-      canCloseWindow = @runUnloadCallbacks()
-      return undefined if canCloseWindow
+      if @runUnloadCallbacks()
+        # Good to go! Window will be closing...
+        NylasEnv.storeWindowDimensions()
+        NylasEnv.saveStateAndUnloadWindow()
+        return undefined
       return false
-
-    window.onunload = =>
-      NylasEnv.storeWindowDimensions()
-      NylasEnv.saveStateAndUnloadWindow()
 
     NylasEnv.commands.add document.body, 'window:toggle-full-screen', ->
       NylasEnv.toggleFullScreen()
@@ -63,7 +62,7 @@ class WindowEventHandler
       NylasEnv.errorLogger.openLogs()
 
     NylasEnv.commands.add document.body, 'window:toggle-component-regions', ->
-      ComponentRegistry = require './component-registry'
+      ComponentRegistry = require './registries/component-registry'
       ComponentRegistry.toggleComponentRegions()
 
     webContents = NylasEnv.getCurrentWindow().webContents
@@ -87,7 +86,7 @@ class WindowEventHandler
     document.addEventListener 'dragover', @onDragOver
 
     document.addEventListener 'click', (event) =>
-      if event.target.nodeName is 'A'
+      if event.target.closest('[href]')
         @openLink(event)
 
     document.addEventListener 'contextmenu', (event) =>
@@ -145,27 +144,29 @@ class WindowEventHandler
     event.preventDefault()
     event.stopPropagation()
 
+  resolveHref: (el) ->
+    return null unless el
+    closestHrefEl = el.closest('[href]')
+    return closestHrefEl.getAttribute('href') if closestHrefEl
+    return null
+
   openLink: ({href, target, currentTarget, metaKey}) ->
     if not href
-      if target instanceof Element
-        href = target.getAttribute('href')
-      else if currentTarget instanceof Element
-        href = currentTarget.getAttribute('href')
-
+      href = @resolveHref(target || currentTarget)
     return unless href
 
     return if target?.closest('.no-open-link-events')
 
-    schema = url.parse(href).protocol
-    return unless schema
+    {protocol} = url.parse(href)
+    return unless protocol
 
-    if schema is 'mailto:'
+    if protocol in ['mailto:', 'calendar:', 'nylas:']
       # We sometimes get mailto URIs that are not escaped properly, or have been only partially escaped.
       # (T1927) Be sure to escape them once, and completely, before we try to open them. This logic
       # *might* apply to http/https as well but it's unclear.
       href = encodeURI(decodeURI(href))
       remote.getGlobal('application').openUrl(href)
-    else if schema in ['http:', 'https:', 'tel:']
+    else if protocol in ['http:', 'https:', 'tel:']
       shell.openExternal(href, activate: !metaKey)
 
     return
@@ -190,8 +191,8 @@ class WindowEventHandler
     {Menu, MenuItem} = remote
     menu = new Menu()
 
-    NylasSpellchecker = require('./nylas-spellchecker')
-    NylasSpellchecker.appendSpellingItemsToMenu
+    Spellchecker = require('./spellchecker').default
+    Spellchecker.appendSpellingItemsToMenu
       menu: menu,
       word: word,
       onCorrect: (correction) =>
@@ -218,17 +219,7 @@ class WindowEventHandler
   showDevModeMessages: ->
     return unless NylasEnv.isMainWindow()
 
-    if NylasEnv.inDevMode()
-      Actions = require './flux/actions'
-      Actions.postNotification
-        icon: 'fa-flask'
-        type: 'developer'
-        tag: 'developer'
-        sticky: true
-        actions: [{label: 'Thanks', id: 'ok', dismisses: true, default: true}]
-        message: "N1 is running with debug flags enabled (slower). Packages in
-                  ~/.nylas/dev/packages will be loaded. Have fun!"
-    else
+    if !NylasEnv.inDevMode()
       console.log("%c Welcome to N1! If you're exploring the source or building a
                    plugin, you should enable debug flags. It's slower, but
                    gives you better exceptions, the debug version of React,

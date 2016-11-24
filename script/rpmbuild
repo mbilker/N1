@@ -1,6 +1,0 @@
-#!/bin/sh
-
-set -e
-
-script/build
-PUBLISH_BUILD=1 script/grunt mkrpm publish-build --stack --no-color --install-dir /usr

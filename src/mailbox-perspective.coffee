@@ -4,16 +4,16 @@ Utils = require './flux/models/utils'
 TaskFactory = require('./flux/tasks/task-factory').default
 AccountStore = require './flux/stores/account-store'
 CategoryStore = require './flux/stores/category-store'
-DatabaseStore = require './flux/stores/database-store'
+DatabaseStore = require('./flux/stores/database-store').default
 OutboxStore = require('./flux/stores/outbox-store').default
 ThreadCountsStore = require './flux/stores/thread-counts-store'
 RecentlyReadStore = require('./flux/stores/recently-read-store').default
 MutableQuerySubscription = require('./flux/models/mutable-query-subscription').default
 UnreadQuerySubscription = require('./flux/models/unread-query-subscription').default
-Matcher = require './flux/attributes/matcher'
+Matcher = require('./flux/attributes/matcher').default
 Thread = require('./flux/models/thread').default
-Category = require './flux/models/category'
-Actions = require './flux/actions'
+Category = require('./flux/models/category').default
+Actions = require('./flux/actions').default
 ChangeUnreadTask = null
 
 # This is a class cluster. Subclasses are not for external use!
@@ -242,7 +242,9 @@ class CategoryMailboxPerspective extends MailboxPerspective
     if @_categories[0].name
       @iconName = "#{@_categories[0].name}.png"
     else
-      @iconName = AccountStore.accountForId(@accountIds[0]).categoryIcon()
+      account = AccountStore.accountForId(@accountIds[0])
+      @iconName = "folder.png"
+      @iconName = account.categoryIcon() if account
     @
 
   toJSON: =>
@@ -289,7 +291,7 @@ class CategoryMailboxPerspective extends MailboxPerspective
     super and not _.any @_categories, (c) -> c.isLockedCategory()
 
   receiveThreads: (threadsOrIds) =>
-    FocusedPerspectiveStore = require './flux/stores/focused-perspective-store'
+    FocusedPerspectiveStore = require('./flux/stores/focused-perspective-store').default
     current= FocusedPerspectiveStore.current()
 
     # This assumes that the we don't have more than one category per accountId

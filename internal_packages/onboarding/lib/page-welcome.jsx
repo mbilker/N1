@@ -1,5 +1,4 @@
 import React from 'react';
-import {AccountStore} from 'nylas-exports';
 import {RetinaImg} from 'nylas-component-kit';
 import OnboardingActions from './onboarding-actions';
 
@@ -20,34 +19,18 @@ export default class WelcomePage extends React.Component {
   }
 
   _onSelfHosting = () => {
-    OnboardingActions.moveToPage("self-hosting-setup")
-  }
-
-  _renderContent(isFirstAccount) {
-    if (isFirstAccount) {
-      return (
-        <div>
-          <RetinaImg className="logo" style={{marginTop: 166}} url="nylas://onboarding/assets/nylas-logo@2x.png" mode={RetinaImg.Mode.ContentPreserve} />
-          <p className="hero-text" style={{fontSize: 46, marginTop: 57}}>Welcome to Nylas N1</p>
-          <RetinaImg className="icons" url="nylas://onboarding/assets/icons-bg@2x.png" mode={RetinaImg.Mode.ContentPreserve} />
-        </div>
-      )
-    }
-    return (
-      <div>
-        <p className="hero-text" style={{fontSize: 46, marginTop: 187}}>Welcome back!</p>
-        <p className="hero-text" style={{fontSize: 20, maxWidth: 550, margin: 'auto', lineHeight: 1.7, marginTop: 30}}>Since you've been gone, we've <a href="https://nylas.com/blog/nylas-pro/">launched Nylas Pro</a>, which now requires a paid subscription. Create a Nylas ID to start your trial and continue using N1!</p>
-        <RetinaImg className="icons" url="nylas://onboarding/assets/icons-bg@2x.png" mode={RetinaImg.Mode.ContentPreserve} />
-      </div>
-    )
+    OnboardingActions.moveToPage("self-hosting-restrictions");
   }
 
   render() {
-    const isFirstAccount = (AccountStore.accounts().length === 0)
     return (
-      <div className={`page welcome is-first-account-${isFirstAccount}`}>
+      <div className="page welcome">
         <div className="steps-container">
-          {this._renderContent(isFirstAccount)}
+          <div>
+            <RetinaImg className="logo" style={{marginTop: 166}} url="nylas://onboarding/assets/nylas-logo@2x.png" mode={RetinaImg.Mode.ContentPreserve} />
+            <p className="hero-text" style={{fontSize: 46, marginTop: 57}}>Welcome to Nylas N1</p>
+            <RetinaImg className="icons" url="nylas://onboarding/assets/icons-bg@2x.png" mode={RetinaImg.Mode.ContentPreserve} />
+          </div>
         </div>
         <div className="footer">
           <button key="next" className="btn btn-large btn-continue" onClick={this._onContinue}>Get Started</button>

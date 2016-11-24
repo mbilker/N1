@@ -15,6 +15,7 @@ export default class MailLabelSet extends React.Component {
 
   static propTypes = {
     thread: React.PropTypes.object.isRequired,
+    messages: React.PropTypes.array,
     includeCurrentCategories: React.PropTypes.bool,
     removable: React.PropTypes.bool,
   };
@@ -28,7 +29,7 @@ export default class MailLabelSet extends React.Component {
   }
 
   render() {
-    const {thread, includeCurrentCategories} = this.props;
+    const {thread, messages, includeCurrentCategories} = this.props;
     const labels = [];
 
     if (AccountStore.accountForId(thread.accountId).usesLabels()) {
@@ -71,11 +72,12 @@ export default class MailLabelSet extends React.Component {
       <InjectedComponentSet
         inline
         containersRequired={false}
-        children={labels}
         matching={{role: "Thread:MailLabel"}}
         className="thread-injected-mail-labels"
-        exposedProps={{thread: thread}}
-      />
+        exposedProps={{thread, messages}}
+      >
+        {labels}
+      </InjectedComponentSet>
     );
   }
 }
