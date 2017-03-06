@@ -214,8 +214,7 @@ class Token extends React.Component {
 }
 
 /*
-The TokenizingTextField component displays a list of options as you type
-and converts them into stylable tokens.
+Public: The TokenizingTextField component displays a list of options as you type and converts them into stylable tokens.
 
 It wraps the Menu component, which takes care of the typing and keyboard
 interactions.
@@ -394,10 +393,11 @@ export default class TokenizingTextField extends React.Component {
   }
 
   componentWillReceiveProps(newProps) {
-    if (this.props.tokens.length === 0) {
-      this.setState({inputValue: newProps.defaultValue});
-      if (newProps.defaultValue && newProps.defaultValue.length > 0) {
-        this._refreshCompletions(newProps.defaultValue);
+    if (this.props.tokens.length === 0 && this.state.inputValue.length === 0) {
+      const newDefaultValue = newProps.defaultValue || ""
+      this.setState({inputValue: newDefaultValue});
+      if (newDefaultValue.length > 0) {
+        this._refreshCompletions(newDefaultValue);
       }
     }
   }

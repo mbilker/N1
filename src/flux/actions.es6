@@ -14,7 +14,7 @@ the rest of the app will handle.
 In Reflux, each {Action} is an independent object that acts as an event emitter.
 You can listen to an Action, or invoke it as a function to fire it.
 
-*# Action Scopes
+## Action Scopes
 
 N1 is a multi-window application. The `scope` of an Action dictates
 how it propogates between windows.
@@ -29,13 +29,13 @@ how it propogates between windows.
 
 - **Window**: These actions only trigger listeners in the window they're fired in.
 
-*# Firing Actions
+## Firing Actions
 
 ```coffee
 Actions.queueTask(new ChangeStarredTask(thread: @_thread, starred: true))
 ```
 
-*# Listening for Actions
+## Listening for Actions
 
 If you're using Reflux to create your own Store, you can use the `listenTo`
 convenience method to listen for an Action. If you're creating your own class
@@ -43,7 +43,7 @@ that is not a Store, you can still use the `listen` method provided by Reflux:
 
 ```coffee
 setup: ->
-  @unlisten = Actions.didPassivelyReceiveNewModels.listen(@onNewMailReceived, @)
+  @unlisten = Actions.onNewMailDeltas.listen(@onNewMailReceived, @)
 
 onNewMailReceived: (data) ->
   console.log("You've got mail!", data)
@@ -70,7 +70,9 @@ class Actions {
   }
   ```
   */
-  static didPassivelyReceiveNewModels = ActionScopeGlobal;
+  static onNewMailDeltas = ActionScopeGlobal;
+
+  static didReceiveSyncbackRequestDeltas = ActionScopeWindow;
 
   static downloadStateChanged = ActionScopeGlobal;
 
@@ -109,17 +111,20 @@ class Actions {
   static dequeueMatchingTask = ActionScopeWorkWindow;
 
   static longPollReceivedRawDeltas = ActionScopeWorkWindow;
-  static longPollReceivedRawDeltasPing = ActionScopeGlobal;
   static longPollProcessedDeltas = ActionScopeWorkWindow;
   static willMakeAPIRequest = ActionScopeWorkWindow;
   static didMakeAPIRequest = ActionScopeWorkWindow;
+  static checkOnlineStatus = ActionScopeWindow;
+
+
+  static wakeLocalSyncWorkerForAccount = ActionScopeGlobal;
 
   /*
   Public: Retry the initial sync
 
-  *Scope: Work Window*
+  *Scope: Global*
   */
-  static retrySync = ActionScopeWorkWindow;
+  static retryDeltaConnection = ActionScopeGlobal;
 
   /*
   Public: Open the preferences view.
@@ -145,7 +150,6 @@ class Actions {
   /*
   Public: Manage the Nylas identity
   */
-  static setNylasIdentity = ActionScopeWindow;
   static logoutNylasIdentity = ActionScopeWindow;
 
   /*
@@ -418,8 +422,10 @@ class Actions {
 
   Recieves the clientId of the message that was sent
   */
-  static sendDraftSuccess = ActionScopeGlobal;
-  static sendDraftFailed = ActionScopeGlobal;
+  static draftDeliverySucceeded = ActionScopeGlobal;
+  static draftDeliveryFailed = ActionScopeGlobal;
+
+  static ensureMessageInSentSuccess = ActionScopeGlobal;
 
   static sendManyDrafts = ActionScopeWindow;
   static ensureDraftSynced = ActionScopeWindow;
@@ -552,6 +558,12 @@ class Actions {
   static toggleAccount = ActionScopeWindow;
 
   static notifyPluginsChanged = ActionScopeGlobal;
+
+  static expandInitialSyncState = ActionScopeWindow;
+
+  static resetEmailCache = ActionScopeGlobal;
+
+  static debugSync = ActionScopeGlobal;
 }
 
 

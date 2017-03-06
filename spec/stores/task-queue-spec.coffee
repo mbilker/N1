@@ -4,8 +4,7 @@ TaskQueue = require '../../src/flux/stores/task-queue'
 Task = require('../../src/flux/tasks/task').default
 TaskRegistry = require('../../src/registries/task-registry').default
 
-{APIError,
- TimeoutError} = require '../../src/flux/errors'
+{APIError} = require '../../src/flux/errors'
 
 {TaskSubclassA,
  TaskSubclassB,
@@ -15,7 +14,7 @@ TaskRegistry = require('../../src/registries/task-registry').default
  TaskAA,
  TaskBB} = require('./task-subclass')
 
-describe "TaskQueue", ->
+xdescribe "TaskQueue", ->
 
   makeUnstartedTask = (task) ->
     task

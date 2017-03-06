@@ -1,7 +1,8 @@
+import {shell} from 'electron'
 import React from 'react';
 import ReactDOM from 'react-dom';
 import {RetinaImg} from 'nylas-component-kit';
-import {Actions} from 'nylas-exports';
+import {NylasAPI, Actions} from 'nylas-exports';
 
 import OnboardingActions from '../onboarding-actions';
 import {runAuthRequest} from '../onboarding-helpers';
@@ -54,18 +55,26 @@ const CreatePageForForm = (FormComponent) => {
       inputs[0].focus();
     }
 
+    _isValid() {
+      const {populated, errorFieldNames} = this.state
+      return errorFieldNames.length === 0 && populated
+    }
+
     onFieldChange = (event) => {
       const changes = {};
       if (event.target.type === 'checkbox') {
         changes[event.target.id] = event.target.checked;
       } else {
         changes[event.target.id] = event.target.value;
+        if (event.target.id === 'email') {
+          changes[event.target.id] = event.target.value.trim();
+        }
       }
 
       const accountInfo = Object.assign({}, this.state.accountInfo, changes);
       const {errorFieldNames, errorMessage, populated} = FormComponent.validateAccountInfo(accountInfo);
 
-      this.setState({accountInfo, errorFieldNames, errorMessage, populated});
+      this.setState({accountInfo, errorFieldNames, errorMessage, populated, errorStatusCode: null});
     }
 
     onSubmit = () => {
@@ -74,6 +83,7 @@ const CreatePageForForm = (FormComponent) => {
     }
 
     onFieldKeyPress = (event) => {
+      if (!this._isValid()) { return }
       if (['Enter', 'Return'].includes(event.key)) {
         this.onSubmit();
       }
@@ -84,14 +94,15 @@ const CreatePageForForm = (FormComponent) => {
       OnboardingActions.moveToPreviousPage();
     }
 
-    onConnect = () => {
-      const {accountInfo} = this.state;
+    onConnect = (updatedAccountInfo) => {
+      const accountInfo = updatedAccountInfo || this.state.accountInfo;
 
       this.setState({submitting: true});
 
       runAuthRequest(accountInfo)
       .then((json) => {
-        OnboardingActions.accountJSONReceived(json)
+        OnboardingActions.moveToPage('account-onboarding-success')
+        OnboardingActions.accountJSONReceived(json, json.localToken, json.cloudToken)
       })
       .catch((err) => {
         Actions.recordUserEvent('Email Account Auth Failed', {
@@ -101,24 +112,34 @@ const CreatePageForForm = (FormComponent) => {
 
         const errorFieldNames = err.body ? (err.body.missing_fields || err.body.missing_settings || []) : []
         let errorMessage = err.message;
+        const errorStatusCode = err.statusCode
 
-        if (err.errorTitle === "setting_update_error") {
-          errorMessage = 'The IMAP/SMTP servers for this account do not match our records. Please verify that any server names you entered are correct. If your IMAP/SMTP server has changed, first remove this account from N1, then try logging in again.';
+        if (err.errorType === "setting_update_error") {
+          errorMessage = 'The IMAP/SMTP servers for this account do not match our records. Please verify that any server names you entered are correct. If your IMAP/SMTP server has changed, first remove this account from Nylas Mail, then try logging in again.';
         }
-        if (err.errorTitle && err.errorTitle.includes("autodiscover") && (accountInfo.type === 'exchange')) {
+        if (err.errorType && err.errorType.includes("autodiscover") && (accountInfo.type === 'exchange')) {
           errorFieldNames.push('eas_server_host')
           errorFieldNames.push('username');
         }
-        if (err.statusCode === -123) { // timeout
-          errorMessage = "Request timed out. Please try again."
+        if (err.statusCode === 401) {
+          errorFieldNames.push('password')
+          errorFieldNames.push('email');
+          errorFieldNames.push('username');
+          errorFieldNames.push('imap_username');
+          errorFieldNames.push('smtp_username');
+          errorFieldNames.push('imap_password');
+          errorFieldNames.push('smtp_password');
+        }
+        if (NylasAPI.TimeoutErrorCodes.includes(err.statusCode)) { // timeout
+          errorMessage = "We were unable to reach your mail provider. Please try again."
         }
 
-        this.setState({errorMessage, errorFieldNames, submitting: false});
+        this.setState({errorMessage, errorStatusCode, errorFieldNames, submitting: false});
       });
     }
 
     _renderButton() {
-      const {accountInfo, submitting, errorFieldNames, populated} = this.state;
+      const {accountInfo, submitting} = this.state;
       const buttonLabel = FormComponent.submitLabel(accountInfo);
 
       // We're not on the last page.
@@ -131,7 +152,7 @@ const CreatePageForForm = (FormComponent) => {
         );
       }
 
-      if (errorFieldNames.length || !populated) {
+      if (!this._isValid()) {
         return (
           <button className="btn btn-large btn-gradient btn-disabled btn-add-account">{buttonLabel}</button>
         );
@@ -139,6 +160,37 @@ const CreatePageForForm = (FormComponent) => {
 
       return (
         <button className="btn btn-large btn-gradient btn-add-account" onClick={this.onSubmit}>{buttonLabel}</button>
+      );
+    }
+
+    // When a user enters the wrong credentials, show a message that could
+    // help with common problems. For instance, they may need an app password,
+    // or to enable specific settings with their provider.
+    _renderCredentialsNote() {
+      const {errorStatusCode, accountInfo} = this.state;
+      if (errorStatusCode !== 401) { return false; }
+      let message;
+      let articleURL;
+      if (accountInfo.email.includes("@yahoo.com")) {
+        message = "Have you enabled access through Yahoo?";
+        articleURL = "https://support.nylas.com/hc/en-us/articles/115001076128";
+      } else {
+        message = "Some providers require an app password."
+        articleURL = "https://support.nylas.com/hc/en-us/articles/115001056608";
+      }
+      // We don't use a FormErrorMessage component because the content
+      // we need to display has HTML.
+      return (
+        <div className="message error">
+          {message}&nbsp;
+          <a
+            href=""
+            style={{cursor: 'pointer'}}
+            onClick={() => { shell.openExternal(articleURL) }}
+          >
+            Learn more.
+          </a>
+        </div>
       );
     }
 
@@ -167,6 +219,7 @@ const CreatePageForForm = (FormComponent) => {
             message={errorMessage}
             empty={FormComponent.subtitleLabel(AccountType)}
           />
+          { this._renderCredentialsNote() }
           <FormComponent
             ref="form"
             accountInfo={accountInfo}

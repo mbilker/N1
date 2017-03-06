@@ -1,7 +1,6 @@
 import Rx from 'rx-lite'
 import React from 'react'
 import moment from 'moment'
-import 'moment-round'
 import {DatabaseStore, AccountStore, Calendar} from 'nylas-exports'
 import {ScrollRegion, ResizableRegion, MiniMonthView} from 'nylas-component-kit'
 import WeekView from './week-view'
@@ -13,7 +12,7 @@ import {WEEK_VIEW, MONTH_VIEW} from './calendar-constants'
 
 const DISABLED_CALENDARS = "nylas.disabledCalendars"
 
-/**
+/*
  * Nylas Calendar
  */
 export default class NylasCalendar extends React.Component {
@@ -26,14 +25,14 @@ export default class NylasCalendar extends React.Component {
   };
 
   static propTypes = {
-    /**
+    /*
      * The data source that powers all of the views of the NylasCalendar
      */
     dataSource: React.PropTypes.instanceOf(CalendarDataSource).isRequired,
 
     currentMoment: React.PropTypes.instanceOf(moment),
 
-    /**
+    /*
      * Any extra info you want to display on the top banner of calendar
      * components
      */
@@ -44,7 +43,7 @@ export default class NylasCalendar extends React.Component {
       year: React.PropTypes.node,
     }),
 
-    /**
+    /*
      * Any extra header components for each of the supported View types of
      * the NylasCalendar
      */
@@ -55,7 +54,7 @@ export default class NylasCalendar extends React.Component {
       year: React.PropTypes.node,
     }),
 
-    /**
+    /*
      * Any extra footer components for each of the supported View types of
      * the NylasCalendar
      */
@@ -66,7 +65,7 @@ export default class NylasCalendar extends React.Component {
       year: React.PropTypes.node,
     }),
 
-    /**
+    /*
      * The following are a set of supported interaction handlers.
      *
      * These are passed a custom set of arguments in a single object that

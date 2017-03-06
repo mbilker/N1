@@ -35,6 +35,7 @@ class WindowEventHandler
       window.dispatchEvent(new Event('scroll-touch-end'))
 
     window.onbeforeunload = =>
+      if NylasEnv.inSpecMode() then return undefined
       # Don't hide the window here if we don't want the renderer process to be
       # throttled in case more work needs to be done before closing
 
@@ -130,6 +131,9 @@ class WindowEventHandler
     _.defer ->
       if remote.getGlobal('application').isQuitting()
         remote.app.quit()
+      else if NylasEnv.isReloading
+        NylasEnv.isReloading = false
+        NylasEnv.reload()
       else
         NylasEnv.close()
 
@@ -160,7 +164,7 @@ class WindowEventHandler
     {protocol} = url.parse(href)
     return unless protocol
 
-    if protocol in ['mailto:', 'calendar:', 'nylas:']
+    if protocol in ['mailto:', 'nylas:']
       # We sometimes get mailto URIs that are not escaped properly, or have been only partially escaped.
       # (T1927) Be sure to escape them once, and completely, before we try to open them. This logic
       # *might* apply to http/https as well but it's unclear.
@@ -220,7 +224,7 @@ class WindowEventHandler
     return unless NylasEnv.isMainWindow()
 
     if !NylasEnv.inDevMode()
-      console.log("%c Welcome to N1! If you're exploring the source or building a
+      console.log("%c Welcome to Nylas Mail! If you're exploring the source or building a
                    plugin, you should enable debug flags. It's slower, but
                    gives you better exceptions, the debug version of React,
                    and more. Choose %c Developer > Run with Debug Flags %c

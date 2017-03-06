@@ -8,7 +8,7 @@
 // method. We wrap it in an error object because Promises can only call
 // `reject` or `resolve` with one argument (not three).
 export class APIError extends Error {
-  constructor({error, response, body, requestOptions, statusCode} = {}) {
+  constructor({error, message, response, body, requestOptions, statusCode} = {}) {
     super();
 
     this.name = "APIError";
@@ -17,6 +17,7 @@ export class APIError extends Error {
     this.body = body;
     this.requestOptions = requestOptions;
     this.statusCode = statusCode;
+    this.message = message;
 
     if (this.statusCode == null) {
       this.statusCode = this.response ? this.response.statusCode : null;
@@ -26,8 +27,14 @@ export class APIError extends Error {
     }
 
     this.stack = (new Error()).stack;
-    this.message = (this.body ? this.body.message : null) || this.body || (this.error ? this.error.toString() : null);
-    this.errorTitle = (this.body ? this.body.error : null);
+    if (!this.message) {
+      if (this.body) {
+        this.message = this.body.message || this.body.error || JSON.stringify(this.body)
+      } else {
+        this.message = this.error ? this.error.message || this.error.toString() : null;
+      }
+    }
+    this.errorType = (this.body ? this.body.type : null);
   }
 
   fromJSON(json = {}) {
@@ -39,9 +46,5 @@ export class APIError extends Error {
 }
 
 export class RequestEnsureOnceError extends Error {
-
-}
-
-export class TimeoutError extends Error {
 
 }

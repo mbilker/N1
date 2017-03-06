@@ -34,7 +34,7 @@ export default class UpdateNotification extends React.Component {
   }
 
   _onViewChangelog = () => {
-    shell.openExternal('https://github.com/nylas/N1/blob/master/CHANGELOG.md')
+    shell.openExternal('https://github.com/nylas/nylas-mail/releases/latest')
   }
 
   render() {
@@ -45,7 +45,7 @@ export default class UpdateNotification extends React.Component {
     return (
       <Notification
         priority="4"
-        title={`An update to N1 is available ${version}`}
+        title={`An update to Nylas Mail is available ${version}`}
         subtitle="View changelog"
         subtitleAction={this._onViewChangelog}
         icon="volstead-upgrade.png"

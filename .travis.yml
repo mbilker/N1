@@ -10,6 +10,9 @@ addons:
     - fakeroot
     - libgnome-keyring-dev
     - rpm
+    - libxext-dev
+    - libxtst-dev
+    - libxkbfile-dev
 
 notifications:
   slack:
@@ -22,15 +25,7 @@ matrix:
   - os: osx
     env: NODE_VERSION=6.9
 
-install:
-- if [ "${TRAVIS_OS_NAME}" == "osx" ]; then
-  git clone https://github.com/creationix/nvm.git /tmp/.nvm;
-  source /tmp/.nvm/nvm.sh;
-  nvm install $NODE_VERSION;
-  fi
-- if [ "${NODE_INSTALL}" == "1" ]; then
-  nvm install $NODE_VERSION;
-  fi
+before_install:
 - nvm use --delete-prefix $NODE_VERSION
 
 before_script:
@@ -40,7 +35,11 @@ before_script:
   fi
 
 script:
-  - script/bootstrap && npm test && script/grunt ci --stack --no-color
+- if [ "${TRAVIS_OS_NAME}" == "linux" ]; then
+  script/bootstrap && script/grunt ci --stack --no-color;
+  else
+  script/bootstrap && npm test && script/grunt ci --stack --no-color;
+  fi
 
 cache:
   directories:

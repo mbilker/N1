@@ -22,8 +22,8 @@ class N1SpecRunner {
     this._setupNylasEnv();
     this._setupWindow();
     Object.assign(ReactTestUtils, reactTestUtilsExtensions)
-    MasterBeforeEach.setup(this.loadSettings, jasmineExports.beforeEach)
-    MasterAfterEach.setup(this.loadSettings, jasmineExports.afterEach)
+    MasterBeforeEach.setup(this.loadSettings, window.beforeEach)
+    MasterAfterEach.setup(this.loadSettings, window.afterEach)
     N1SpecLoader.loadSpecs(this.loadSettings, this.jasmineEnv);
     this.jasmineEnv.execute();
   }
@@ -36,7 +36,9 @@ class N1SpecRunner {
     Object.assign(window, {
       jasmine: jasmineExports.jasmine,
 
-      it: jasmineExports.it,
+      it: this._makeItAsync(jasmineExports.it),
+      // it: jasmineExports.it,
+      fit: this._makeItAsync(jasmineExports.fit),
       xit: jasmineExports.xit,
       runs: jasmineExports.runs,
       waits: jasmineExports.waits,
@@ -45,13 +47,43 @@ class N1SpecRunner {
       waitsFor: jasmineExports.waitsFor,
       describe: jasmineExports.describe,
       xdescribe: jasmineExports.xdescribe,
-      afterEach: jasmineExports.afterEach,
-      beforeEach: jasmineExports.beforeEach,
+      afterEach: this._makeSurroundAsync(jasmineExports.afterEach),
+      beforeEach: this._makeSurroundAsync(jasmineExports.beforeEach),
       testNowMoment: jasmineExtensions.testNowMoment,
       waitsForPromise: jasmineExtensions.waitsForPromise,
     }, nylasTestConstants)
 
     this.jasmineEnv = jasmineExports.jasmine.getEnv();
+  }
+
+
+  _runAsync(userFn) {
+    if (!userFn) return true
+    const resp = userFn.apply(this);
+    if (resp && resp.then) {
+      return jasmineExtensions.waitsForPromise(() => {
+        return resp
+      })
+    }
+    return resp
+  }
+
+  _makeItAsync(jasmineIt) {
+    const self = this;
+    return (desc, userFn) => {
+      return jasmineIt(desc, function asyncIt() {
+        self._runAsync.call(this, userFn)
+      })
+    }
+  }
+
+  _makeSurroundAsync(jasmineBeforeAfter) {
+    const self = this;
+    return (userFn) => {
+      return jasmineBeforeAfter(function asyncBeforeAfter() {
+        self._runAsync.call(this, userFn)
+      })
+    }
   }
 
   _setupJasmine() {
@@ -97,24 +129,34 @@ class N1SpecRunner {
     const timeReporter = new TimeReporter();
     const consoleReporter = new ConsoleReporter();
 
-    // This needs to be `required` at runtime because terminal-reporter
-    // depends on jasmine-tagged, which depends on jasmine-focused, which
-    // on require will attempt to extend the `jasmine` object with
-    // methods. The `jasmine` object has to be attached to the global
-    // scope before it gets extended. This is done in
-    // `_extendGlobalWindow`.
-    const N1TerminalReporter = require('./terminal-reporter').default
+    const loadSettings = NylasEnv.getLoadSettings();
 
-    const terminalReporter = new N1TerminalReporter();
-
-    if (NylasEnv.getLoadSettings().showSpecsInWindow) {
-      this.jasmineEnv.addReporter(N1GuiReporter);
-      NylasEnv.show();
-    } else {
-      this.jasmineEnv.addReporter(terminalReporter);
+    if (loadSettings.jUnitXmlPath) {
+      // jasmine-reporters extends the jasmine global with methods, so needs to
+      // be `required` at runtime. The `jasmine` object has to be attached to the
+      // global scope before it gets extended. This is done in
+      // `_extendGlobalWindow`
+      require('jasmine-reporters');
+      const jUnitXmlReporter = new jasmine.JUnitXmlReporter(loadSettings.jUnitXmlPath, true, true);
+      this.jasmineEnv.addReporter(jUnitXmlReporter);
     }
     this.jasmineEnv.addReporter(timeReporter);
     this.jasmineEnv.addReporter(consoleReporter);
+
+    if (loadSettings.showSpecsInWindow) {
+      this.jasmineEnv.addReporter(N1GuiReporter);
+      NylasEnv.show();
+    } else {
+      // this package's dep `jasmine-focused` also adds methods to the
+      // `jasmine` global
+      // NOTE: this reporter MUST be added last as it exits the test process
+      // when complete, which may result in e.g. your XML output not getting
+      // written to disk if that reporter is added afterward.
+      const N1TerminalReporter = require('./terminal-reporter').default
+
+      const terminalReporter = new N1TerminalReporter();
+      this.jasmineEnv.addReporter(terminalReporter);
+    }
   }
 
   _initializeDOM() {
@@ -128,8 +170,6 @@ class N1SpecRunner {
 
   _extendJasmineMethods() {
     const jasmine = jasmineExports.jasmine;
-
-    jasmine.getEnv().defaultTimeoutInterval = 250;
 
     // Use underscore's definition of equality for toEqual assertions
     jasmine.getEnv().addEqualityTester(_.isEqual);

@@ -6,6 +6,7 @@ import ChangeFolderTask from './change-folder-task';
 import ChangeLabelTask from './change-labels-task';
 import SyncbackCategoryTask from './syncback-category-task';
 import NylasAPI from '../nylas-api';
+import SyncbackTaskAPIRequest from '../syncback-task-api-request';
 import {APIError} from '../errors';
 
 export default class DestroyCategoryTask extends Task {
@@ -16,7 +17,7 @@ export default class DestroyCategoryTask extends Task {
   }
 
   label() {
-    return `Deleting ${this.category.displayType()} ${this.category.displayName}...`
+    return `Deleting ${this.category.displayType()} ${this.category.displayName}`
   }
 
   isDependentOnTask(other) {
@@ -52,19 +53,29 @@ export default class DestroyCategoryTask extends Task {
     // delta which comes after a delay
     NylasAPI.incrementRemoteChangeLock(Category, this.category.serverId);
 
-    return NylasAPI.makeRequest({
-      accountId,
-      path,
-      method: 'DELETE',
-      returnsModel: false,
-    })
-    .thenReturn(Task.Status.Success)
+    let runPromise = Promise.resolve();
+
+    if (this._syncbackRequestId) {
+      runPromise = SyncbackTaskAPIRequest.waitForQueuedRequest(this._syncbackRequestId)
+    } else {
+      runPromise = new SyncbackTaskAPIRequest({
+        api: NylasAPI,
+        options: {
+          accountId,
+          path,
+          method: 'DELETE',
+          returnsModel: false,
+          onSyncbackRequestCreated: (syncbackRequest) => {
+            this._syncbackRequestId = syncbackRequest.id
+          },
+        },
+      }).run()
+    }
+
+    return runPromise.thenReturn(Task.Status.Success)
     .catch(APIError, (err) => {
       if (!NylasAPI.PermanentErrorCodes.includes(err.statusCode)) {
         return Promise.resolve(Task.Status.Retry);
-      }
-      if (err.body && err.body.message.includes(`Couldn't find folder`)) {
-        return Promise.resolve(Task.Status.Continue)
       }
       NylasAPI.decrementRemoteChangeLock(Category, this.category.serverId);
       return DatabaseStore.inTransaction((t) =>
@@ -73,13 +84,13 @@ export default class DestroyCategoryTask extends Task {
         NylasEnv.reportError(
           new Error(`Deleting category responded with ${err.statusCode}!`)
         );
-        this._notifyUserOfError(this.category);
+        this._notifyUserOfError(this.category, err);
         return Promise.resolve(Task.Status.Failed);
       });
     })
   }
 
-  _notifyUserOfError(category) {
+  _notifyUserOfError(category, err) {
     const displayName = category.displayName;
     const displayType = category.displayType();
 
@@ -88,6 +99,6 @@ export default class DestroyCategoryTask extends Task {
       msg += " Make sure the folder you want to delete is empty before deleting it.";
     }
 
-    NylasEnv.showErrorDialog(msg);
+    NylasEnv.showErrorDialog(msg, {detail: JSON.stringify(err)});
   }
 }

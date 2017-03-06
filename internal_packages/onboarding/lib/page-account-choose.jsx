@@ -2,7 +2,6 @@ import React from 'react';
 import {RetinaImg} from 'nylas-component-kit';
 import OnboardingActions from './onboarding-actions';
 import AccountTypes from './account-types';
-import SelfHostingConfigPage from './page-self-hosting-config'
 
 export default class AccountChoosePage extends React.Component {
   static displayName = "AccountChoosePage";
@@ -12,7 +11,7 @@ export default class AccountChoosePage extends React.Component {
   }
 
   _renderAccountTypes() {
-    return AccountTypes.map((accountType) =>
+    return AccountTypes.filter(accountType => !accountType.hidden).map((accountType) =>
       <div
         key={accountType.type}
         className={`provider ${accountType.type}`}
@@ -31,19 +30,11 @@ export default class AccountChoosePage extends React.Component {
   }
 
   render() {
-    if (NylasEnv.config.get('env') === 'custom' ||
-      NylasEnv.config.get('env') === 'local') {
-      return (<SelfHostingConfigPage addAccount />)
-    }
-
     return (
       <div className="page account-choose">
         <h2>
           Connect an email account
         </h2>
-        <div className="cloud-sync-note">
-          <a href="https://support.nylas.com/hc/en-us/articles/217518207-Why-does-Nylas-N1-sync-email-via-the-cloud-">Learn more</a> about how Nylas syncs your mail in the cloud.
-        </div>
         <div className="provider-list">
           {this._renderAccountTypes()}
         </div>

@@ -1,12 +1,6 @@
 {
   "name": "thread-snooze",
   "version": "1.0.0",
-  "appId": {
-    "development": "4iyhn0iqje4n9nkn8iaoyke30",
-    "staging": "2bfvqp9ylcl1az76od31qmny",
-    "production": "86bu9juw5bjeq1c8y2679aary"
-  },
-
   "title": "Thread Snooze",
   "description": "Snooze mail!",
   "main": "lib/main",
@@ -15,10 +9,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "github.com/nylas/n1"
+    "url": "github.com/nylas/nylas-mail"
   },
   "engines": {
-    "nylas": ">=0.3.0 <0.5.0"
+    "nylas": "*"
   },
   "license": "GPL-3.0"
 }

@@ -1,7 +1,6 @@
 import chrono from 'chrono-node';
 import moment from 'moment';
 
-import {Utils} from 'nylas-exports';
 import Model from './model';
 import Attributes from '../attributes';
 import Contact from './contact';
@@ -111,17 +110,43 @@ export default class Event extends Model {
       modelKey: 'end',
       jsonKey: '_end',
     }),
+
+    isSearchIndexed: Attributes.Boolean({
+      queryable: true,
+      modelKey: 'isSearchIndexed',
+      jsonKey: 'is_search_indexed',
+      defaultValue: false,
+    }),
+
+    // This corresponds to the rowid in the FTS table. We need to use the FTS
+    // rowid when updating and deleting items in the FTS table because otherwise
+    // these operations would be way too slow on large FTS tables.
+    searchIndexId: Attributes.Number({
+      modelKey: 'searchIndexId',
+      jsonKey: 'search_index_id',
+    }),
   });
 
   static additionalSQLiteConfig = {
     setup: () => {
-      return ['CREATE UNIQUE INDEX IF NOT EXISTS EventClientIndex ON Event(client_id)'];
+      return [
+        'CREATE UNIQUE INDEX IF NOT EXISTS EventClientIndex ON Event(client_id)',
+        'CREATE INDEX IF NOT EXISTS EventIsSearchIndexedIndex ON `Event` (is_search_indexed, id)',
+      ];
     },
   };
 
   static searchable = true
 
   static searchFields = ['title', 'description', 'location', 'participants']
+
+  static sortOrderAttribute = () => {
+    return Event.attributes.id
+  }
+
+  static naturalSortOrder = () => {
+    return Event.sortOrderAttribute().descending()
+  }
 
   // We use moment to parse the date so we can more easily pick up the
   // current timezone of the current locale.
@@ -136,7 +161,6 @@ export default class Event extends Model {
 
   fromJSON(json) {
     super.fromJSON(json)
-    this.when = Utils.deepClone(this.when);
 
     const when = this.when;
 
@@ -201,25 +225,5 @@ export default class Event extends Model {
       }
     }
     return null;
-  }
-
-  /* Shifts event times by newTime - origTime, rounded to the nearest multiple of
-   * 15 minutes. Also updates the corresponding entry in the when object.
-   *
-   * timeFields - an array, valid entries are 'start' and 'end'
-   * origTime - a Moment instance, the anchor point of the shift
-   * newTime - a Moment instance, the point where the shift ends.
-   */
-  shiftTimes = (timeFields, origTime, newTime) => {
-    const timeDelta = newTime.clone()
-      .subtract(origTime.valueOf())
-      .round(15, 'minutes')
-      .unix()
-    const newEvent = this.clone();
-    for (const field of timeFields) {
-      newEvent[field] += timeDelta;
-      newEvent.when[`${field}_time`] += timeDelta;
-    }
-    return newEvent;
   }
 }

@@ -63,6 +63,11 @@ Utils =
   escapeRegExp: (str) ->
     str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&")
 
+  range: (start, end, inclusive = true) ->
+    if inclusive
+      return [start..end]
+    return [start...end]
+
   # Generates a new RegExp that is great for basic search fields. It
   # checks if the test string is at the start of words
   #
@@ -520,22 +525,23 @@ Utils =
   # Also emails that are really long are likely computer-generated email
   # strings used for bcc-based automated teasks.
   likelyNonHumanEmail: (email) ->
+    at = "[-@+=]"
     prefixes = [
       "noreply"
       "no-reply"
       "donotreply"
       "do-not-reply"
-      "bounce[s]?@"
-      "notification[s]?@"
-      "support@"
-      "alert[s]?@"
-      "news@"
-      "info@"
-      "automated@"
-      "list[s]?@"
-      "distribute[s]?@"
-      "catchall@"
-      "catch-all@"
+      "bounce[s]?#{at}"
+      "notification[s]?#{at}"
+      "support#{at}"
+      "alert[s]?#{at}"
+      "news#{at}"
+      "info#{at}"
+      "automated#{at}"
+      "list[s]?#{at}"
+      "distribute[s]?#{at}"
+      "catchall#{at}"
+      "catch-all#{at}"
     ]
     reStr = "(#{prefixes.join("|")})"
     re = new RegExp(reStr, "gi")
@@ -585,8 +591,8 @@ Utils =
     for commaPath in commaPaths
       joinedVals = []
       paths = commaPath.split("+")
-      for path in paths
-        parts = path.split(".")
+      for filePath in paths
+        parts = filePath.split(".")
         curVal = model
         for part in parts
           if _.isFunction(curVal[part])

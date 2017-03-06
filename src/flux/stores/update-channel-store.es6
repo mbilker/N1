@@ -1,9 +1,10 @@
 import NylasStore from 'nylas-store';
 import {remote} from 'electron';
 
-import EdgehillAPI from '../edgehill-api';
+import {LegacyEdgehillAPI} from 'nylas-exports';
 
 const autoUpdater = remote.getGlobal('application').autoUpdateManager;
+const preferredChannel = autoUpdater.preferredChannel;
 
 class UpdateChannelStore extends NylasStore {
   constructor() {
@@ -29,28 +30,33 @@ class UpdateChannelStore extends NylasStore {
   }
 
   refreshChannel() {
-    EdgehillAPI.makeRequest({
+    LegacyEdgehillAPI.makeRequest({
       method: 'GET',
       path: `/update-channel`,
-      qs: autoUpdater.parameters(),
+      qs: Object.assign({preferredChannel: preferredChannel}, autoUpdater.parameters()),
       json: true,
-    }).then(({current, available}) => {
-      this._current = current;
-      this._available = available;
+    }).run()
+    .then(({current, available} = {}) => {
+      this._current = current || {name: "Edgehill API Not Available"};
+      this._available = available || [];
       this.trigger();
     });
     return null;
   }
 
   setChannel(channelName) {
-    EdgehillAPI.makeRequest({
+    LegacyEdgehillAPI.makeRequest({
       method: 'POST',
       path: `/update-channel`,
-      qs: Object.assign({channel: channelName}, autoUpdater.parameters()),
+      qs: Object.assign({
+        channel: channelName,
+        preferredChannel: preferredChannel,
+      }, autoUpdater.parameters()),
       json: true,
-    }).then(({current, available}) => {
-      this._current = current;
-      this._available = available;
+    }).run()
+    .then(({current, available} = {}) => {
+      this._current = current || {name: "Edgehill API Not Available"};
+      this._available = available || [];
       this.trigger();
     }).catch((err) => {
       NylasEnv.showErrorDialog(err.toString())

@@ -7,35 +7,35 @@ import DatabaseStore from '../stores/database-store'
 import ModelWithMetadata from './model-with-metadata'
 
 
-/**
-  Public: The Thread model represents a Thread object served by the Nylas Platform API.
-  For more information about Threads on the Nylas Platform, read the
-  [Threads API Documentation](https://nylas.com/cloud/docs#threads)
+/*
+Public: The Thread model represents a Thread object served by the Nylas Platform API.
+For more information about Threads on the Nylas Platform, read the
+[Threads API Documentation](https://nylas.com/cloud/docs#threads)
 
-  Attributes
+Attributes
 
-  `snippet`: {AttributeString} A short, ~140 character string with the content
-    of the last message in the thread. Queryable.
+`snippet`: {AttributeString} A short, ~140 character string with the content
+  of the last message in the thread. Queryable.
 
-  `subject`: {AttributeString} The subject of the thread. Queryable.
+`subject`: {AttributeString} The subject of the thread. Queryable.
 
-  `unread`: {AttributeBoolean} True if the thread is unread. Queryable.
+`unread`: {AttributeBoolean} True if the thread is unread. Queryable.
 
-  `starred`: {AttributeBoolean} True if the thread is starred. Queryable.
+`starred`: {AttributeBoolean} True if the thread is starred. Queryable.
 
-  `version`: {AttributeNumber} The version number of the thread.
+`version`: {AttributeNumber} The version number of the thread.
 
-  `participants`: {AttributeCollection} A set of {Contact} models
-    representing the participants in the thread.
-    Note: Contacts on Threads do not have IDs.
+`participants`: {AttributeCollection} A set of {Contact} models
+  representing the participants in the thread.
+  Note: Contacts on Threads do not have IDs.
 
-  `lastMessageReceivedTimestamp`: {AttributeDateTime} The timestamp of the
-    last message on the thread.
+`lastMessageReceivedTimestamp`: {AttributeDateTime} The timestamp of the
+  last message on the thread.
 
-  This class also inherits attributes from {Model}
+This class also inherits attributes from {Model}
 
-  Section: Models
-  @class Thread
+Section: Models
+@class Thread
 */
 class Thread extends ModelWithMetadata {
 
@@ -105,10 +105,30 @@ class Thread extends ModelWithMetadata {
       modelKey: 'inAllMail',
       jsonKey: 'in_all_mail',
     }),
+
+    isSearchIndexed: Attributes.Boolean({
+      queryable: true,
+      modelKey: 'isSearchIndexed',
+      jsonKey: 'is_search_indexed',
+      defaultValue: false,
+      loadFromColumn: true,
+    }),
+
+    // This corresponds to the rowid in the FTS table. We need to use the FTS
+    // rowid when updating and deleting items in the FTS table because otherwise
+    // these operations would be way too slow on large FTS tables.
+    searchIndexId: Attributes.Number({
+      modelKey: 'searchIndexId',
+      jsonKey: 'search_index_id',
+    }),
   })
 
+  static sortOrderAttribute = () => {
+    return Thread.attributes.lastMessageReceivedTimestamp
+  }
+
   static naturalSortOrder = () => {
-    return Thread.attributes.lastMessageReceivedTimestamp.descending()
+    return Thread.sortOrderAttribute().descending()
   }
 
   static additionalSQLiteConfig = {
@@ -135,12 +155,15 @@ class Thread extends ModelWithMetadata {
       'DROP INDEX IF EXISTS `Thread`.ThreadStarIndex',
       'CREATE INDEX IF NOT EXISTS ThreadStarredIndex ON `Thread` (account_id, last_message_received_timestamp DESC) WHERE starred = 1 AND in_all_mail = 1',
       'CREATE INDEX IF NOT EXISTS ThreadUnifiedStarredIndex ON `Thread` (last_message_received_timestamp DESC) WHERE starred = 1 AND in_all_mail = 1',
+
+      'CREATE INDEX IF NOT EXISTS ThreadIsSearchIndexedIndex ON `Thread` (is_search_indexed, id)',
+      'CREATE INDEX IF NOT EXISTS ThreadIsSearchIndexedLastMessageReceivedIndex ON `Thread` (is_search_indexed, last_message_received_timestamp)',
     ],
   }
 
   static searchable = true
 
-  static searchFields = ['subject', 'participants', 'body']
+  static searchFields = ['subject', 'to_', 'from_', 'categories', 'body']
 
   messages() {
     return (
@@ -200,6 +223,13 @@ class Thread extends ModelWithMetadata {
     return true
   }
 
+  /**
+   * In the `clone` case, there are `categories` set, but no `folders` nor
+   * `labels`
+   *
+   * When loading data from the API, there are `folders` AND `labels` but
+   * no `categories` yet.
+   */
   fromJSON(json) {
     super.fromJSON(json)
 
@@ -208,12 +238,13 @@ class Thread extends ModelWithMetadata {
       this.categories = Thread.attributes.categories.fromJSON(json.folders)
     }
 
-    if (json.labels) {
+    if (json.labels && json.labels.length > 0) {
       this.categoriesType = 'labels'
-      this.categories = Thread.attributes.categories.fromJSON(json.labels)
+      if (!this.categories) this.categories = [];
+      this.categories = this.categories.concat(Thread.attributes.categories.fromJSON(json.labels))
     }
 
-    ['participants', 'categories'].forEach((attr) => {
+    ['participants'].forEach((attr) => {
       const value = this[attr]
       if (!(value && value instanceof Array)) {
         return;
@@ -279,4 +310,4 @@ Object.defineProperty(Thread.attributes, "folders", {
   get: () => Thread.attributes.categories,
 })
 
-export default Thread
+export default Thread;

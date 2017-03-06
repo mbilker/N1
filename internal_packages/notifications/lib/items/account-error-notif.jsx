@@ -1,5 +1,5 @@
 import {shell, ipcRenderer} from 'electron';
-import {React, Account, AccountStore, Actions, IdentityStore} from 'nylas-exports';
+import {React, Account, AccountStore, Actions} from 'nylas-exports';
 import {Notification} from 'nylas-component-kit';
 
 export default class AccountErrorNotification extends React.Component {
@@ -7,25 +7,38 @@ export default class AccountErrorNotification extends React.Component {
 
   constructor() {
     super();
-    this.state = this.getStateFromStores();
+    this._checkingTimeout = null
+    this.state = {
+      checking: false,
+      debugKeyPressed: false,
+      accounts: AccountStore.accounts(),
+    }
   }
 
   componentDidMount() {
-    this.unlisten = AccountStore.listen(() => this.setState(this.getStateFromStores()));
+    this.unlisten = AccountStore.listen(() => this.setState({
+      accounts: AccountStore.accounts(),
+    }));
   }
 
   componentWillUnmount() {
     this.unlisten();
   }
 
-  getStateFromStores() {
-    return {
-      accounts: AccountStore.accounts(),
+  _onContactSupport = (erroredAccount) => {
+    let url = 'https://support.nylas.com/hc/en-us/requests/new'
+    if (erroredAccount) {
+      url += `?email=${encodeURIComponent(erroredAccount.emailAddress)}`
+      const {syncError} = erroredAccount
+      if (syncError != null) {
+        url += `&subject=${encodeURIComponent('Sync Error')}`
+        const description = encodeURIComponent(
+          `Sync Error:\n\`\`\`\n${JSON.stringify(syncError, null, 2)}\n\`\`\``
+        )
+        url += `&description=${description}`
+      }
     }
-  }
-
-  _onContactSupport = () => {
-    shell.openExternal("https://support.nylas.com/hc/en-us/requests/new");
+    shell.openExternal(url);
   }
 
   _onReconnect = (existingAccount) => {
@@ -37,12 +50,26 @@ export default class AccountErrorNotification extends React.Component {
     Actions.openPreferences()
   }
 
-  _onCheckAgain = () => {
-    return IdentityStore.refreshIdentityAndAccounts();
+  _onCheckAgain(event, account) {
+    if (event.metaKey) {
+      Actions.debugSync()
+      return
+    }
+    clearTimeout(this._checkingTimeout)
+    this.setState({checking: true})
+    this._checkingTimeout = setTimeout(() => this.setState({checking: false}), 10000)
+
+    if (account) {
+      Actions.wakeLocalSyncWorkerForAccount(account.id)
+      return
+    }
+    const erroredAccounts = this.state.accounts.filter(a => a.hasSyncStateError());
+    erroredAccounts.forEach(acc => Actions.wakeLocalSyncWorkerForAccount(acc.id))
   }
 
   render() {
     const erroredAccounts = this.state.accounts.filter(a => a.hasSyncStateError());
+    const checkAgainLabel = this.state.checking ? 'Checking...' : 'Check Again'
     let title;
     let subtitle;
     let subtitleAction;
@@ -51,9 +78,11 @@ export default class AccountErrorNotification extends React.Component {
       return <span />
     } else if (erroredAccounts.length > 1) {
       title = "Several of your accounts are having issues";
+      subtitle = "Contact support";
+      subtitleAction = () => this._onContactSupport(erroredAccounts[0])
       actions = [{
-        label: "Check Again",
-        fn: this._onCheckAgain,
+        label: checkAgainLabel,
+        fn: (e) => this._onCheckAgain(e),
       }, {
         label: "Manage",
         fn: this._onOpenAccountPreferences,
@@ -61,33 +90,43 @@ export default class AccountErrorNotification extends React.Component {
     } else {
       const erroredAccount = erroredAccounts[0];
       switch (erroredAccount.syncState) {
-        case Account.SYNC_STATE_AUTH_FAILED:
-          title = `Cannot authenticate with ${erroredAccount.emailAddress}`;
+        case Account.SYNC_STATE_N1_CLOUD_AUTH_FAILED:
+          title = `Cannot authenticate Nylas Mail Cloud Services with ${erroredAccount.emailAddress}`;
           actions = [{
-            label: "Check Again",
-            fn: this._onCheckAgain,
+            label: checkAgainLabel,
+            fn: (e) => this._onCheckAgain(e, erroredAccount),
           }, {
             label: 'Reconnect',
             fn: () => this._onReconnect(erroredAccount),
           }];
           break;
-        case Account.SYNC_STATE_STOPPED:
-          title = `Sync has been disabled for ${erroredAccount.emailAddress}`;
-          subtitle = "Contact support";
-          subtitleAction = this._onContactSupport;
+        case Account.SYNC_STATE_AUTH_FAILED:
+          title = `Cannot authenticate with ${erroredAccount.emailAddress}`;
           actions = [{
-            label: "Check Again",
-            fn: this._onCheckAgain,
+            label: checkAgainLabel,
+            fn: (e) => this._onCheckAgain(e, erroredAccount),
+          }, {
+            label: 'Reconnect',
+            fn: () => this._onReconnect(erroredAccount),
           }];
           break;
-        default:
-          title = `Encountered an error with ${erroredAccount.emailAddress}`;
+        default: {
+          title = `Encountered an error while syncing ${erroredAccount.emailAddress}`;
           subtitle = "Contact support";
-          subtitleAction = this._onContactSupport;
+          subtitleAction = () => this._onContactSupport(erroredAccount)
+          let label = this.state.checking ? 'Retrying...' : 'Try Again'
+          if (this.state.debugKeyPressed) {
+            label = 'Debug'
+          }
           actions = [{
-            label: "Check Again",
-            fn: this._onCheckAgain,
+            label,
+            fn: (e) => this._onCheckAgain(e, erroredAccount),
+            props: {
+              onMouseEnter: (e) => this.setState({debugKeyPressed: e.metaKey}),
+              onMouseLeave: () => this.setState({debugKeyPressed: false}),
+            },
           }];
+        }
       }
     }
 

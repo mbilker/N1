@@ -11,7 +11,7 @@ import ModelWithMetadata from './model-with-metadata'
 import QuotedHTMLTransformer from '../../services/quoted-html-transformer'
 
 
-/**
+/*
 Public: The Message model represents a Message object served by the Nylas Platform API.
 For more information about Messages on the Nylas Platform, read the
 [Messages API Documentation](https://nylas.com/cloud/docs#messages)
@@ -141,6 +141,11 @@ export default class Message extends ModelWithMetadata {
       jsonKey: 'thread_id',
     }),
 
+    messageIdHeader: Attributes.ServerId({
+      modelKey: 'messageIdHeader',
+      jsonKey: 'message_id_header',
+    }),
+
     subject: Attributes.String({
       modelKey: 'subject',
     }),
@@ -228,11 +233,18 @@ Message(date DESC) WHERE draft = 1`,
       this.draft = (json.object === 'draft')
     }
 
-    if (json.folder) {
-      this.categories = this.constructor.attributes.categories.fromJSON([json.folder])
-    } else if (json.labels) {
-      this.categories = this.constructor.attributes.categories.fromJSON(json.labels)
+    let categories = []
+    if (json.categories) {
+      categories = this.constructor.attributes.categories.fromJSON(json.categories)
+    } else {
+      if (json.folder) {
+        categories = categories.concat(this.constructor.attributes.categories.fromJSON([json.folder]))
+      }
+      if (json.labels) {
+        categories = categories.concat(this.constructor.attributes.categories.fromJSON(json.labels))
+      }
     }
+    this.categories = categories
 
     for (const attr of ['to', 'from', 'cc', 'bcc', 'files', 'categories']) {
       const values = this[attr]
@@ -369,7 +381,7 @@ Message(date DESC) WHERE draft = 1`,
   // run an expensive parse once, but use the DOM to load both HTML and
   // PlainText versions of the body.
   computeDOMWithoutQuotes() {
-    return QuotedHTMLTransformer.removeQuotedHTML(this.body, {returnAsDOM: true});
+    return QuotedHTMLTransformer.removeQuotedHTML(this.body);
   }
 
   fromContact() {
@@ -399,7 +411,7 @@ Message(date DESC) WHERE draft = 1`,
     return (
       this.to.length === 1 && this.from.length === 1 &&
       this.to[0].email === this.from[0].email &&
-      (this.snippet || "").startsWith('Nylas N1 Reminder:')
+      (this.snippet || "").startsWith('Nylas Mail Reminder:')
     )
   }
 }

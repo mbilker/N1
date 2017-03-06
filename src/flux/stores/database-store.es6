@@ -1,7 +1,6 @@
 /* eslint global-require: 0 */
 import path from 'path';
 import fs from 'fs';
-import Sqlite3 from 'better-sqlite3';
 import childProcess from 'child_process';
 import PromiseQueue from 'promise-queue';
 import {remote, ipcRenderer} from 'electron';
@@ -10,9 +9,11 @@ import LRU from "lru-cache";
 import NylasStore from '../../global/nylas-store';
 import Utils from '../models/utils';
 import Query from '../models/query';
+import Actions from '../actions'
 import DatabaseChangeRecord from './database-change-record';
 import DatabaseTransaction from './database-transaction';
 import DatabaseSetupQueryBuilder from './database-setup-query-builder';
+import {setupDatabase, databasePath} from '../../database-helpers'
 
 const DatabaseVersion = "23";
 const DatabasePhase = {
@@ -87,11 +88,7 @@ class DatabaseStore extends NylasStore {
     this.setupEmitter();
     this._emitter.setMaxListeners(100);
 
-    if (NylasEnv.inSpecMode()) {
-      this._databasePath = path.join(NylasEnv.getConfigDirPath(), 'edgehill.test.db');
-    } else {
-      this._databasePath = path.join(NylasEnv.getConfigDirPath(), 'edgehill.db');
-    }
+    this._databasePath = databasePath(NylasEnv.getConfigDirPath(), NylasEnv.inSpecMode())
 
     this._databaseMutationHooks = [];
 
@@ -101,8 +98,26 @@ class DatabaseStore extends NylasStore {
     setTimeout(() => this._onPhaseChange(), 0);
   }
 
-  _onPhaseChange() {
+  async _asyncWaitForReady() {
+    return new Promise((resolve) => {
+      const app = remote.getGlobal('application')
+      const phase = app.databasePhase()
+      if (phase === DatabasePhase.Setup) {
+        resolve()
+        return
+      }
+
+      const listener = () => {
+        this._emitter.removeListener('ready', listener);
+        resolve()
+      }
+      this._emitter.on('ready', listener)
+    })
+  }
+
+  async _onPhaseChange() {
     if (NylasEnv.inSpecMode()) {
+      this._emitter.emit('ready')
       return;
     }
 
@@ -110,23 +125,22 @@ class DatabaseStore extends NylasStore {
     const phase = app.databasePhase()
 
     if (phase === DatabasePhase.Setup && NylasEnv.isWorkWindow()) {
-      this._openDatabase(() => {
-        this._checkDatabaseVersion({allowUnset: true}, () => {
-          this._runDatabaseSetup(() => {
-            app.setDatabasePhase(DatabasePhase.Ready);
-            setTimeout(() => this._runDatabaseAnalyze(), 60 * 1000);
-          });
+      await this._openDatabase()
+      this._checkDatabaseVersion({allowUnset: true}, () => {
+        this._runDatabaseSetup(() => {
+          app.setDatabasePhase(DatabasePhase.Ready);
+          setTimeout(() => this._runDatabaseAnalyze(), 60 * 1000);
         });
       });
     } else if (phase === DatabasePhase.Ready) {
-      this._openDatabase(() => {
-        this._checkDatabaseVersion({}, () => {
-          this._open = true;
-          for (const w of this._waiting) {
-            w();
-          }
-          this._waiting = [];
-        });
+      await this._openDatabase()
+      this._checkDatabaseVersion({}, () => {
+        this._open = true;
+        for (const w of this._waiting) {
+          w();
+        }
+        this._waiting = [];
+        this._emitter.emit('ready')
       });
     } else if (phase === DatabasePhase.Close) {
       this._open = false;
@@ -142,46 +156,27 @@ class DatabaseStore extends NylasStore {
   // extremely frequently as new models are added when packages load.
   refreshDatabaseSchema() {
     if (!NylasEnv.isWorkWindow()) {
-      return;
+      return Promise.resolve();
     }
     const app = remote.getGlobal('application');
     const phase = app.databasePhase();
     if (phase !== DatabasePhase.Setup) {
       app.setDatabasePhase(DatabasePhase.Setup);
     }
+    return this._asyncWaitForReady()
   }
 
-  _openDatabase(ready) {
-    if (this._db) {
-      ready();
-      return;
-    }
-
-    this._db = new Sqlite3(this._databasePath, {});
-    this._db.on('close', (err) => {
+  async _openDatabase() {
+    if (this._db) return
+    try {
+      this._db = await setupDatabase(this._databasePath)
+    } catch (err) {
       NylasEnv.showErrorDialog({
         title: `Unable to open SQLite database at ${this._databasePath}`,
         message: err.toString(),
       });
       this._handleSetupError(err);
-    })
-    this._db.on('open', () => {
-      // https://www.sqlite.org/wal.html
-      // WAL provides more concurrency as readers do not block writers and a writer
-      // does not block readers. Reading and writing can proceed concurrently.
-      this._db.pragma(`journal_mode = WAL`);
-
-      // Note: These are properties of the connection, so they must be set regardless
-      // of whether the database setup queries are run.
-
-      // https://www.sqlite.org/intern-v-extern-blob.html
-      // A database page size of 8192 or 16384 gives the best performance for large BLOB I/O.
-      this._db.pragma(`main.page_size = 8192`);
-      this._db.pragma(`main.cache_size = 20000`);
-      this._db.pragma(`main.synchronous = NORMAL`);
-
-      ready();
-    });
+    }
   }
 
   _checkDatabaseVersion({allowUnset} = {}, ready) {
@@ -295,7 +290,7 @@ class DatabaseStore extends NylasStore {
   //
   // If a query is made before the database has been opened, the query will be
   // held in a queue and run / resolved when the database is ready.
-  _query(query, values = [], background = false) {
+  _query(query, values = [], background = false, logQueryPlanDebugOutput = true) {
     return new Promise((resolve, reject) => {
       if (!this._open) {
         this._waiting.push(() => this._query(query, values).then(resolve, reject));
@@ -319,7 +314,9 @@ class DatabaseStore extends NylasStore {
         const planString = `${plan.map(row => row.detail).join('\n')} for ${query}`;
         const quiet = ['ThreadCounts', 'ThreadSearch', 'ContactSearch', 'COVERING INDEX'];
 
-        if (planString.includes('SCAN') && !quiet.find(str => planString.includes(str))) {
+        if (planString.includes('SCAN') &&
+            !quiet.find(str => planString.includes(str)) &&
+            logQueryPlanDebugOutput) {
           console.log("Consider setting the .background() flag on this query to avoid blocking the event loop:")
           this._prettyConsoleLog(planString);
         }
@@ -354,13 +351,6 @@ class DatabaseStore extends NylasStore {
   }
 
   _executeLocally(query, values) {
-    if (query.startsWith(`BEGIN`)) {
-      if (this._inflightTransactions !== 0) {
-        throw new Error("Assertion Failure: BEGIN called when an existing transaction is in-flight. Use DatabaseStore.inTransaction() to aquire transactions.")
-      }
-      this._inflightTransactions += 1;
-    }
-
     const fn = query.startsWith('SELECT') ? 'all' : 'run';
     let tries = 0;
     let results = null;
@@ -377,21 +367,18 @@ class DatabaseStore extends NylasStore {
         }
         results = stmt[fn](values);
       } catch (err) {
-        if (tries < 3 && err.toString().includes('database schema has changed')) {
+        const errString = err.toString()
+        if (/database disk image is malformed/gi.test(errString)) {
+          // This is unrecoverable. We have to do a full database reset
+          NylasEnv.reportError(err)
+          Actions.resetEmailCache()
+        } else if (tries < 3 && /database schema has changed/gi.test(errString)) {
           this._preparedStatementCache.del(query);
           tries += 1;
         } else {
           // note: this function may throw a promise, which causes our Promise to reject
           throw new Error(`DatabaseStore: Query ${query}, ${JSON.stringify(values)} failed ${err.toString()}`);
         }
-      }
-    }
-
-    if (query === 'COMMIT') {
-      this._inflightTransactions -= 1;
-      if (this._inflightTransactions < 0) {
-        this._inflightTransactions = 0;
-        throw new Error("Assertion Failure: COMMIT was called too many times and the transaction count went negative.")
       }
     }
 
@@ -583,7 +570,7 @@ class DatabaseStore extends NylasStore {
   //   - resolves with the result of the database query.
   //
   run(modelQuery, options = {format: true}) {
-    return this._query(modelQuery.sql(), [], modelQuery._background).then((result) => {
+    return this._query(modelQuery.sql(), [], modelQuery._background, modelQuery._logQueryPlanDebugOutput).then((result) => {
       let transformed = modelQuery.inflateResult(result);
       if (options.format !== false) {
         transformed = modelQuery.formatResult(transformed)
@@ -750,11 +737,10 @@ class DatabaseStore extends NylasStore {
 
   isIndexEmptyForAccount(accountId, modelKlass) {
     const modelTable = modelKlass.name
-    const searchTable = `${modelTable}Search`
     const sql = (
-      `SELECT \`${searchTable}\`.\`content_id\` FROM \`${searchTable}\` INNER JOIN \`${modelTable}\`
-      ON \`${modelTable}\`.id = \`${searchTable}\`.\`content_id\` WHERE \`${modelTable}\`.\`account_id\` = ?
-      LIMIT 1`
+      `SELECT \`${modelTable}\`.\`id\` FROM \`${modelTable}\` WHERE
+      \`${modelTable}\`.is_search_indexed = 1 AND
+      \`${modelTable}\`.\`account_id\` = ? LIMIT 1`
     );
     return this._query(sql, [accountId]).then(result => result.length === 0);
   }
@@ -764,21 +750,18 @@ class DatabaseStore extends NylasStore {
       throw new Error(`DatabaseStore::createSearchIndex - You must provide a class`);
     }
     const searchTableName = `${klass.name}Search`
-    const sql = `DROP TABLE IF EXISTS \`${searchTableName}\``
-    return this._query(sql);
+    const dropSql = `DROP TABLE IF EXISTS \`${searchTableName}\``
+    const clearIsSearchIndexedSql = `UPDATE \`${klass.name}\` SET \`is_search_indexed\` = 0 WHERE \`is_search_indexed\` = 1`
+    return this._query(dropSql).then(() => {
+      return this._query(clearIsSearchIndexedSql);
+    });
   }
 
   isModelIndexed(model, isIndexed) {
     if (isIndexed === true) {
       return Promise.resolve(true);
     }
-    const searchTableName = `${model.constructor.name}Search`
-    const exists = (
-      `SELECT rowid FROM \`${searchTableName}\` WHERE \`${searchTableName}\`.\`content_id\` = ?`
-    )
-    return this._query(exists, [model.id]).then((results) =>
-      Promise.resolve(results.length > 0)
-    )
+    return Promise.resolve(!!model.isSearchIndexed);
   }
 
   indexModel(model, indexData, isModelIndexed) {
@@ -795,7 +778,11 @@ class DatabaseStore extends NylasStore {
       const sql = (
         `INSERT INTO \`${searchTableName}\`(${keysSql}) VALUES (${valsSql})`
       )
-      return this._query(sql, values);
+      return this._query(sql, values).then(({lastInsertROWID}) => {
+        model.isSearchIndexed = true;
+        model.searchIndexId = lastInsertROWID;
+        return this.inTransaction((t) => t.persistModel(model))
+      });
     });
   }
 
@@ -807,35 +794,49 @@ class DatabaseStore extends NylasStore {
       }
 
       const indexFields = Object.keys(indexData);
-      const values = indexFields.map(key => indexData[key]).concat([model.id]);
+      const values = indexFields.map(key => indexData[key]).concat([model.searchIndexId]);
       const setSql = (
         indexFields
         .map((key) => `\`${key}\` = ?`)
         .join(', ')
       );
       const sql = (
-        `UPDATE \`${searchTableName}\` SET ${setSql} WHERE \`${searchTableName}\`.\`content_id\` = ?`
+        `UPDATE \`${searchTableName}\` SET ${setSql} WHERE \`${searchTableName}\`.\`rowid\` = ?`
       );
       return this._query(sql, values);
     });
   }
 
-  unindexModel(model) {
+  // opts can have a boolean isBeingUnpersisted value, which when true prevents
+  // this function from re-persisting the model.
+  unindexModel(model, opts = {}) {
     const searchTableName = `${model.constructor.name}Search`;
     const sql = (
-      `DELETE FROM \`${searchTableName}\` WHERE \`${searchTableName}\`.\`content_id\` = ?`
+      `DELETE FROM \`${searchTableName}\` WHERE \`${searchTableName}\`.\`rowid\` = ?`
     );
-    return this._query(sql, [model.id]);
+    const query = this._query(sql, [model.searchIndexId]);
+    if (opts.isBeingUnpersisted) {
+      return query;
+    }
+    return query.then(() => {
+      model.isSearchIndexed = false;
+      model.searchIndexId = 0;
+      return this.inTransaction((t) => t.persistModel(model))
+    });
   }
 
-  unindexModelsForAccount(accountId, modelKlass) {
-    const modelTable = modelKlass.name;
-    const searchTableName = `${modelTable}Search`;
+  unindexModelsForAccount() {
+    // const modelTable = modelKlass.name;
+    // const searchTableName = `${modelTable}Search`;
+    /* TODO: We don't correctly clean up the model tables right now, so we don't
+     * want to destroy the index until we do so.
     const sql = (
       `DELETE FROM \`${searchTableName}\` WHERE \`${searchTableName}\`.\`content_id\` IN
       (SELECT \`id\` FROM \`${modelTable}\` WHERE \`${modelTable}\`.\`account_id\` = ?)`
     );
-    return this._query(sql, [accountId]);
+    return this._query(sql, [accountId])
+   */
+    return Promise.resolve()
   }
 }
 

@@ -77,7 +77,7 @@ class Task
     taskPath = require.resolve(taskPath)
     taskPath = taskPath.replace(/\\/g, "\\\\")
 
-    env = _.extend({}, process.env, {taskPath, userAgent: 'NylasN1'})
+    env = _.extend({}, process.env, {taskPath, userAgent: 'NylasMail'})
     @childProcess = ChildProcess.fork '--eval', [bootstrap], {env, silent: true}
 
     @on "task:log", -> console.log(arguments...)
@@ -163,5 +163,5 @@ class Task
   cancel: ->
     didForcefullyTerminate = @terminate()
     if didForcefullyTerminate
-      @emitter.emit('task:cancelled')
+      @emitter.emit('task:canceled')
     didForcefullyTerminate

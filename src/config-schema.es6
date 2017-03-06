@@ -63,8 +63,8 @@ export default {
           downloadPolicy: {
             'type': 'string',
             'default': 'on-read',
-            'enum': ['on-receive', 'on-read', 'manually'],
-            'enumLabels': ['When Received', 'When Read', 'Manually'],
+            'enum': ['on-read', 'manually'],
+            'enumLabels': ['When Read', 'Manually'],
             'title': "Download attachments for new mail",
           },
           displayFilePreview: {
@@ -120,11 +120,6 @@ export default {
             'enum': ['reply', 'reply-all'],
             'enumLabels': ['Reply', 'Reply All'],
             'title': "Default reply behavior",
-          },
-          defaultSendType: {
-            'type': 'string',
-            'default': 'send',
-            'title': "Default send behavior",
           },
           undoSend: {
             'type': 'number',

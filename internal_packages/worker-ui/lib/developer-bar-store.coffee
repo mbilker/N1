@@ -1,5 +1,5 @@
 NylasStore = require 'nylas-store'
-{Actions, NylasSyncStatusStore} = require 'nylas-exports'
+{Rx, Actions, DatabaseStore, ProviderSyncbackRequest, NylasSyncStatusStore} = require 'nylas-exports'
 qs = require 'querystring'
 _ = require 'underscore'
 moment = require 'moment'
@@ -47,9 +47,11 @@ class DeveloperBarStore extends NylasStore
 
   curlHistory: -> @_curlHistory
 
-  longPollState: -> @_longPollState
+  longPollStates: -> @_longPollStates
 
   longPollHistory: -> @_longPollHistory
+
+  providerSyncbackRequests: -> @_providerSyncbackRequests
 
   ########### PRIVATE ####################################################
 
@@ -61,9 +63,15 @@ class DeveloperBarStore extends NylasStore
     @_curlHistoryIds = []
     @_curlHistory = []
     @_longPollHistory = []
-    @_longPollState = {}
+    @_longPollStates = {}
+    @_providerSyncbackRequests = []
 
   _registerListeners: ->
+
+    query = DatabaseStore.findAll(ProviderSyncbackRequest)
+      .order(ProviderSyncbackRequest.attributes.id.descending())
+      .limit(100)
+    Rx.Observable.fromQuery(query).subscribe(@_onSyncbackRequestChange)
     @listenTo NylasSyncStatusStore, @_onSyncStatusChanged
     @listenTo Actions.willMakeAPIRequest, @_onWillMakeAPIRequest
     @listenTo Actions.didMakeAPIRequest, @_onDidMakeAPIRequest
@@ -77,10 +85,14 @@ class DeveloperBarStore extends NylasStore
     @_longPollHistory = []
     @trigger(@)
 
+  _onSyncbackRequestChange: (reqs = []) =>
+    @_providerSyncbackRequests = reqs
+    @trigger()
+
   _onSyncStatusChanged: ->
-    @_longPollState = {}
-    _.forEach NylasSyncStatusStore.state(), (state, accountId) =>
-      @_longPollState[accountId] = state.longConnectionStatus
+    @_longPollStates = {}
+    _.forEach NylasSyncStatusStore.getSyncState(), (state, accountId) =>
+      @_longPollStates[accountId] = state.deltaStatus
     @trigger()
 
   _onLongPollDeltas: (deltas) ->
@@ -90,16 +102,12 @@ class DeveloperBarStore extends NylasStore
 
     # Incoming deltas are [oldest...newest]. Append them to the beginning
     # of our internal history which is [newest...oldest]
-    @_longPollHistory.unshift(deltas.reverse()...)
+    @_longPollHistory.unshift([].concat(deltas).reverse()...)
     if @_longPollHistory.length > 200
       @_longPollHistory.length = 200
     @triggerThrottled(@)
 
   _onLongPollProcessedDeltas: ->
-    @triggerThrottled(@)
-
-  _onLongPollStateChange: ({accountId, state}) ->
-    @_longPollState[accountId] = state
     @triggerThrottled(@)
 
   _onWillMakeAPIRequest: ({requestId, request}) =>

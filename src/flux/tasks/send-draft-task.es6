@@ -1,22 +1,22 @@
 /* eslint global-require: 0 */
-import {RegExpUtils} from 'nylas-exports';
 import Task from './task';
 import Actions from '../actions';
 import Message from '../models/message';
+import Account from '../models/account';
 import NylasAPI from '../nylas-api';
+import * as NylasAPIHelpers from '../nylas-api-helpers';
+import SyncbackTaskAPIRequest from '../syncback-task-api-request';
 import {APIError, RequestEnsureOnceError} from '../errors';
 import SoundRegistry from '../../registries/sound-registry';
 import DatabaseStore from '../stores/database-store';
 import AccountStore from '../stores/account-store';
 import BaseDraftTask from './base-draft-task';
-import MultiSendToIndividualTask from './multi-send-to-individual-task';
-import MultiSendSessionCloseTask from './multi-send-session-close-task';
 import SyncbackMetadataTask from './syncback-metadata-task';
-import NotifyPluginsOfSendTask from './notify-plugins-of-send-task';
+import EnsureMessageInSentFolderTask from './ensure-message-in-sent-folder-task';
 
+const OPEN_TRACKING_ID = NylasEnv.packages.pluginIdFor('open-tracking')
+const LINK_TRACKING_ID = NylasEnv.packages.pluginIdFor('link-tracking')
 
-// TODO
-// Refactor this to consolidate error handling across all Sending tasks
 export default class SendDraftTask extends BaseDraftTask {
 
   constructor(draftClientId, {playSound = true, emitError = true, allowMultiSend = true} = {}) {
@@ -29,13 +29,14 @@ export default class SendDraftTask extends BaseDraftTask {
   }
 
   label() {
-    return "Sending message...";
+    return "Sending message";
   }
 
   performRemote() {
     return this.refreshDraftReference()
     .then(this.assertDraftValidity)
     .then(this.sendMessage)
+    .then(this.ensureInSentFolder)
     .then(this.updatePluginMetadata)
     .then(this.onSuccess)
     .catch(this.onError);
@@ -53,93 +54,96 @@ export default class SendDraftTask extends BaseDraftTask {
     if (this.draft.accountId !== account.id) {
       return Promise.reject(new Error("The from address has changed since you started sending this draft. Double-check the draft and click 'Send' again."));
     }
-    if (this.draft.uploads && (this.draft.uploads.length > 0)) {
-      return Promise.reject(new Error("Files have been added since you started sending this draft. Double-check the draft and click 'Send' again.."));
-    }
     return Promise.resolve();
   };
 
-  usingMultiSend = () => {
+  hasCustomBodyPerRecipient = () => {
     if (!this.allowMultiSend) {
       return false;
     }
 
     // Sending individual bodies for too many participants can cause us
     // to hit the smtp rate limit.
-    if (this.draft.participants({includeFrom: false, includeBcc: true}).length > 10) {
+    const participants = this.draft.participants({includeFrom: false, includeBcc: true})
+    if (participants.length === 1 || participants.length > 10) {
       return false;
     }
 
-    const openTrackingId = NylasEnv.packages.pluginIdFor('open-tracking')
-    const linkTrackingId = NylasEnv.packages.pluginIdFor('link-tracking')
-
-    const pluginsAvailable = (openTrackingId && linkTrackingId);
+    const pluginsAvailable = (OPEN_TRACKING_ID && LINK_TRACKING_ID);
     if (!pluginsAvailable) {
       return false;
     }
-    const pluginsInUse = (this.draft.metadataForPluginId(openTrackingId) || this.draft.metadataForPluginId(linkTrackingId));
+    const pluginsInUse = (this.draft.metadataForPluginId(OPEN_TRACKING_ID) || this.draft.metadataForPluginId(LINK_TRACKING_ID)) || false;
     const providerCompatible = (AccountStore.accountForId(this.draft.accountId).provider !== "eas");
     return pluginsInUse && providerCompatible;
   }
 
-  sendMessage = () => {
-    return this.usingMultiSend() ? this.sendWithMultipleBodies() : this.sendWithSingleBody();
+  sendMessage = async () => {
+    if (this.hasCustomBodyPerRecipient()) {
+      await this._sendPerRecipient();
+    } else {
+      await this._sendWithSingleBody()
+    }
   }
 
-  sendWithMultipleBodies = () => {
-    const draft = this.draft.clone();
-    draft.body = this.stripTrackingFromBody(draft.body);
-
-    return NylasAPI.makeRequest({
-      path: "/send-multiple",
-      accountId: this.draft.accountId,
-      method: 'POST',
-      body: draft.toJSON(),
-      timeout: 1000 * 60 * 5, // We cannot hang up a send - won't know if it sent
-      returnsModel: false,
+  ensureInSentFolder = () => {
+    const t = new EnsureMessageInSentFolderTask({
+      message: this.message,
+      sentPerRecipient: this.hasCustomBodyPerRecipient(),
     })
-    .then((responseJSON) => {
-      return this.createMessageFromResponse(responseJSON);
-    })
-    .then(() => {
-      const recipients = this.message.participants({includeFrom: false, includeBcc: true})
-      recipients.forEach((recipient) => {
-        const t1 = new MultiSendToIndividualTask({
-          message: this.message,
-          recipient: recipient,
-        });
-        Actions.queueTask(t1);
-      });
-      const t2 = new MultiSendSessionCloseTask({
-        message: this.message,
-        draft: draft,
-      });
-      Actions.queueTask(t2);
-    })
-    .catch((err) => {
-      return this.onSendError(err, this.sendWithMultipleBodies);
-    })
+    Actions.queueTask(t)
   }
 
-  // This function returns a promise that resolves to the draft when the draft has
-  // been sent successfully.
-  sendWithSingleBody = () => {
-    return NylasAPI.makeRequest({
-      path: "/send",
-      accountId: this.draft.accountId,
-      method: 'POST',
-      body: this.draft.toJSON(),
-      timeout: 1000 * 60 * 5, // We cannot hang up a send - won't know if it sent
-      returnsModel: false,
-      ensureOnce: true,
-      requestId: this.draft.clientId,
-    })
-    .then((responseJSON) => {
-      return this.createMessageFromResponse(responseJSON)
-    })
-    .catch((err) => {
-      return this.onSendError(err, this.sendWithSingleBody);
-    })
+  _sendWithSingleBody = async () => {
+    let responseJSON = {}
+    if (this._syncbackRequestId) {
+      responseJSON = await SyncbackTaskAPIRequest.waitForQueuedRequest(this._syncbackRequestId)
+    } else {
+      const task = new SyncbackTaskAPIRequest({
+        api: NylasAPI,
+        options: {
+          path: "/send",
+          accountId: this.draft.accountId,
+          method: 'POST',
+          body: this.draft.toJSON(),
+          timeout: 1000 * 60 * 5, // We cannot hang up a send - won't know if it sent
+          ensureOnce: false, // TODO We disabled ensureOnce since K2 handles the task now
+          requestId: this.draft.clientId,
+          onSyncbackRequestCreated: (syncbackRequest) => {
+            this._syncbackRequestId = syncbackRequest.id
+          },
+        },
+      })
+      responseJSON = await task.run();
+    }
+    await this._createMessageFromResponse(responseJSON)
+  }
+
+  _sendPerRecipient = async () => {
+    let responseJSON = {}
+    if (this._syncbackRequestId) {
+      responseJSON = await SyncbackTaskAPIRequest.waitForQueuedRequest(this._syncbackRequestId)
+    } else {
+      const task = new SyncbackTaskAPIRequest({
+        api: NylasAPI,
+        options: {
+          path: "/send-per-recipient",
+          accountId: this.draft.accountId,
+          method: 'POST',
+          body: {
+            message: this.draft.toJSON(),
+            uses_open_tracking: this.draft.metadataForPluginId(OPEN_TRACKING_ID) != null,
+            uses_link_tracking: this.draft.metadataForPluginId(LINK_TRACKING_ID) != null,
+          },
+          timeout: 1000 * 60 * 5, // We cannot hang up a send - won't know if it sent
+          onSyncbackRequestCreated: (syncbackRequest) => {
+            this._syncbackRequestId = syncbackRequest.id
+          },
+        },
+      })
+      responseJSON = await task.run();
+    }
+    await this._createMessageFromResponse(responseJSON);
   }
 
   updatePluginMetadata = () => {
@@ -149,20 +153,29 @@ export default class SendDraftTask extends BaseDraftTask {
       Actions.queueTask(t1);
     });
 
-    if (this.message.pluginMetadata.length > 0) {
-      const t2 = new NotifyPluginsOfSendTask({
-        accountId: this.message.accountId,
-        messageId: this.message.id,
-        messageClientId: this.message.clientId,
-      });
-      Actions.queueTask(t2);
-    }
-
     return Promise.resolve();
   }
 
-  createMessageFromResponse = (responseJSON) => {
-    this.message = new Message().fromJSON(responseJSON);
+  _createMessageFromResponse = (responseJSON) => {
+    const {failedRecipients, message} = responseJSON
+    if (failedRecipients && failedRecipients.length > 0) {
+      const errorMessage = `We had trouble sending this message to all recipients. ${failedRecipients} may not have received this email.`;
+      NylasEnv.showErrorDialog(errorMessage, {showInMainWindow: true});
+    }
+    if (!message || !message.id || !message.account_id) {
+      const errorMessage = `Your message successfully sent; however, we had trouble saving your message, "${message.subject}", to your Sent folder.`;
+      if (!message) {
+        throw new Error(`${errorMessage}\n\nError: Did not return message`)
+      }
+      if (!message.id) {
+        throw new Error(`${errorMessage}\n\nError: Returned a message without id`)
+      }
+      if (!message.accountId) {
+        throw new Error(`${errorMessage}\n\nError: Returned a message without accountId`)
+      }
+    }
+
+    this.message = new Message().fromJSON(message);
     this.message.clientId = this.draft.clientId;
     this.message.body = this.draft.body;
     this.message.draft = false;
@@ -175,63 +188,18 @@ export default class SendDraftTask extends BaseDraftTask {
     );
   }
 
-  stripTrackingFromBody(text) {
-    let body = text.replace(/<img class="n1-open"[^<]+src="([a-zA-Z0-9-_:/.]*)">/g, () => {
-      return "";
-    });
-    body = body.replace(RegExpUtils.urlLinkTagRegex(), (match, prefix, url, suffix, content, closingTag) => {
-      const param = url.split("?")[1];
-      if (param) {
-        const link = decodeURIComponent(param.split("=")[1]);
-        return `${prefix}${link}${suffix}${content}${closingTag}`;
-      }
-      return match;
-    });
-    return body;
-  }
-
   onSuccess = () => {
-    // TODO: This code is duplicated into the MultiSendSessionCloseTask!
-    // We should create a Task that always runs when send is complete.
-    if (!this.usingMultiSend()) {
-      Actions.recordUserEvent("Draft Sent")
-      Actions.sendDraftSuccess({message: this.message, messageClientId: this.message.clientId, draftClientId: this.draft.clientId});
-      NylasAPI.makeDraftDeletionRequest(this.draft);
+    Actions.recordUserEvent("Draft Sent")
+    Actions.draftDeliverySucceeded({message: this.message, messageClientId: this.message.clientId, draftClientId: this.draft.clientId});
+    // TODO we shouldn't need to do this anymore
+    NylasAPIHelpers.makeDraftDeletionRequest(this.draft);
 
-      // Play the sending sound
-      if (this.playSound && NylasEnv.config.get("core.sending.sounds")) {
-        SoundRegistry.playSound('send');
-      }
+    // Play the sending sound
+    if (this.playSound && NylasEnv.config.get("core.sending.sounds")) {
+      SoundRegistry.playSound('send');
     }
     return Promise.resolve(Task.Status.Success);
   };
-
-  onSendError = (err, retrySend) => {
-    let shouldRetry = false;
-    // If the message you're "replying to" has been deleted
-    if (err.message && err.message.indexOf('Invalid message public id') === 0) {
-      this.draft.replyToMessageId = null;
-      shouldRetry = true
-    }
-
-    // If the thread has been deleted
-    if (err.message && err.message.indexOf('Invalid thread') === 0) {
-      this.draft.threadId = null;
-      this.draft.replyToMessageId = null;
-      shouldRetry = true
-    }
-
-    Actions.recordUserEvent("Draft Sending Errored", {
-      error: err.message,
-      shouldRetry: shouldRetry,
-    })
-
-    if (shouldRetry) {
-      return retrySend()
-    }
-
-    return Promise.reject(err);
-  }
 
   onError = (err) => {
     if (err instanceof BaseDraftTask.DraftNotFoundError) {
@@ -240,14 +208,23 @@ export default class SendDraftTask extends BaseDraftTask {
 
     let message = err.message;
 
+    // TODO Handle errors in a cleaner way
     if (err instanceof APIError) {
-      message = `Sorry, this message could not be sent. Please try again, and make sure your message is addressed correctly and is not too large.`;
-      if (err.statusCode === 402 && err.body.message) {
-        if (err.body.message.indexOf('at least one recipient') !== -1) {
-          message = 'This message could not be delivered to at least one recipient. ' +
-            '(Note: other recipients may have received this message - you should check Sent Mail before re-sending this message.)';
+      const errorMessage = err.body.message || ''
+      message = `Sorry, this message could not be sent, please try again.`;
+      message += `\n\nReason: ${err.message}`
+      if (errorMessage.includes('Network Error')) {
+        message = `Sorry, this message could not be sent. There was a network error, please make sure you are online.`
+      }
+      if (errorMessage.includes('Invalid login')) {
+        Actions.updateAccount(this.draft.accountId, {syncState: Account.SYNC_STATE_AUTH_FAILED})
+        message = `Sorry, this message could not be sent due to an authentication error. Please re-authenticate your account and try again.`
+      }
+      if (err.statusCode === 402) {
+        if (errorMessage.includes('at least one recipient')) {
+          message = `This message could not be delivered to at least one recipient. (Note: other recipients may have received this message - you should check Sent Mail before re-sending this message.)`;
         } else {
-          message = `Sorry, this message could not be sent because it was rejected by your mail provider. (${err.body.message})`;
+          message = `Sorry, this message could not be sent because it was rejected by your mail provider. (${errorMessage})`;
           if (err.body.server_error) {
             message += `\n\n${err.body.server_error}`;
           }
@@ -255,13 +232,27 @@ export default class SendDraftTask extends BaseDraftTask {
       }
     }
 
-    if (this.emitError && !(err instanceof RequestEnsureOnceError)) {
-      Actions.sendDraftFailed({
-        threadId: this.draft.threadId,
-        draftClientId: this.draft.clientId,
-        errorMessage: message,
-      });
+    if (this.emitError) {
+      if (err instanceof RequestEnsureOnceError) {
+        Actions.draftDeliveryFailed({
+          threadId: this.draft.threadId,
+          draftClientId: this.draft.clientId,
+          errorMessage: `WARNING: Your message MIGHT have sent. We encountered a network problem while the send was in progress. Please wait a few minutes then check your sent folder and try again if necessary.`,
+          errorDetail: `Please email support@nylas.com if you see this error message.`,
+        });
+      } else {
+        Actions.draftDeliveryFailed({
+          threadId: this.draft.threadId,
+          draftClientId: this.draft.clientId,
+          errorMessage: message,
+          errorDetail: err.message + (err.error ? err.error.stack : '') + err.stack,
+        });
+      }
     }
+    Actions.recordUserEvent("Draft Sending Errored", {
+      error: err.message,
+      errorClass: err.constructor.name,
+    })
     NylasEnv.reportError(err);
 
     return Promise.resolve([Task.Status.Failed, err]);

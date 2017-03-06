@@ -83,7 +83,7 @@ export default class AuthenticatePage extends React.Component {
     const webview = ReactDOM.findDOMNode(this.refs.webview);
     const n1Version = NylasEnv.getVersion();
     webview.partition = 'in-memory-only';
-    webview.src = `${IdentityStore.URLRoot}/onboarding?utm_medium=N1&utm_source=OnboardingPage&N1_version=${n1Version}`;
+    webview.src = `${IdentityStore.URLRoot}/onboarding?utm_medium=N1&utm_source=OnboardingPage&N1_version=${n1Version}&client_edition=basic`;
     webview.addEventListener('did-start-loading', this.webviewDidStartLoading);
     webview.addEventListener('did-get-response-details', this.webviewDidGetResponseDetails);
     webview.addEventListener('did-fail-load', this.webviewDidFailLoad);
@@ -104,6 +104,12 @@ export default class AuthenticatePage extends React.Component {
   }
 
   webviewDidGetResponseDetails = ({httpResponseCode, originalURL}) => {
+    if (!originalURL.includes(IdentityStore.URLRoot)) {
+      // This means that some other secondarily loaded resource (like
+      // analytics or Linkedin, etc) got a response. We don't care about
+      // that.
+      return
+    }
     if (httpResponseCode >= 400) {
       const error = `
         Could not reach Nylas to sign in. Please try again or contact

@@ -1,3 +1,5 @@
+/* eslint global-require: 0 */
+
 import fs from 'fs'
 import request from 'request'
 import crypto from 'crypto'
@@ -7,10 +9,9 @@ import Actions from './actions'
 import {APIError, RequestEnsureOnceError} from './errors'
 import PriorityUICoordinator from '../priority-ui-coordinator'
 import IdentityStore from './stores/identity-store'
-import NylasAPI from './nylas-api'
 
 export default class NylasAPIRequest {
-  constructor(api, options) {
+  constructor({api, options}) {
     const defaults = {
       url: `${options.APIRoot || api.APIRoot}${options.path}`,
       method: 'GET',
@@ -18,12 +19,11 @@ export default class NylasAPIRequest {
       timeout: 15000,
       ensureOnce: false,
       started: () => {},
-      error: () => {},
-      success: () => {},
     }
 
     this.api = api;
     this.options = Object.assign(defaults, options);
+    this.response = null
 
     const bodyIsRequired = (this.options.method !== 'GET' && !this.options.formData);
     if (bodyIsRequired) {
@@ -86,10 +86,17 @@ export default class NylasAPIRequest {
   }
 
   run() {
+    const NylasAPI = require("./nylas-api").default
+    const NylasAPIHelpers = require("./nylas-api-helpers")
+
+    if (NylasEnv.getLoadSettings().isSpec) {
+      return Promise.resolve([])
+    }
+
     if (this.options.ensureOnce === true) {
       try {
         if (this.requestHasSucceededBefore()) {
-          const error = new RequestEnsureOnceError('NylasAPIRequest: request with `ensureOnce = true` has already succeeded before')
+          const error = new RequestEnsureOnceError('NylasAPIRequest: request with `ensureOnce = true` has already succeeded before. This commonly happens when the worker window reboots before send has completed.')
           return Promise.reject(error)
         }
       } catch (error) {
@@ -105,6 +112,41 @@ export default class NylasAPIRequest {
     }
 
     const requestId = Utils.generateTempId();
+
+    const onSuccess = (body) => {
+      let responseBody = body;
+      if (this.options.beforeProcessing) {
+        responseBody = this.options.beforeProcessing(responseBody)
+      }
+      if (this.options.returnsModel) {
+        NylasAPIHelpers.handleModelResponse(responseBody).then(() => {
+          return Promise.resolve(responseBody)
+        })
+      }
+      return Promise.resolve(responseBody)
+    }
+
+    const onError = (err) => {
+      const {url, auth, returnsModel} = this.options
+
+      let handlePromise = Promise.resolve()
+      if (err.response) {
+        if (err.response.statusCode === 404 && returnsModel) {
+          handlePromise = NylasAPIHelpers.handleModel404(url)
+        }
+
+        // If we got a 401 or 403 from our local sync engine, mark the account
+        // as having auth issues.
+        if ([401, 403].includes(err.response.statusCode) && url.startsWith(NylasAPI.APIRoot)) {
+          const apiName = this.api.constructor.name
+          handlePromise = NylasAPIHelpers.handleAuthenticationFailure(url, auth.user, apiName)
+        }
+        if (err.response.statusCode === 400) {
+          NylasEnv.reportError(err)
+        }
+      }
+      return handlePromise.finally(() => Promise.reject(err))
+    }
 
     return new Promise((resolve, reject) => {
       this.options.startTime = Date.now();
@@ -133,27 +175,27 @@ export default class NylasAPIRequest {
             }
             const apiError = new APIError({error, response, body, requestOptions: this.options});
             NylasEnv.errorLogger.apiDebug(apiError);
-            this.options.error(apiError);
             reject(apiError);
           } else {
             if (this.options.ensureOnce === true) {
               this.writeRequestSuccessRecord()
             }
-            this.options.success(body, response);
+            this.response = response
             resolve(body);
           }
         });
       });
 
       req.on('abort', () => {
-        const cancelled = new APIError({
-          statusCode: NylasAPI.CancelledErrorCode,
+        const canceled = new APIError({
+          statusCode: NylasAPI.CanceledErrorCode,
           body: 'Request Aborted',
         });
-        reject(cancelled);
+        reject(canceled);
       });
 
       this.options.started(req);
-    });
+    })
+    .then(onSuccess, onError)
   }
 }

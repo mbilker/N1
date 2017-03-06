@@ -2,7 +2,7 @@ Reflux = require 'reflux'
 Actions = require('../src/flux/actions').default
 Message = require('../src/flux/models/message').default
 DatabaseStore = require('../src/flux/stores/database-store').default
-AccountStore = require '../src/flux/stores/account-store'
+AccountStore = require('../src/flux/stores/account-store').default
 ActionBridge = require('../src/flux/action-bridge').default
 _ = require 'underscore'
 
@@ -83,19 +83,19 @@ describe "ActionBridge", ->
     describe "when called with TargetWindows.ALL", ->
       it "should broadcast the action over IPC to all windows", ->
         spyOn(ipc, 'send')
-        Actions.didPassivelyReceiveNewModels.firing = false
-        @bridge.onRebroadcast(ActionBridge.TargetWindows.ALL, 'didPassivelyReceiveNewModels', [{oldModel: '1', newModel: 2}])
-        expect(ipc.send).toHaveBeenCalledWith('action-bridge-rebroadcast-to-all', 'popout', 'didPassivelyReceiveNewModels', '[{"oldModel":"1","newModel":2}]')
+        Actions.onNewMailDeltas.firing = false
+        @bridge.onRebroadcast(ActionBridge.TargetWindows.ALL, 'onNewMailDeltas', [{oldModel: '1', newModel: 2}])
+        expect(ipc.send).toHaveBeenCalledWith('action-bridge-rebroadcast-to-all', 'popout', 'onNewMailDeltas', '[{"oldModel":"1","newModel":2}]')
 
     describe "when called with TargetWindows.WORK", ->
       it "should broadcast the action over IPC to the main window only", ->
         spyOn(ipc, 'send')
-        Actions.didPassivelyReceiveNewModels.firing = false
-        @bridge.onRebroadcast(ActionBridge.TargetWindows.WORK, 'didPassivelyReceiveNewModels', [{oldModel: '1', newModel: 2}])
-        expect(ipc.send).toHaveBeenCalledWith('action-bridge-rebroadcast-to-work', 'popout', 'didPassivelyReceiveNewModels', '[{"oldModel":"1","newModel":2}]')
+        Actions.onNewMailDeltas.firing = false
+        @bridge.onRebroadcast(ActionBridge.TargetWindows.WORK, 'onNewMailDeltas', [{oldModel: '1', newModel: 2}])
+        expect(ipc.send).toHaveBeenCalledWith('action-bridge-rebroadcast-to-work', 'popout', 'onNewMailDeltas', '[{"oldModel":"1","newModel":2}]')
 
     it "should not do anything if the current invocation of the Action was triggered by itself", ->
       spyOn(ipc, 'send')
-      Actions.didPassivelyReceiveNewModels.firing = true
-      @bridge.onRebroadcast(ActionBridge.TargetWindows.ALL, 'didPassivelyReceiveNewModels', [{oldModel: '1', newModel: 2}])
+      Actions.onNewMailDeltas.firing = true
+      @bridge.onRebroadcast(ActionBridge.TargetWindows.ALL, 'onNewMailDeltas', [{oldModel: '1', newModel: 2}])
       expect(ipc.send).not.toHaveBeenCalled()

@@ -8,23 +8,25 @@ import path from 'path';
 import proc from 'child_process'
 import {EventEmitter} from 'events';
 
-import SystemTrayManager from './system-tray-manager';
 import WindowManager from './window-manager';
 import FileListCache from './file-list-cache';
+import DatabaseReader from './database-reader';
+import ConfigMigrator from './config-migrator';
 import ApplicationMenu from './application-menu';
 import AutoUpdateManager from './auto-update-manager';
+import SystemTrayManager from './system-tray-manager';
 import PerformanceMonitor from './performance-monitor'
+import DefaultClientHelper from '../default-client-helper';
 import NylasProtocolHandler from './nylas-protocol-handler';
 import PackageMigrationManager from './package-migration-manager';
 import ConfigPersistenceManager from './config-persistence-manager';
-import DefaultClientHelper from '../default-client-helper';
 
 let clipboard = null;
 
 // The application's singleton class.
 //
 export default class Application extends EventEmitter {
-  start(options) {
+  async start(options) {
     const {resourcePath, configDirPath, version, devMode, specMode, safeMode} = options;
 
     // Normalize to make sure drive letter case is consistent on Windows
@@ -38,13 +40,17 @@ export default class Application extends EventEmitter {
     this.fileListCache = new FileListCache();
     this.nylasProtocolHandler = new NylasProtocolHandler(this.resourcePath, this.safeMode);
 
-    this.temporaryMigrateConfig();
+    this.databaseReader = new DatabaseReader({configDirPath, specMode});
+    await this.databaseReader.open();
 
     const Config = require('../config');
     const config = new Config();
     this.config = config;
     this.configPersistenceManager = new ConfigPersistenceManager({configDirPath, resourcePath});
     config.load();
+
+    this.configMigrator = new ConfigMigrator(this.config, this.databaseReader);
+    this.configMigrator.migrate()
 
     this.packageMigrationManager = new PackageMigrationManager({config, configDirPath, version})
     this.packageMigrationManager.migrate()
@@ -54,7 +60,7 @@ export default class Application extends EventEmitter {
       initializeInBackground = false;
     }
 
-    this.autoUpdateManager = new AutoUpdateManager(version, config, specMode);
+    this.autoUpdateManager = new AutoUpdateManager(version, config, specMode, this.databaseReader);
     this.applicationMenu = new ApplicationMenu(version);
     this.windowManager = new WindowManager({
       resourcePath: this.resourcePath,
@@ -102,25 +108,14 @@ export default class Application extends EventEmitter {
     return this.quitting;
   }
 
-  temporaryMigrateConfig() {
-    const oldConfigFilePath = fs.resolve(this.configDirPath, 'config.cson');
-    const newConfigFilePath = path.join(this.configDirPath, 'config.json');
-    if (oldConfigFilePath) {
-      const CSON = require('season');
-      const userConfig = CSON.readFileSync(oldConfigFilePath);
-      fs.writeFileSync(newConfigFilePath, JSON.stringify(userConfig, null, 2));
-      fs.unlinkSync(oldConfigFilePath);
-    }
-  }
-
   // Opens a new window based on the options provided.
   handleLaunchOptions(options) {
     const {specMode, pathsToOpen, urlsToOpen} = options;
 
     if (specMode) {
-      const {resourcePath, specDirectory, specFilePattern, logFile, showSpecsInWindow} = options;
+      const {resourcePath, specDirectory, specFilePattern, logFile, showSpecsInWindow, jUnitXmlPath} = options;
       const exitWhenDone = true;
-      this.runSpecs({exitWhenDone, showSpecsInWindow, resourcePath, specDirectory, specFilePattern, logFile});
+      this.runSpecs({exitWhenDone, showSpecsInWindow, resourcePath, specDirectory, specFilePattern, logFile, jUnitXmlPath});
       return;
     }
 
@@ -135,7 +130,6 @@ export default class Application extends EventEmitter {
       }
     }
   }
-
 
   // On Windows, removing a file can fail if a process still has it open. When
   // we close windows and log out, we need to wait for these processes to completely
@@ -173,20 +167,27 @@ export default class Application extends EventEmitter {
   openWindowsForTokenState() {
     const accounts = this.config.get('nylas.accounts');
     const hasAccount = accounts && accounts.length > 0;
-    const hasN1ID = this.config.get('nylas.identity.id');
+    const hasN1ID = this._getNylasId();
 
     if (hasAccount && hasN1ID) {
       this.windowManager.ensureWindow(WindowManager.MAIN_WINDOW);
       this.windowManager.ensureWindow(WindowManager.WORK_WINDOW);
     } else {
       this.windowManager.ensureWindow(WindowManager.ONBOARDING_WINDOW, {
-        title: "Welcome to N1",
+        title: "Welcome to Nylas Mail",
       });
       this.windowManager.ensureWindow(WindowManager.WORK_WINDOW);
     }
   }
 
+  _getNylasId() {
+    const identity = this.databaseReader.getJSONBlob("NylasID") || {}
+    return identity.id
+  }
+
   _relaunchToInitialWindows = ({resetConfig, resetDatabase} = {}) => {
+    // This will re-fetch the NylasID to update the feed url
+    this.autoUpdateManager.updateFeedURL()
     this.setDatabasePhase('close');
     this.windowManager.destroyAllWindows();
 
@@ -283,6 +284,10 @@ export default class Application extends EventEmitter {
 
     this.on('application:relaunch-to-initial-windows', this._relaunchToInitialWindows);
 
+    this.on('application:onIdentityChanged', () => {
+      this.autoUpdateManager.updateFeedURL()
+    });
+
     this.on('application:quit', () => {
       app.quit()
     });
@@ -295,15 +300,18 @@ export default class Application extends EventEmitter {
       win.browserWindow.inspectElement(x, y);
     });
 
-    this.on('application:add-account', ({existingAccount} = {}) => {
+    this.on('application:add-account', ({existingAccount, accountType} = {}) => {
       const onboarding = this.windowManager.get(WindowManager.ONBOARDING_WINDOW);
       if (onboarding) {
+        if (onboarding.browserWindow.webContents) {
+          onboarding.browserWindow.webContents.send('set-account-type', accountType)
+        }
         onboarding.show();
         onboarding.focus();
       } else {
         this.windowManager.ensureWindow(WindowManager.ONBOARDING_WINDOW, {
           title: "Add an Account",
-          windowProps: { addingAccount: true, existingAccount },
+          windowProps: { addingAccount: true, existingAccount, accountType },
         });
       }
     });
@@ -557,10 +565,16 @@ export default class Application extends EventEmitter {
     });
 
     ipcMain.on("report-error", (event, params = {}) => {
-      const errorParams = JSON.parse(params.errorJSON || "");
-      let err = new Error();
-      err = Object.assign(err, errorParams);
-      global.errorLogger.reportError(err, params.extra)
+      try {
+        const errorParams = JSON.parse(params.errorJSON || "{}");
+        const extra = JSON.parse(params.extra || "{}");
+        let err = new Error();
+        err = Object.assign(err, errorParams);
+        global.errorLogger.reportError(err, extra)
+      } catch (parseError) {
+        console.error(parseError)
+        global.errorLogger.reportError(parseError, {})
+      }
       event.returnValue = true
     })
 
@@ -705,9 +719,9 @@ export default class Application extends EventEmitter {
     if (parts.protocol === 'mailto:') {
       main.sendMessage('mailto', urlToOpen);
     } else if (parts.protocol === 'nylas:') {
-      if (parts.host === 'calendar') {
-        this.openCalendarURL(parts.path);
-      } else if (parts.host === 'plugins') {
+      // if (parts.host === 'calendar') {
+      //   this.openCalendarURL(parts.path);
+      if (parts.host === 'plugins') {
         main.sendMessage('changePluginStateFromUrl', urlToOpen);
       } else {
         main.sendMessage('openExternalThread', urlToOpen);
@@ -717,19 +731,19 @@ export default class Application extends EventEmitter {
     }
   }
 
-  openCalendarURL(command) {
-    if (command === '/open') {
-      this.windowManager.ensureWindow(WindowManager.CALENDAR_WINDOW, {
-        windowKey: WindowManager.CALENDAR_WINDOW,
-        windowType: WindowManager.CALENDAR_WINDOW,
-        title: "Calendar",
-        hidden: false,
-      });
-    } else if (command === '/close') {
-      const win = this.windowManager.get(WindowManager.CALENDAR_WINDOW);
-      if (win) { win.hide(); }
-    }
-  }
+  // openCalendarURL(command) {
+  //   if (command === '/open') {
+  //     this.windowManager.ensureWindow(WindowManager.CALENDAR_WINDOW, {
+  //       windowKey: WindowManager.CALENDAR_WINDOW,
+  //       windowType: WindowManager.CALENDAR_WINDOW,
+  //       title: "Calendar",
+  //       hidden: false,
+  //     });
+  //   } else if (command === '/close') {
+  //     const win = this.windowManager.get(WindowManager.CALENDAR_WINDOW);
+  //     if (win) { win.hide(); }
+  //   }
+  // }
 
   openComposerWithFiles(pathsToOpen) {
     const main = this.windowManager.get(WindowManager.MAIN_WINDOW);
@@ -746,8 +760,9 @@ export default class Application extends EventEmitter {
   //                        window
   //   :resourcePath - The path to include specs from.
   //   :specPath - The directory to load specs from.
-  //   :safeMode - A Boolean that, if true, won't run specs from ~/.nylas/packages
-  //               and ~/.nylas/dev/packages, defaults to false.
+  //   :safeMode - A Boolean that, if true, won't run specs from ~/.nylas-mail/packages
+  //               and ~/.nylas-mail/dev/packages, defaults to false.
+  //   :jUnitXmlPath - The path to output jUnit XML reports to, if desired.
   runSpecs(specWindowOptionsArg) {
     const specWindowOptions = specWindowOptionsArg;
     let {resourcePath} = specWindowOptions;
@@ -762,7 +777,7 @@ export default class Application extends EventEmitter {
       bootstrapScript = require.resolve(path.resolve(__dirname, '..', '..', 'spec', 'n1-spec-runner', 'spec-bootstrap'));
     }
 
-    // Important: Use .nylas-spec instead of .nylas to avoid overwriting the
+    // Important: Use .nylas-spec instead of .nylas-mail to avoid overwriting the
     // user's real email config!
     const configDirPath = path.join(app.getPath('home'), '.nylas-spec');
 

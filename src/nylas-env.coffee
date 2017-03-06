@@ -188,8 +188,12 @@ class NylasEnvConstructor
 
     @perf = remote.getGlobal('application').perf
 
+    @localSyncEmitter = new Emitter
+
     unless @inSpecMode()
       @actionBridge = new ActionBridge(ipcRenderer)
+
+    @extendRxObservables()
 
     # Nylas exports is designed to provide a lazy-loaded set of globally
     # accessible objects to all packages. Upon require, nylas-exports will
@@ -199,6 +203,9 @@ class NylasEnvConstructor
     # We initialize all of the stores loaded into the StoreRegistry once
     # the window starts loading.
     require('nylas-exports')
+
+    process.title = "Nylas Mail #{@getWindowType()}"
+    @onWindowPropsReceived(-> process.title = "Nylas Mail #{@getWindowType}")
 
   # This ties window.onerror and Promise.onPossiblyUnhandledRejection to
   # the publically callable `reportError` method. This will take care of
@@ -225,15 +232,23 @@ class NylasEnvConstructor
       originalError.stack = convertStackTrace(originalError.stack, sourceMapCache)
       @reportError(originalError, {url, line, column})
 
-    Promise.onPossiblyUnhandledRejection (error, promise) =>
-      error.stack = convertStackTrace(error.stack, sourceMapCache)
+    process.on('uncaughtException', (e) => @reportError(e))
 
-      # API Errors are logged to Sentry only under certain circumstances,
-      # and are logged directly from the NylasAPI class.
-      if error instanceof APIError
-        return if error.statusCode isnt 400
-
-      @reportError(error, {promise})
+    # We use the native Node 'unhandledRejection' instead of Bluebird's
+    # `Promise.onPossiblyUnhandledRejection`. Testing indicates that
+    # the Node process method is a strict superset of Bluebird's handler.
+    # With the introduction of transpiled async/await, it is now possible
+    # to get a native, non-Bluebird Promise. In that case, Bluebird's
+    # `onPossiblyUnhandledRejection` gets bypassed and we miss some
+    # errors. The Node process handler catches all Bluebird promises plus
+    # those created with a native Promise.
+    process.on('unhandledRejection', (error) =>
+      if @inDevMode()
+        error.stack = convertStackTrace(error.stack, sourceMapCache)
+        @reportError(error)
+      else
+        @reportError(error)
+    )
 
     if @inSpecMode() or @inDevMode()
       Promise.longStackTraces()
@@ -257,7 +272,7 @@ class NylasEnvConstructor
   # The difference between this and `ErrorLogger.reportError` is that
   # `NylasEnv.reportError` will hook into the event callbacks and handle
   # test failures and dev tool popups.
-  reportError: (error, extra={}, {noWindows}={}) ->
+  reportError: (error, extra={}, {noWindows}={}) =>
     event = @_createErrorCallbackEvent(error, extra)
     @emitter.emit('will-throw-error', event)
     return if event.defaultPrevented
@@ -346,6 +361,9 @@ class NylasEnvConstructor
 
   isMainWindow: ->
     !!@getLoadSettings().mainWindow
+
+  isEmptyWindow: ->
+    @getWindowType() is 'emptyWindow'
 
   isWorkWindow: ->
     @getWindowType() is 'work'
@@ -525,6 +543,7 @@ class NylasEnvConstructor
 
   # Extended: Reload the current window.
   reload: ->
+    @isReloading = true
     ipcRenderer.send('call-webcontents-method', 'reload')
 
   # Public: The windowProps passed when creating the window via `newWindow`.
@@ -645,18 +664,17 @@ class NylasEnvConstructor
     @savedState.columnWidths ?= {}
     @savedState.columnWidths[id]
 
-  startWindow: ->
+  startWindow: =>
     @loadConfig()
-    {packageLoadingDeferred, windowType} = @getLoadSettings()
-    @extendRxObservables()
-    StoreRegistry.activateAllStores()
-    @keymaps.loadKeymaps()
-    @themes.loadBaseStylesheets()
-    @packages.loadPackages(windowType) unless packageLoadingDeferred
-    @deserializePackageStates() unless packageLoadingDeferred
-    @initializeReactRoot()
-    @packages.activate() unless packageLoadingDeferred
-    @menu.update()
+    {packageLoadingDeferred, windowType, title} = @getLoadSettings()
+    return StoreRegistry.activateAllStores().then =>
+      @keymaps.loadKeymaps()
+      @themes.loadBaseStylesheets()
+      @packages.loadPackages(windowType) unless packageLoadingDeferred
+      @deserializePackageStates() unless packageLoadingDeferred
+      @initializeReactRoot()
+      @packages.activate() unless packageLoadingDeferred
+      @menu.update()
 
   # Call this method when establishing a real application window.
   startRootWindow: ->
@@ -670,22 +688,23 @@ class NylasEnvConstructor
           window.requestAnimationFrame =>
             window.requestAnimationFrame =>
               @displayWindow() unless initializeInBackground
-              @startWindow()
-              @requireUserInitScript() unless safeMode
-              @showMainWindow()
-              ipcRenderer.send('window-command', 'window:loaded')
+              @startWindow().then =>
+                # These don't need to wait for the window's stores and
+                # such to fully activate:
+                @requireUserInitScript() unless safeMode
+                @showMainWindow()
+                ipcRenderer.send('window-command', 'window:loaded')
 
   # Initializes a secondary window.
   # NOTE: If the `packageLoadingDeferred` option is set (which is true for
   # hot windows), the packages won't be loaded until `populateHotWindow`
   # gets fired.
   startSecondaryWindow: ->
-    @extendRxObservables()
     document.getElementById("application-loading-cover")?.remove()
-    @startWindow()
-    @initializeBasicSheet()
-    ipcRenderer.on("load-settings-changed", @populateHotWindow)
-    ipcRenderer.send('window-command', 'window:loaded')
+    @startWindow().then =>
+      @initializeBasicSheet()
+      ipcRenderer.on("load-settings-changed", @populateHotWindow)
+      ipcRenderer.send('window-command', 'window:loaded')
 
   # We setup the initial Sheet for hot windows. This is the default title
   # bar, stoplights, etc. This saves ~100ms when populating the hot
@@ -863,7 +882,7 @@ class NylasEnvConstructor
     options.title ?= 'Save File'
     callback(remote.dialog.showSaveDialog(@getCurrentWindow(), options))
 
-  showErrorDialog: (messageData, {showInMainWindow}={}) ->
+  showErrorDialog: (messageData, {showInMainWindow, detail}={}) ->
     if _.isString(messageData) or _.isNumber(messageData)
       message = messageData
       title = "Error"
@@ -877,12 +896,28 @@ class NylasEnvConstructor
     if showInMainWindow
       winToShow = remote.getGlobal('application').getMainWindow()
 
-    remote.dialog.showMessageBox winToShow, {
-      type: 'warning'
-      buttons: ['Okay'],
-      message: title
-      detail: message
-    }
+    if !detail
+      remote.dialog.showMessageBox winToShow, {
+        type: 'warning'
+        buttons: ['Okay'],
+        message: title
+        detail: message
+      }
+    else
+      remote.dialog.showMessageBox winToShow, {
+        type: 'warning'
+        buttons: ['Okay', 'Show Details'],
+        message: title
+        detail: message
+      }, (buttonIndex) ->
+        if buttonIndex == 1
+          {Actions} = require 'nylas-exports'
+          {CodeSnippet} = require 'nylas-component-kit'
+          Actions.openModal({
+            component: CodeSnippet({intro: message, code: detail, className: 'error-details'})
+            height: 600,
+            width: 800,
+          })
 
   # Delegate to the browser's process fileListCache
   fileListCache: ->

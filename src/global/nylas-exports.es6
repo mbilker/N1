@@ -67,8 +67,11 @@ lazyLoad(`Actions`, 'flux/actions');
 
 // API Endpoints
 lazyLoad(`NylasAPI`, 'flux/nylas-api');
-lazyLoad(`NylasAPIRequest`, 'flux/nylas-api-request');
+lazyLoad(`N1CloudAPI`, 'n1-cloud-api');
 lazyLoad(`EdgehillAPI`, 'flux/edgehill-api');
+lazyLoad(`LegacyEdgehillAPI`, 'flux/legacy-edgehill-api');
+lazyLoad(`NylasAPIHelpers`, 'flux/nylas-api-helpers');
+lazyLoad(`NylasAPIRequest`, 'flux/nylas-api-request');
 lazyLoad(`NylasLongConnection`, 'flux/nylas-long-connection');
 lazyLoad(`NylasSyncStatusStore`, 'flux/stores/nylas-sync-status-store');
 
@@ -78,7 +81,6 @@ lazyLoad(`DatabaseStore`, 'flux/stores/database-store');
 lazyLoad(`QueryResultSet`, 'flux/models/query-result-set');
 lazyLoad(`QuerySubscription`, 'flux/models/query-subscription');
 lazyLoad(`CalendarDataSource`, 'components/nylas-calendar/calendar-data-source');
-lazyLoad(`CalendarDraggingDataSource`, 'components/nylas-calendar/calendar-dragging-data-source');
 lazyLoad(`DatabaseTransaction`, 'flux/stores/database-transaction');
 lazyLoad(`MutableQueryResultSet`, 'flux/models/mutable-query-result-set');
 lazyLoad(`QuerySubscriptionPool`, 'flux/models/query-subscription-pool');
@@ -100,6 +102,10 @@ lazyLoadAndRegisterModel(`Contact`, 'contact');
 lazyLoadAndRegisterModel(`Category`, 'category');
 lazyLoadAndRegisterModel(`Calendar`, 'calendar');
 lazyLoadAndRegisterModel(`JSONBlob`, 'json-blob');
+lazyLoadAndRegisterModel(`ProviderSyncbackRequest`, 'provider-syncback-request');
+
+// Thread Search Query AST
+lazyLoad(`ThreadQueryAST`, 'flux/models/thread-query-ast');
 
 // Tasks
 exports.TaskRegistry = TaskRegistry;
@@ -122,11 +128,9 @@ lazyLoadAndRegisterTask(`DestroyCategoryTask`, 'destroy-category-task');
 lazyLoadAndRegisterTask(`SyncbackCategoryTask`, 'syncback-category-task');
 lazyLoadAndRegisterTask(`SyncbackMetadataTask`, 'syncback-metadata-task');
 lazyLoadAndRegisterTask(`PerformSendActionTask`, 'perform-send-action-task');
-lazyLoadAndRegisterTask(`SyncbackDraftFilesTask`, 'syncback-draft-files-task');
 lazyLoadAndRegisterTask(`ReprocessMailRulesTask`, 'reprocess-mail-rules-task');
-lazyLoadAndRegisterTask(`NotifyPluginsOfSendTask`, 'notify-plugins-of-send-task');
-lazyLoadAndRegisterTask(`MultiSendToIndividualTask`, 'multi-send-to-individual-task');
-lazyLoadAndRegisterTask(`MultiSendSessionCloseTask`, 'multi-send-session-close-task');
+lazyLoadAndRegisterTask(`SendFeatureUsageEventTask`, 'send-feature-usage-event-task');
+lazyLoadAndRegisterTask(`EnsureMessageInSentFolderTask`, 'ensure-message-in-sent-folder-task');
 
 // Stores
 // These need to be required immediately since some Stores are
@@ -150,8 +154,10 @@ lazyLoadAndRegisterStore(`WorkspaceStore`, 'workspace-store');
 lazyLoadAndRegisterStore(`MailRulesStore`, 'mail-rules-store');
 lazyLoadAndRegisterStore(`FileUploadStore`, 'file-upload-store');
 lazyLoadAndRegisterStore(`SendActionsStore`, 'send-actions-store');
+lazyLoadAndRegisterStore(`FeatureUsageStore`, 'feature-usage-store');
 lazyLoadAndRegisterStore(`ThreadCountsStore`, 'thread-counts-store');
 lazyLoadAndRegisterStore(`FileDownloadStore`, 'file-download-store');
+lazyLoadAndRegisterStore(`OnlineStatusStore`, 'online-status-store');
 lazyLoadAndRegisterStore(`UpdateChannelStore`, 'update-channel-store');
 lazyLoadAndRegisterStore(`PreferencesUIStore`, 'preferences-ui-store');
 lazyLoadAndRegisterStore(`FocusedContentStore`, 'focused-content-store');
@@ -179,7 +185,6 @@ lazyLoadWithGetter(`React`, () => require('react'));
 lazyLoadWithGetter(`Reflux`, () => require('reflux'));
 lazyLoadWithGetter(`ReactDOM`, () => require('react-dom'));
 lazyLoadWithGetter(`ReactTestUtils`, () => require('react-addons-test-utils'));
-lazyLoadWithGetter(`Keytar`, () => require('keytar')); // atom-keytar access through native module
 
 // React Components
 lazyLoad(`ComponentRegistry`, 'registries/component-registry');
@@ -201,21 +206,25 @@ lazyLoad(`MessageUtils`, 'flux/models/message-utils');
 lazyLoad(`EditorAPI`, 'components/contenteditable/editor-api');
 
 // Services
+lazyLoad(`KeyManager`, 'key-manager');
 lazyLoad(`SoundRegistry`, 'registries/sound-registry');
 lazyLoad(`MailRulesTemplates`, 'mail-rules-templates');
 lazyLoad(`MailRulesProcessor`, 'mail-rules-processor');
 lazyLoad(`MailboxPerspective`, 'mailbox-perspective');
 lazyLoad(`NativeNotifications`, 'native-notifications');
 lazyLoad(`ModelSearchIndexer`, 'services/model-search-indexer');
+lazyLoad(`SearchIndexScheduler`, 'services/search-index-scheduler');
 lazyLoad(`SanitizeTransformer`, 'services/sanitize-transformer');
 lazyLoad(`QuotedHTMLTransformer`, 'services/quoted-html-transformer');
 lazyLoad(`InlineStyleTransformer`, 'services/inline-style-transformer');
 lazyLoad(`SearchableComponentMaker`, 'searchable-components/searchable-component-maker');
 lazyLoad(`QuotedPlainTextTransformer`, 'services/quoted-plain-text-transformer');
+lazyLoad(`BatteryStatusManager`, 'services/battery-status-manager');
+lazyLoadWithGetter(`BackoffScheduler`, () => require('../services/backoff-schedulers').BackoffScheduler);
+lazyLoadWithGetter(`ExponentialBackoffScheduler`, () => require('../services/backoff-schedulers').ExponentialBackoffScheduler);
 
 // Errors
 lazyLoadWithGetter(`APIError`, () => require('../flux/errors').APIError);
-lazyLoadWithGetter(`TimeoutError`, () => require('../flux/errors').TimeoutError);
 
 // Process Internals
 lazyLoad(`DefaultClientHelper`, 'default-client-helper');

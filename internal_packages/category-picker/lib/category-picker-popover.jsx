@@ -73,7 +73,7 @@ export default class CategoryPickerPopover extends Component {
 
     if (account) {
       if (account.usesLabels()) {
-        hiddenCategories = Category.StandardCategoryNames.concat(["N1-Snoozed"])
+        hiddenCategories = Category.StandardCategoryNames.concat(["starred", "N1-Snoozed"])
         if (allInInbox) {
           hiddenCategories.push("inbox");
         }
@@ -186,8 +186,14 @@ export default class CategoryPickerPopover extends Component {
       TaskQueueStatusStore.waitForPerformRemote(syncbackTask).then(() => {
         DatabaseStore.findBy(category.constructor, {clientId: category.clientId})
         .then((cat) => {
+          if (!cat) {
+            const categoryType = account.usesLabels() ? "label" : "folder";
+            NylasEnv.showErrorDialog({title: "Error", message: `Could not create ${categoryType}.`})
+            return;
+          }
           const applyTask = TaskFactory.taskForApplyingCategory({
-            threads,
+            source: "Category Picker: New Category",
+            threads: threads,
             category: cat,
           });
           Actions.queueTask(applyTask);
@@ -196,13 +202,15 @@ export default class CategoryPickerPopover extends Component {
       Actions.queueTask(syncbackTask);
     } else if (item.usage === threads.length) {
       const applyTask = TaskFactory.taskForRemovingCategory({
-        threads,
+        source: "Category Picker: Existing Category",
+        threads: threads,
         category: item.category,
       });
       Actions.queueTask(applyTask);
     } else {
       const applyTask = TaskFactory.taskForApplyingCategory({
-        threads,
+        source: "Category Picker: Existing Category",
+        threads: threads,
         category: item.category,
       });
       Actions.queueTask(applyTask);

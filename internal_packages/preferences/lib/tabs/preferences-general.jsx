@@ -1,13 +1,10 @@
 /* eslint global-require: 0*/
 import React from 'react';
-import fs from 'fs';
 
+import {Actions} from 'nylas-exports'
 import ConfigSchemaItem from './config-schema-item';
 import WorkspaceSection from './workspace-section';
 import SendingSection from './sending-section';
-import UpdateChannelSection from './update-channel-section';
-
-
 class PreferencesGeneral extends React.Component {
   static displayName = 'PreferencesGeneral'
 
@@ -32,13 +29,8 @@ class PreferencesGeneral extends React.Component {
   }
 
   _resetEmailCache = () => {
-    const dataPath = `${NylasEnv.getConfigDirPath()}/edgehill.db`
-    fs.unlink(dataPath, (err) => {
-      if (err) console.log(err)
-      else this._reboot()
-    })
+    Actions.resetEmailCache()
   }
-
 
   render() {
     return (
@@ -83,8 +75,6 @@ class PreferencesGeneral extends React.Component {
           keyPath="core.attachments"
           config={this.props.config}
         />
-
-        <UpdateChannelSection />
 
         <div className="local-data">
           <h6>Local Data</h6>

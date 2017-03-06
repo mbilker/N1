@@ -6,6 +6,7 @@ RetinaImg = require('./retina-img').default
 EventedIFrame = require './evented-iframe'
 {NylasSyncStatusStore,
  FocusedPerspectiveStore} = require 'nylas-exports'
+{SyncingListState} = require 'nylas-component-kit'
 
 
 INBOX_ZERO_ANIMATIONS = [
@@ -21,10 +22,10 @@ class EmptyPerspectiveState extends React.Component
 
   @propTypes:
     perspective: React.PropTypes.object,
-    messageOverride: React.PropTypes.string,
+    messageContent: React.PropTypes.node,
 
   render: ->
-    {messageOverride, perspective} = @props
+    {messageContent, perspective} = @props
     name = perspective.categoriesSharedName()
     name = 'archive' if perspective.isArchive()
     name = perspective.name if not name
@@ -37,7 +38,7 @@ class EmptyPerspectiveState extends React.Component
           mode={RetinaImg.Mode.ContentIsMask}
         />
       }
-      <div className="message">{messageOverride}</div>
+      <div className="message">{messageContent}</div>
     </div>
 
 class EmptyInboxState extends React.Component
@@ -82,15 +83,16 @@ class EmptyListState extends React.Component
 
   constructor: (@props) ->
     @_mounted = false
-    @state =
-      syncing: NylasSyncStatusStore.busy()
+    @state = Object.assign
       active: false
       rect: {}
+      @_getStateFromStores()
 
   componentDidMount: ->
     @_mounted = true
     @_unlisteners = []
-    @_unlisteners.push NylasSyncStatusStore.listen(@_onChange, @)
+    @_unlisteners.push NylasSyncStatusStore.listen((=> @setState @_getStateFromStores()), @)
+    @_unlisteners.push FocusedPerspectiveStore.listen((=> @setState @_getStateFromStores()), @)
     window.addEventListener('resize', @_onResize)
     if @props.visible and not @state.active
       rect = @_getDimensions()
@@ -119,9 +121,9 @@ class EmptyListState extends React.Component
     ContentComponent = EmptyPerspectiveState
     current = FocusedPerspectiveStore.current()
 
-    messageOverride = current.emptyMessage()
+    messageContent = current.emptyMessage()
     if @state.syncing
-      messageOverride = "Please wait while we prepare your mailbox."
+      messageContent = <SyncingListState empty />
     else if current.isInbox()
       ContentComponent = EmptyInboxState
 
@@ -133,7 +135,7 @@ class EmptyListState extends React.Component
       <ContentComponent
         perspective={current}
         containerRect={@state.rect}
-        messageOverride={messageOverride}
+        messageContent={messageContent}
       />
     </div>
 
@@ -148,8 +150,7 @@ class EmptyListState extends React.Component
     if rect
       @setState({rect})
 
-  _onChange: ->
-    @setState
-      syncing: NylasSyncStatusStore.busy()
+  _getStateFromStores: ->
+    return syncing: FocusedPerspectiveStore.current().hasSyncingCategories()
 
 module.exports = EmptyListState

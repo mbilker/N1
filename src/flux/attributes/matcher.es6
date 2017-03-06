@@ -1,4 +1,5 @@
 import {tableNameForJoin} from '../models/utils';
+import {StructuredSearchQueryVisitor} from './matcher-helpers'
 
 // https://www.sqlite.org/faq.html#q14
 // That's right. Two single quotes in a row…
@@ -149,6 +150,18 @@ class Matcher {
     }
 
     switch (this.comparator) {
+      case '=': {
+        if (escaped === null) {
+          return `\`${klass.name}\`.\`${this.attr.jsonKey}\` IS NULL`;
+        }
+        return `\`${klass.name}\`.\`${this.attr.jsonKey}\` = ${escaped}`;
+      }
+      case '!=': {
+        if (escaped === null) {
+          return `\`${klass.name}\`.\`${this.attr.jsonKey}\` IS NOT NULL`;
+        }
+        return `\`${klass.name}\`.\`${this.attr.jsonKey}\` != ${escaped}`;
+      }
       case 'startsWith':
         return " RAISE `TODO`; ";
       case 'contains':
@@ -239,6 +252,34 @@ class NotCompositeMatcher extends AndCompositeMatcher {
   }
 }
 
+class StructuredSearchMatcher extends Matcher {
+  constructor(searchQuery) {
+    super(null, null, null);
+    this._searchQuery = searchQuery;
+  }
+
+  attribute() {
+    return null;
+  }
+
+  value() {
+    return null
+  }
+
+  // The only way to truly check if a model matches this matcher is to run the query
+  // again and check if the model is in the results. This is too expensive, so we
+  // will always return true so models aren't excluded from the
+  // SearchQuerySubscription result set
+  evaluate() {
+    return true;
+  }
+
+  whereSQL(klass) {
+    const visitor = new StructuredSearchQueryVisitor(`${klass.name}`);
+    return visitor.visit(this._searchQuery);
+  }
+}
+
 class SearchMatcher extends Matcher {
   constructor(searchQuery) {
     if ((typeof searchQuery !== 'string') || (searchQuery.length === 0)) {
@@ -270,15 +311,9 @@ class SearchMatcher extends Matcher {
     return true;
   }
 
-  joinSQL(klass) {
-    const searchTable = `${klass.name}Search`
-    const joinTableRef = this.joinTableRef()
-    return `INNER JOIN \`${searchTable}\` AS \`${joinTableRef}\` ON \`${joinTableRef}\`.\`content_id\` = \`${klass.name}\`.\`id\``;
-  }
-
   whereSQL(klass) {
     const searchTable = `${klass.name}Search`
-    return `\`${searchTable}\` MATCH '"${this.searchQuery}"*'`;
+    return `\`${klass.name}\`.\`id\` IN (SELECT \`content_id\` FROM \`${searchTable}\` WHERE \`${searchTable}\` MATCH '"${this.searchQuery}"*' LIMIT 1000)`;
   }
 }
 
@@ -286,5 +321,6 @@ Matcher.Or = OrCompositeMatcher
 Matcher.And = AndCompositeMatcher
 Matcher.Not = NotCompositeMatcher
 Matcher.Search = SearchMatcher
+Matcher.StructuredSearch = StructuredSearchMatcher
 
 export default Matcher;

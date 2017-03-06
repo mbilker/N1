@@ -38,36 +38,80 @@ function installPrivateResources() {
   console.log("\n-- Linking Nylas submodule resources --")
 
   const fs = require('fs-plus');
-  const proDir = path.resolve(path.join('src', 'pro'))
-  const canaryFileExists = fs.existsSync(path.join(proDir, "README.md"))
+  const privateDir = path.resolve(path.join('src', 'K2', 'packages', 'local-private'))
+  const canaryFileExists = fs.existsSync(path.join(privateDir, "README.md"))
   if (!canaryFileExists) {
-    console.log(`Could not find pro submodule at ${proDir}. Skipping...`)
+    console.log(`Could not find submodule at ${privateDir}. Skipping...`)
     return;
   }
 
   const unlinkIfExistsSync = (p) => {
-    try { if (fs.lstatSync(p)) { fs.removeSync(p); } } catch (err) { return }
+    try {
+      if (fs.lstatSync(p)) {
+        fs.removeSync(p);
+      }
+    } catch (err) {
+      return
+    }
   }
 
   // copy Arc Files
-  fs.copySync(path.join(proDir, 'arc-N1'), '.')
+  unlinkIfExistsSync('.arcconfig');
+  fs.symlinkSync(path.join('src', 'K2', '.arcconfig'), '.arcconfig', 'file');
+  unlinkIfExistsSync('.arclint');
+  fs.symlinkSync(path.join('src', 'K2', '.arclint'), '.arclint', 'file');
+  unlinkIfExistsSync('arclib');
+  fs.symlinkSync(path.join('src', 'K2', 'arclib'), 'arclib', 'dir');
 
   // copy Source Extensions
   unlinkIfExistsSync(path.join('src', 'error-logger-extensions'));
-  fs.copySync(path.join(proDir, 'src'), 'src');
+  fs.copySync(path.join(privateDir, 'src'), 'src');
 
   // link Plugins
-  for (const plugin of fs.readdirSync(path.join(proDir, 'packages'))) {
-    const from = path.join(proDir, 'packages', plugin);
+  for (const plugin of fs.readdirSync(path.join(privateDir, 'packages'))) {
+    const from = path.join(privateDir, 'packages', plugin);
     const to = path.join(path.resolve('internal_packages'), plugin);
     unlinkIfExistsSync(to);
     fs.symlinkSync(from, to, 'dir');
   }
+
+  // link local-sync
+  const localSyncDir = path.resolve(path.join('src', 'K2', 'packages', 'local-sync'))
+  const destination = path.join(path.resolve('internal_packages'), 'local-sync');
+  unlinkIfExistsSync(destination);
+  fs.symlinkSync(localSyncDir, destination, 'dir');
 }
 
-npm('install', {cwd: 'build'})
+function verifySubmodule() {
+  return new Promise((resolve) => {
+    try {
+      const exec = require('child_process').exec;
+      const cmd = 'git submodule update --init --recursive';
+      exec(cmd, (error, stdout) => {
+        console.log(stdout);
+        if (error) console.error(error);
+        resolve()
+      })
+    } catch (err) {
+      console.error(err)
+      resolve()
+    }
+  })
+}
+
+verifySubmodule()
+.then(() => npm('install', {cwd: 'build'}))
 .then(() => npm('install', {cwd: 'apm', env: 'apm'}))
 .then(() => npm('dedupe', {cwd: path.join('apm', 'node_modules', 'npm'), env: 'apm'}))
 .then(() => npm('install', {cwd: '.', env: 'electron'}))
 .then(() => npm('dedupe', {cwd: '.', env: 'electron'}))
+.then(() => npm('install', {cwd: path.join('src', 'K2'), env: 'electron'}))
+.then(() => npm('dedupe', {cwd: path.join('src', 'K2'), env: 'electron'}))
+.then(() => npm('rebuild', {cwd: path.join('src', 'K2', 'packages', 'cloud-core'), env: 'system'}))
+.then(() => npm('rebuild', {cwd: path.join('src', 'K2', 'packages', 'cloud-api'), env: 'system'}))
+.then(() => npm('rebuild', {cwd: path.join('src', 'K2', 'packages', 'cloud-workers'), env: 'system'}))
 .then(() => installPrivateResources())
+.catch((err) => {
+  console.log('script/bootstrap encountered an error')
+  console.log(err)
+})

@@ -56,6 +56,7 @@ export default class ModelQuery {
     this._returnIds = false;
     this._includeJoinedData = [];
     this._count = false;
+    this._logQueryPlanDebugOutput = true;
   }
 
   clone() {
@@ -87,6 +88,11 @@ export default class ModelQuery {
 
   markNotBackgroundable() {
     this._backgroundable = false;
+    return this;
+  }
+
+  silenceQueryPlanDebugOutput() {
+    this._logQueryPlanDebugOutput = false;
     return this;
   }
 
@@ -137,6 +143,12 @@ export default class ModelQuery {
   search(query) {
     this._assertNotFinalized();
     this._matchers.push(new Matcher.Search(query));
+    return this;
+  }
+
+  structuredSearch(query) {
+    this._assertNotFinalized();
+    this._matchers.push(new Matcher.StructuredSearch(query));
     return this;
   }
 
@@ -286,6 +298,13 @@ export default class ModelQuery {
       return result.map((row) => {
         const json = JSON.parse(row.data, Utils.registeredObjectReviver)
         const object = (new this._klass()).fromJSON(json);
+        for (const attrName of Object.keys(this._klass.attributes)) {
+          const attr = this._klass.attributes[attrName];
+          if (!attr.needsColumn() || !attr.loadFromColumn) {
+            continue;
+          }
+          object[attr.modelKey] = attr.fromColumn(row[attr.jsonKey]);
+        }
         for (const attr of this._includeJoinedData) {
           let value = row[attr.jsonKey];
           if (value === AttributeJoinedData.NullPlaceholder) {
@@ -295,8 +314,8 @@ export default class ModelQuery {
         }
         return object;
       });
-    } catch (jsonError) {
-      throw new Error(`Query could not parse the database result. Query: ${this.sql()}, Error: ${jsonError.toString()}`);
+    } catch (error) {
+      throw new Error(`Query could not parse the database result. Query: ${this.sql()}, Error: ${error.toString()}`);
     }
   }
 
@@ -325,6 +344,13 @@ export default class ModelQuery {
       result = `\`${this._klass.name}\`.\`id\``;
     } else {
       result = `\`${this._klass.name}\`.\`data\``;
+      for (const attrName of Object.keys(this._klass.attributes)) {
+        const attr = this._klass.attributes[attrName];
+        if (!attr.needsColumn() || !attr.loadFromColumn) {
+          continue;
+        }
+        result += `, ${attr.jsonKey} `;
+      }
       this._includeJoinedData.forEach((attr) => {
         result += `, ${attr.selectSQL(this._klass)} `;
       })

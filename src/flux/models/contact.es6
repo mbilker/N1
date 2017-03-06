@@ -19,12 +19,12 @@ const nameSuffixes = {};
   nameSuffixes[suffix] = true;
 });
 
-/**
+/*
 Public: The Contact model represents a Contact object served by the Nylas Platform API.
 For more information about Contacts on the Nylas Platform, read the
 [Contacts API Documentation](https://nylas.com/cloud/docs#contacts)
 
-// Attributes
+Attributes
 
 `name`: {AttributeString} The name of the contact. Queryable.
 
@@ -75,6 +75,21 @@ export default class Contact extends Model {
     company: Attributes.String({
       modelKey: 'company',
     }),
+
+    isSearchIndexed: Attributes.Boolean({
+      queryable: true,
+      modelKey: 'isSearchIndexed',
+      jsonKey: 'is_search_indexed',
+      defaultValue: false,
+    }),
+
+    // This corresponds to the rowid in the FTS table. We need to use the FTS
+    // rowid when updating and deleting items in the FTS table because otherwise
+    // these operations would be way too slow on large FTS tables.
+    searchIndexId: Attributes.Number({
+      modelKey: 'searchIndexId',
+      jsonKey: 'search_index_id',
+    }),
   });
 
   static additionalSQLiteConfig = {
@@ -82,6 +97,7 @@ export default class Contact extends Model {
       return [
         'CREATE INDEX IF NOT EXISTS ContactEmailIndex ON Contact(email)',
         'CREATE INDEX IF NOT EXISTS ContactAccountEmailIndex ON Contact(account_id, email)',
+        'CREATE INDEX IF NOT EXISTS ContactIsSearchIndexedIndex ON `Contact` (is_search_indexed, id)',
       ];
     },
   };
@@ -89,6 +105,14 @@ export default class Contact extends Model {
   static searchable = true;
 
   static searchFields = ['content'];
+
+  static sortOrderAttribute = () => {
+    return Contact.attributes.id
+  }
+
+  static naturalSortOrder = () => {
+    return Contact.sortOrderAttribute().descending()
+  }
 
   static fromString(string, {accountId} = {}) {
     const emailRegex = RegExpUtils.emailRegex();
@@ -255,10 +279,12 @@ export default class Contact extends Model {
     if (parts.join('').length === 0) {
       parts = [];
       parts = name.split(/\s+/);
-      parts = parts.filter((part) => {
-        const lpart = part.toLowerCase().replace(/\./, '');
-        return !namePrefixes[lpart] && !nameSuffixes[lpart];
-      });
+      if (parts.length > 0 && namePrefixes[parts[0].toLowerCase().replace(/\./, '')]) {
+        parts = parts.slice(1);
+      }
+      if (parts.length > 0 && nameSuffixes[parts[parts.length - 1].toLowerCase().replace(/\./, '')]) {
+        parts = parts.slice(0, parts.length - 1);
+      }
     }
 
     // If we've removed all the parts, just return the whole name

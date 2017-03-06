@@ -130,6 +130,7 @@ describe "PackageManager", ->
             expect(pack.mainModule).toBe indexModule
 
       it "assigns config schema, including defaults when package contains a schema", ->
+        spyOn(NylasEnv.config, "_logError")
         expect(NylasEnv.config.get('package-with-config-schema.numbers.one')).toBeUndefined()
 
         waitsForPromise ->
@@ -140,16 +141,21 @@ describe "PackageManager", ->
           expect(NylasEnv.config.get('package-with-config-schema.numbers.two')).toBe 2
 
           expect(NylasEnv.config.set('package-with-config-schema.numbers.one', 'nope')).toBe false
+          expect(NylasEnv.config._logError).toHaveBeenCalled()
+          expect(NylasEnv.config._logError.callCount).toBe(1)
           expect(NylasEnv.config.set('package-with-config-schema.numbers.one', '10')).toBe true
           expect(NylasEnv.config.get('package-with-config-schema.numbers.one')).toBe 10
 
     describe "when the package has no main module", ->
-      it "does not throw an exception", ->
+      it "des not compalain if it doesn't have a package.json", ->
         spyOn(console, "error")
         spyOn(console, "warn")
-        expect(-> NylasEnv.packages.activatePackage('package-without-module')).not.toThrow()
-        expect(console.error).not.toHaveBeenCalled()
-        expect(console.warn).not.toHaveBeenCalled()
+        waitsForPromise ->
+          NylasEnv.packages.activatePackage('package-without-module')
+          .then ->
+            expect(-> NylasEnv.packages.activatePackage('package-without-module')).not.toThrow()
+            expect(console.error).not.toHaveBeenCalled()
+            expect(console.warn).not.toHaveBeenCalled()
 
     it "passes the activate method the package's previously serialized state if it exists", ->
       pack = null
@@ -481,7 +487,7 @@ describe "PackageManager", ->
       expect(['theme']).toContain(theme.getType()) for theme in themes
 
     it "refreshes the database after activating packages with models", ->
-      spyOn(DatabaseStore, "refreshDatabaseSchema")
+      spyOn(DatabaseStore, "refreshDatabaseSchema").andReturn(Promise.resolve())
       package2 = NylasEnv.packages.loadPackage('package-with-models')
       NylasEnv.packages.activatePackages([package2])
       expect(DatabaseStore.refreshDatabaseSchema).toHaveBeenCalled()
@@ -527,7 +533,7 @@ describe "PackageManager", ->
           expect(NylasEnv.config.get('core.disabledPackages')).not.toContain packageName
 
       it 'refreshes the DB when loading a package with models', ->
-        spyOn(DatabaseStore, "refreshDatabaseSchema")
+        spyOn(DatabaseStore, "refreshDatabaseSchema").andReturn(Promise.resolve())
         packageName = "package-with-models"
         NylasEnv.config.pushAtKeyPath('core.disabledPackages', packageName)
         NylasEnv.packages.observeDisabledPackages()

@@ -1,6 +1,7 @@
 import _ from 'underscore';
 import Thread from '../models/thread';
 import Message from '../models/message';
+import Actions from '../actions'
 import Category from '../models/category';
 import DatabaseStore from '../stores/database-store';
 import CategoryStore from '../stores/category-store';
@@ -19,13 +20,14 @@ export default class ChangeLabelsTask extends ChangeMailTask {
 
   constructor(options = {}) {
     super(options);
+    this.source = options.source
     this.labelsToAdd = options.labelsToAdd || [];
     this.labelsToRemove = options.labelsToRemove || [];
     this.taskDescription = options.taskDescription;
   }
 
   label() {
-    return "Applying labels…";
+    return "Applying labels";
   }
 
   categoriesToAdd() {
@@ -93,7 +95,7 @@ export default class ChangeLabelsTask extends ChangeMailTask {
   // In Gmail all threads /must/ belong to either All Mail, Trash and Spam, and
   // they are mutually exclusive, so we need to make sure that any add/remove
   // label operation still guarantees that constraint
-  _ensureAndUpdateLabels = (account, existingLabelsToAdd, existingLabelsToRemove = {}) => {
+  _ensureAndUpdateLabels(account, existingLabelsToAdd, existingLabelsToRemove = {}) {
     const labelsToAdd = existingLabelsToAdd;
     let labelsToRemove = existingLabelsToRemove;
 
@@ -163,6 +165,29 @@ export default class ChangeLabelsTask extends ChangeMailTask {
     return super.performLocal();
   }
 
+  _isArchive() {
+    const toAdd = this.labelsToAdd.map(l => l.name)
+    return toAdd.includes("all") || toAdd.includes("archive")
+  }
+
+  recordUserEvent() {
+    if (this.source === "Mail Rules") {
+      return
+    }
+    Actions.recordUserEvent("Threads Changed Labels", {
+      source: this.source,
+      isArchive: this._isArchive(),
+      labelTypesToAdd: this.labelsToAdd.map(l => l.name || "custom"),
+      labelTypesToRemove: this.labelsToRemove.map(l => l.name || "custom"),
+      labelDisplayNamesToAdd: this.labelsToAdd.map(l => l.displayName),
+      labelDisplayNamesToRemove: this.labelsToRemove.map(l => l.displayName),
+      numThreads: this.threads.length,
+      numMessages: this.messages.length,
+      description: this.description(),
+      isUndo: this._isUndoTask,
+    })
+  }
+
   retrieveModels() {
     // Convert arrays of IDs or models to models.
     // modelify returns immediately if (no work is required)
@@ -211,8 +236,15 @@ export default class ChangeLabelsTask extends ChangeMailTask {
   }
 
   requestBodyForModel(model) {
-    return {
-      labels: model.labels.map(l => l.id),
-    };
+    const folder = model.labels.find(l => l.object === 'folder')
+    const labels = model.labels.filter(l => l.object === 'label')
+
+    if (folder) {
+      return {
+        folder: folder.id,
+        labels: labels.map(l => l.id),
+      }
+    }
+    return {labels};
   }
 }

@@ -7,7 +7,7 @@ DatabaseStore = require("./database-store").default
 FocusedPerspectiveStore = require('./focused-perspective-store').default
 FocusedContentStore = require "./focused-content-store"
 ChangeUnreadTask = require('../tasks/change-unread-task').default
-NylasAPI = require '../nylas-api'
+NylasAPIHelpers = require '../nylas-api-helpers'
 ExtensionRegistry = require('../../registries/extension-registry')
 {deprecate} = require '../../deprecate-utils'
 async = require 'async'
@@ -199,7 +199,7 @@ class MessageStore extends NylasStore
 
       setTimeout =>
         return unless markAsReadId is @_thread?.id and @_thread.unread
-        t = new ChangeUnreadTask(thread: @_thread, unread: false)
+        t = new ChangeUnreadTask(thread: @_thread, unread: false, source: "Thread Selected")
         t.canBeUndone = => false
         Actions.queueTask(t)
       , markAsReadDelay
@@ -291,7 +291,7 @@ class MessageStore extends NylasStore
         @_itemsExpanded[item.id] = "default"
 
   _fetchMessages: ->
-    NylasAPI.getCollection(@_thread.accountId, 'messages', {thread_id: @_thread.id})
+    NylasAPIHelpers.getCollection(@_thread.accountId, 'messages', {thread_id: @_thread.id})
 
   _sortItemsForDisplay: (items) ->
     # Re-sort items in the list so that drafts appear after the message that

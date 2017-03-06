@@ -2,6 +2,7 @@
 /* eslint jsx-a11y/tabindex-no-positive:0 */
 
 import _ from 'underscore';
+import {Utils} from 'nylas-exports'
 import classnames from 'classnames';
 import React, {Component, PropTypes} from 'react';
 import ReactDOM from 'react-dom';
@@ -9,7 +10,7 @@ import DisclosureTriangle from './disclosure-triangle';
 import DropZone from './drop-zone';
 import RetinaImg from './retina-img';
 
-/**
+/*
  * Enum for counter styles
  * @readonly
  * @enum {string}
@@ -19,7 +20,8 @@ const CounterStyles = {
   Alt: 'alt',
 };
 
-/**
+
+/*
  * Renders an item that may contain more arbitrarily nested items
  * This component resembles OS X's default OutlineView or Sourcelist
  *
@@ -67,7 +69,7 @@ const CounterStyles = {
 class OutlineViewItem extends Component {
   static displayName = 'OutlineView';
 
-  /**
+  /*
    * If provided, this function will be called when receiving a drop. It must
    * return true if it should accept it or false otherwise.
    * @callback props.item.shouldAcceptDrop
@@ -75,38 +77,38 @@ class OutlineViewItem extends Component {
    * @param {object} event - The drag event
    * @return {boolean}
    */
-  /**
+  /*
    * If provided, this function will be called when the action to collapse or
    * uncollapse the OutlineViewItem is executed.
    * @callback props.item.onCollapseToggled
    * @param {object} item - The current item
    */
-  /**
+  /*
    * If provided, this function will be called when the editing input is cleared
    * via Esc key, blurring, or submiting the edit.
    * @callback props.item.onInputCleared
    * @param {object} item - The current item
    * @param {object} event - The associated event
    */
-  /**
+  /*
    * If provided, this function will be called when an element is dropped in the
    * item
    * @callback props.item.onDrop
    * @param {object} item - The current item
    * @param {object} event - The associated event
    */
-  /**
+  /*
    * If provided, this function will be called when the item is selected
    * @callback props.item.onSelect
    * @param {object} item - The current item
    */
-  /**
+  /*
    * If provided, this function will be called when the the delete action is
    * executed
    * @callback props.item.onDelete
    * @param {object} item - The current item
    */
-  /**
+  /*
    * If provided, this function will be called when the item is edited
    * @callback props.item.onEdited
    * @param {object} item - The current item
@@ -158,9 +160,9 @@ class OutlineViewItem extends Component {
     }
   }
 
-  shouldComponentUpdate() {
-    // TODO
-    return true;
+  shouldComponentUpdate(nextProps, nextState) {
+    return !Utils.isEqualReact(nextProps, this.props) ||
+      !Utils.isEqualReact(nextState, this.state);
   }
 
   componentWillUnmount() {

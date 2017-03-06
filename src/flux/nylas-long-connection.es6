@@ -2,7 +2,7 @@
 import _ from 'underscore'
 import url from 'url'
 import {Emitter} from 'event-kit'
-import {IdentityStore} from 'nylas-exports'
+import {IdentityStore, APIError} from 'nylas-exports'
 
 
 const CONNECTION_TIMEOUT = 60 * 60 * 1000
@@ -24,7 +24,7 @@ class NylasLongConnection {
       timeout,
       onError,
       onStatusChanged,
-      debounceResultsInterval,
+      throttleResultsInterval,
       closeIfDataStopsInterval,
     } = opts
 
@@ -51,8 +51,8 @@ class NylasLongConnection {
       this._emitter.emit('results-stopped-arriving', this._results);
       this._results = []
     }
-    if (debounceResultsInterval != null) {
-      this._flushResultsSoon = _.debounce(this._flushResultsSoon, debounceResultsInterval)
+    if (throttleResultsInterval != null) {
+      this._flushResultsSoon = _.throttle(this._flushResultsSoon, throttleResultsInterval)
     }
   }
 
@@ -98,7 +98,7 @@ class NylasLongConnection {
   }
 
   onError(error) {
-    return this._onError(error)
+    this._onError(error)
   }
 
   canStart() {
@@ -112,7 +112,10 @@ class NylasLongConnection {
     const accountToken = this._api.accessTokenForAccountId(this._accountId)
     const identityToken = (IdentityStore.identity() || {}).token || ''
     if (!accountToken) {
-      throw new Error(`Can't establish NylasLongConnection: No account token available for account ${this._accountId}`)
+      throw new APIError({
+        statusCode: 401,
+        message: `Can't establish NylasLongConnection: No account token available for account ${this._accountId}`,
+      })
     }
 
     const options = url.parse(`${this._api.APIRoot}${this._path}`)
@@ -126,10 +129,15 @@ class NylasLongConnection {
     }
 
     this._req = lib.request(options, (responseStream) => {
+      this._req.responseStream = responseStream
       this._httpStatusCode = responseStream.statusCode
       if (responseStream.statusCode !== 200) {
         responseStream.on('data', (chunk) => {
-          const error = new Error(chunk.toString('utf8'))
+          const error = new APIError({
+            response: responseStream,
+            message: chunk.toString('utf8'),
+            statusCode: responseStream.statusCode,
+          })
           console.error(error)
           this.onError(error)
           this.close()
@@ -153,9 +161,9 @@ class NylasLongConnection {
     })
     this._req.setTimeout(60 * 60 * 1000)
     this._req.setSocketKeepAlive(true)
-    this._req.on('error', (err) => {
-      console.error(err)
-      this.onError(err)
+    this._req.on('error', (error) => {
+      console.error(error)
+      this.onError(new APIError({error}))
       this.close()
     })
     this._req.on('socket', (socket) => {
@@ -193,6 +201,10 @@ class NylasLongConnection {
     if (this._req) {
       this._req.end()
       this._req.abort()
+      this._req.removeAllListeners()
+      if (this._req.responseStream) {
+        this._req.responseStream.removeAllListeners()
+      }
       this._req = null
     }
     return this

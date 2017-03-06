@@ -1,4 +1,5 @@
 /* eslint global-require: 0 */
+import {NylasSyncStatusStore} from 'nylas-exports';
 import Model from './model';
 import Attributes from '../attributes';
 let AccountStore = null
@@ -70,6 +71,10 @@ export default class Category extends Model {
       modelKey: 'displayName',
       jsonKey: 'display_name',
     }),
+    syncProgress: Attributes.Object({
+      modelKey: 'syncProgress',
+      jsonKey: 'sync_progress',
+    }),
   });
 
   static Types = {
@@ -115,8 +120,8 @@ export default class Category extends Model {
     return this;
   }
 
-  displayType = () => {
-    AccountStore = AccountStore || require('../stores/account-store');
+  displayType() {
+    AccountStore = AccountStore || require('../stores/account-store').default;
     if (AccountStore.accountForId(this.accountId).usesLabels()) {
       return 'label';
     }
@@ -161,5 +166,18 @@ export default class Category extends Model {
 
   isArchive() {
     return ['all', 'archive'].includes(this.name);
+  }
+
+  isSyncComplete() {
+    // We sync by folders, not labels. If the category is a label, or hasn't been
+    // assigned an object type yet, just return based on the sync status for the
+    // entire account.
+    if (this.object !== 'folder') {
+      return NylasSyncStatusStore.isSyncCompleteForAccount(this.accountId);
+    }
+    return NylasSyncStatusStore.isSyncCompleteForAccount(
+      this.accountId,
+      this.name || this.displayName
+    );
   }
 }

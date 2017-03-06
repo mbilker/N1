@@ -88,14 +88,7 @@ export default class CalendarEvent extends React.Component {
         top: d.left,
       }
     }
-
-    if (this.props.event.dragged) {
-      styles.zIndex = 1;
-    }
-
-    const bgOpacity = this.props.event.hovered ? 1 : null;
-    styles.backgroundColor = calcColor(this.props.event.calendarId, bgOpacity);
-
+    styles.backgroundColor = calcColor(this.props.event.calendarId);
     return styles
   }
 
@@ -114,9 +107,7 @@ export default class CalendarEvent extends React.Component {
         className={`calendar-event ${direction} ${selected ? 'selected' : null}`}
         onClick={(e) => onClick(e, event)}
         onDoubleClick={() => onDoubleClick(event)}
-        data-id={event.id}
       >
-        <div className="resize-handle top" />
         <span className="default-header" style={{order: 0}}>
           {event.displayTitle()}
         </span>
@@ -127,7 +118,6 @@ export default class CalendarEvent extends React.Component {
           exposedProps={{event: event}}
           direction="row"
         />
-        <div className="resize-handle bottom" />
       </div>
     )
   }

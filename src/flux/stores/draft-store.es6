@@ -2,7 +2,7 @@ import _ from 'underscore';
 import {ipcRenderer} from 'electron';
 import NylasStore from 'nylas-store';
 import DraftEditingSession from './draft-editing-session';
-import * as DraftHelpers from './draft-helpers';
+import DraftHelpers from './draft-helpers';
 import DraftFactory from './draft-factory';
 import DatabaseStore from './database-store';
 import SendActionsStore from './send-actions-store';
@@ -41,8 +41,8 @@ class DraftStore extends NylasStore {
     this.listenTo(Actions.composePopoutDraft, this._onPopoutDraftClientId);
     this.listenTo(Actions.composeNewBlankDraft, this._onPopoutBlankDraft);
     this.listenTo(Actions.composeNewDraftToRecipient, this._onPopoutNewDraftToRecipient);
-    this.listenTo(Actions.sendDraftFailed, this._onSendDraftFailed);
-    this.listenTo(Actions.sendDraftSuccess, this._onSendDraftSuccess);
+    this.listenTo(Actions.draftDeliveryFailed, this._onSendDraftFailed);
+    this.listenTo(Actions.draftDeliverySucceeded, this._onSendDraftSuccess);
     this.listenTo(Actions.didCancelSendAction, this._onDidCancelSendAction);
     this.listenTo(Actions.sendQuickReply, this._onSendQuickReply);
 
@@ -139,7 +139,9 @@ class DraftStore extends NylasStore {
       // Important: There are some scenarios where all the promises resolve instantly.
       // Firing NylasEnv.close() does nothing if called within an existing beforeUnload
       // handler, so we need to always defer by one tick before re-firing close.
-      Promise.settle(promises).then(() => {
+      // NOTE: this replaces Promise.settle:
+      // http://bluebirdjs.com/docs/api/reflect.html
+      Promise.all(promises.map(p => p.reflect())).then(() => {
         this._draftSessions = {};
         // We have to wait for accumulateAndTrigger() in the DatabaseStore to
         // send events to ActionBridge before closing the window.
@@ -287,29 +289,20 @@ class DraftStore extends NylasStore {
     }
     NylasEnv.perf.start("Popout Draft");
 
-    let draftJSON = null;
-    let save = Promise.resolve();
-    if (this._draftSessions[draftClientId]) {
-      save = this._draftSessions[draftClientId].changes.commit().then(() => {
-        draftJSON = this._draftSessions[draftClientId].draft().toJSON();
-      })
-    } else {
-      save = this.sessionForClientId(draftClientId).then((session) => {
-        draftJSON = session.draft().toJSON();
-      });
-    }
-
     const title = options.newDraft ? "New Message" : "Message";
-    return save.then(() => {
-      // Since we pass a windowKey, if the popout composer draft already
-      // exists we'll simply show that one instead of spawning a whole new
-      // window.
-      NylasEnv.newWindow({
-        title,
-        hidden: true, // We manually show in ComposerWithWindowProps::onDraftReady
-        windowKey: `composer-${draftClientId}`,
-        windowType: "composer-preload",
-        windowProps: _.extend(options, {draftClientId, draftJSON}),
+    return this.sessionForClientId(draftClientId).then((session) => {
+      return session.changes.commit().then(() => {
+        const draftJSON = session.draft().toJSON();
+        // Since we pass a windowKey, if the popout composer draft already
+        // exists we'll simply show that one instead of spawning a whole new
+        // window.
+        NylasEnv.newWindow({
+          title,
+          hidden: true, // We manually show in ComposerWithWindowProps::onDraftReady
+          windowKey: `composer-${draftClientId}`,
+          windowType: "composer-preload",
+          windowProps: _.extend(options, {draftClientId, draftJSON}),
+        });
       });
     });
   }
@@ -425,7 +418,7 @@ class DraftStore extends NylasStore {
     this.trigger(draftClientId);
   }
 
-  _onSendDraftFailed = ({draftClientId, threadId, errorMessage}) => {
+  _onSendDraftFailed = ({draftClientId, threadId, errorMessage, errorDetail}) => {
     this._draftsSending[draftClientId] = false;
     this.trigger(draftClientId);
     if (NylasEnv.isMainWindow()) {
@@ -436,17 +429,17 @@ class DraftStore extends NylasStore {
       // We also need to delay because the old draft window needs to fully
       // close. It takes windows currently (June 2016) 100ms to close by
       setTimeout(() => {
-        this._notifyUserOfError({draftClientId, threadId, errorMessage});
+        this._notifyUserOfError({draftClientId, threadId, errorMessage, errorDetail});
       }, 300);
     }
   }
 
-  _notifyUserOfError({draftClientId, threadId, errorMessage}) {
+  _notifyUserOfError({draftClientId, threadId, errorMessage, errorDetail}) {
     const focusedThread = FocusedContentStore.focused('thread');
     if (threadId && focusedThread && focusedThread.id === threadId) {
-      NylasEnv.showErrorDialog(errorMessage);
+      NylasEnv.showErrorDialog(errorMessage, {detail: errorDetail});
     } else {
-      Actions.composePopoutDraft(draftClientId, {errorMessage});
+      Actions.composePopoutDraft(draftClientId, {errorMessage, errorDetail});
     }
   }
 }

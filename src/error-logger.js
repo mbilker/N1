@@ -17,6 +17,8 @@ if (process.type === 'renderer') {
   app = electron.app;
 }
 
+var crashReporter = require('electron').crashReporter
+
 // A globally available ErrorLogger that can report errors to various
 // sources and enhance error functionality.
 //
@@ -35,10 +37,14 @@ if (process.type === 'renderer') {
 module.exports = (function() {
 
   function ErrorLogger(args) {
-    this.reportError = this.reportError.bind(this);
-    this.inSpecMode = args.inSpecMode;
-    this.inDevMode = args.inDevMode;
-    this.resourcePath = args.resourcePath;
+    this.reportError = this.reportError.bind(this)
+    this.inSpecMode = args.inSpecMode
+    this.inDevMode = args.inDevMode
+    this.resourcePath = args.resourcePath
+
+    this._startCrashReporter()
+
+    this._extendErrorObject()
 
     this._extendErrorObject();
     this._extendNativeConsole();
@@ -57,18 +63,22 @@ module.exports = (function() {
   /////////////////////////// PUBLIC METHODS //////////////////////////
   /////////////////////////////////////////////////////////////////////
 
-  ErrorLogger.prototype.reportError = function(error, extra) {
+  ErrorLogger.prototype.reportError = function(error, extra = {}) {
+    if (this.inSpecMode) return;
+
     if (!error) {
-      error = { stack: "" };
+      error = {
+        stack: ""
+      };
     }
 
-    this._appendLog(error.stack);
+    this._appendLog(error.stack)
 
     if (extra) {
       this._appendLog(extra);
     }
 
-    if (process.type === 'renderer') {
+    if (process.type === "renderer") {
       var errorJSON = JSON.stringify(error);
 
       /**
@@ -82,10 +92,12 @@ module.exports = (function() {
        * This is a rare use of `sendSync` to ensure the command has made
        * it before the window closes.
        */
-      ipcRenderer.sendSync('report-error', { errorJSON: errorJSON, extra: extra });
+      ipcRenderer.sendSync("report-error", {errorJSON: errorJSON, extra: JSON.stringify(extra)})
+
     } else {
       var nslog = require('nslog');
-      this._notifyExtensions("reportError", error, extra);
+
+      this._notifyExtensions("reportError", error, extra)
       nslog(error.stack)
     }
   }
@@ -104,6 +116,15 @@ module.exports = (function() {
   /////////////////////////////////////////////////////////////////////
   ////////////////////////// PRIVATE METHODS //////////////////////////
   /////////////////////////////////////////////////////////////////////
+
+  ErrorLogger.prototype._startCrashReporter = function(args) {
+    crashReporter.start({
+      productName: 'Nylas Mail',
+      companyName: 'Nylas',
+      submitURL: 'https://electron-crash-report-server.herokuapp.com/',
+      autoSubmit: true,
+    })
+  }
 
   ErrorLogger.prototype._extendNativeConsole = function(args) {
     console.debug = this._consoleDebug.bind(this)
@@ -167,7 +188,7 @@ module.exports = (function() {
     if (process.type === 'renderer') {
       logpid = electron.remote.process.pid + "." +  process.pid;
     }
-    return path.join(tmpPath, 'Nylas-N1-' + logpid + '.log');
+    return path.join(tmpPath, 'Nylas-Mail-' + logpid + '.log');
   }
 
   // If we're the browser process, remove log files that are more than
@@ -183,7 +204,7 @@ module.exports = (function() {
           return;
         }
 
-        var logFilter = new RegExp("Nylas-N1-[.0-9]*.log$");
+        var logFilter = new RegExp("Nylas-Mail-[.0-9]*.log$");
         files.forEach(function(file) {
           if (logFilter.test(file) === true) {
             var filepath = path.join(tmpPath, file);

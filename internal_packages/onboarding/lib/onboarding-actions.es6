@@ -7,7 +7,6 @@ const OnboardingActions = Reflux.createActions([
   "moveToPage",
   "authenticationJSONReceived",
   "accountJSONReceived",
-  "accountsAddedLocally",
 ]);
 
 for (const key of Object.keys(OnboardingActions)) {

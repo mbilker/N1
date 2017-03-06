@@ -56,10 +56,17 @@ class AccountBasicSettingsForm extends React.Component {
   }
 
   submit() {
-    if (this.props.accountInfo.type === 'imap') {
+    if (!['gmail', 'office365'].includes(this.props.accountInfo.type)) {
       const accountInfo = accountInfoWithIMAPAutocompletions(this.props.accountInfo);
       OnboardingActions.setAccountInfo(accountInfo);
-      OnboardingActions.moveToPage('account-settings-imap');
+      if (this.props.accountInfo.type === 'imap') {
+        OnboardingActions.moveToPage('account-settings-imap');
+      } else {
+        // We have to pass in the updated accountInfo, because the onConnect()
+        // we're calling exists on a component that won't have had it's state
+        // updated from the OnboardingStore change yet.
+        this.props.onConnect(accountInfo);
+      }
     } else {
       this.props.onConnect();
     }

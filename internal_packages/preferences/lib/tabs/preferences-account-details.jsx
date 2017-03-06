@@ -146,17 +146,19 @@ class PreferencesAccountDetails extends Component {
     const {account} = this.state;
     if (account.hasSyncStateError()) {
       switch (account.syncState) {
+        case Account.N1_Cloud_AUTH_FAILED:
+          return this._renderErrorDetail(
+            `Nylas Mail can no longer authenticate N1 Cloud Services with
+            ${account.emailAddress}. The password or authentication may
+            have changed.`,
+            "Reconnect",
+            this._onReconnect);
         case Account.SYNC_STATE_AUTH_FAILED:
           return this._renderErrorDetail(
-            `Nylas N1 can no longer authenticate with ${account.emailAddress}. The password or
+            `Nylas Mail can no longer authenticate with ${account.emailAddress}. The password or
             authentication may have changed.`,
             "Reconnect",
             this._onReconnect);
-        case Account.SYNC_STATE_STOPPED:
-          return this._renderErrorDetail(
-            `The cloud sync for ${account.emailAddress} has been disabled. Please contact Nylas support.`,
-            "Contact support",
-            this._onContactSupport);
         default:
           return this._renderErrorDetail(
             `Nylas encountered an error while syncing mail for ${account.emailAddress}. Contact Nylas support for details.`,
@@ -187,7 +189,7 @@ class PreferencesAccountDetails extends Component {
         <h3>Account Settings</h3>
 
         <div className="btn" onClick={this._onReconnect}>
-          {account.provider === 'gmail' ? 'Re-authenticate with Gmail...' : 'Update Connection Settings...'}
+          {account.provider === 'imap' ? 'Update Connection Settings...' : 'Re-authenticate...'}
         </div>
 
         <h3>Aliases</h3>

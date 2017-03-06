@@ -57,7 +57,7 @@ class InitialPreferencesOptions extends React.Component
     if @props.account.provider is 'gmail'
       @props.config.set('core.workspace.mode', 'list')
       @props.config.set('core.keymapTemplate', templateWithBasename('Gmail'))
-    else if @props.account.provider is 'eas'
+    else if @props.account.provider is 'eas' or @props.account.provider is 'office365'
       @props.config.set('core.workspace.mode', 'split')
       @props.config.set('core.keymapTemplate', templateWithBasename('Outlook'))
     else
@@ -124,7 +124,7 @@ class InitialPreferencesPage extends React.Component
 
   render: =>
     <div className="page opaque" style={width:900, height:620}>
-      <h1 style={paddingTop: 100}>Welcome to N1</h1>
+      <h1 style={paddingTop: 100}>Welcome to Nylas Mail</h1>
       <h4 style={marginBottom: 70}>Let's set things up to your liking.</h4>
       <ConfigPropContainer>
         <InitialPreferencesOptions account={@state.account} />

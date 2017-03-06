@@ -9,16 +9,17 @@ import {
   Task,
   SendDraftTask,
   NylasAPI,
+  NylasAPIHelpers,
+  NylasAPIRequest,
   SoundRegistry,
   SyncbackMetadataTask,
 } from 'nylas-exports';
 
-import NotifyPluginsOfSendTask from '../../src/flux/tasks/notify-plugins-of-send-task'
 
 const DBt = DatabaseTransaction.prototype;
 const withoutWhitespace = (s) => s.replace(/[\n\r\s]/g, '');
 
-describe('SendDraftTask', function sendDraftTask() {
+xdescribe('SendDraftTask', function sendDraftTask() {
   describe("assertDraftValidity", () => {
     it("rejects if there are still uploads on the draft", () => {
       const badTask = new SendDraftTask('1');
@@ -82,17 +83,17 @@ describe('SendDraftTask', function sendDraftTask() {
         })],
       };
 
-      spyOn(NylasAPI, 'makeRequest').andCallFake((options) => {
+      spyOn(NylasAPIRequest.prototype, 'run').andCallFake((options) => {
         if (options.success) { options.success(this.response); }
         return Promise.resolve(this.response);
       })
       spyOn(NylasAPI, 'incrementRemoteChangeLock');
       spyOn(NylasAPI, 'decrementRemoteChangeLock');
-      spyOn(NylasAPI, 'makeDraftDeletionRequest');
+      spyOn(NylasAPIHelpers, 'makeDraftDeletionRequest');
       spyOn(DBt, 'unpersistModel').andReturn(Promise.resolve());
       spyOn(DBt, 'persistModel').andReturn(Promise.resolve());
       spyOn(SoundRegistry, "playSound");
-      spyOn(Actions, "sendDraftSuccess");
+      spyOn(Actions, "draftDeliverySucceeded");
     });
 
     // The tests below are invoked twice, once with a new this.draft and one with a
@@ -109,9 +110,9 @@ describe('SendDraftTask', function sendDraftTask() {
 
       it("makes a send request with the correct data", () => {
         waitsForPromise(() => this.task.performRemote().then(() => {
-          expect(NylasAPI.makeRequest).toHaveBeenCalled();
-          expect(NylasAPI.makeRequest.callCount).toBe(1);
-          const options = NylasAPI.makeRequest.mostRecentCall.args[0];
+          expect(NylasAPIRequest.prototype.run).toHaveBeenCalled();
+          expect(NylasAPIRequest.prototype.run.callCount).toBe(1);
+          const options = NylasAPIRequest.prototype.run.mostRecentCall.args[0];
           expect(options.path).toBe("/send");
           expect(options.method).toBe('POST');
           expect(options.accountId).toBe(TEST_ACCOUNT_ID);
@@ -121,16 +122,16 @@ describe('SendDraftTask', function sendDraftTask() {
 
       it("should pass returnsModel:false", () => {
         waitsForPromise(() => this.task.performRemote().then(() => {
-          expect(NylasAPI.makeRequest.calls.length).toBe(1);
-          const options = NylasAPI.makeRequest.mostRecentCall.args[0];
+          expect(NylasAPIRequest.prototype.run.calls.length).toBe(1);
+          const options = NylasAPIRequest.prototype.run.mostRecentCall.args[0];
           expect(options.returnsModel).toBe(false);
         }));
       });
 
       it("should always send the draft body in the request body (joined attribute check)", () => {
         waitsForPromise(() => this.task.performRemote().then(() => {
-          expect(NylasAPI.makeRequest.calls.length).toBe(1);
-          const options = NylasAPI.makeRequest.mostRecentCall.args[0];
+          expect(NylasAPIRequest.prototype.run.calls.length).toBe(1);
+          const options = NylasAPIRequest.prototype.run.mostRecentCall.args[0];
           expect(options.body.body).toBe('hello world');
         }));
       });
@@ -164,7 +165,7 @@ describe('SendDraftTask', function sendDraftTask() {
 
       it("should notify the draft was sent", () => {
         waitsForPromise(() => this.task.performRemote().then(() => {
-          const args = Actions.sendDraftSuccess.calls[0].args[0];
+          const args = Actions.draftDeliverySucceeded.calls[0].args[0];
           expect(args.message instanceof Message).toBe(true)
           expect(args.messageClientId).toBe(this.draft.clientId)
         }));
@@ -181,27 +182,6 @@ describe('SendDraftTask', function sendDraftTask() {
             expect(metadataTasks[idx].modelClassName).toEqual('Message');
             expect(metadataTasks[idx].pluginId).toEqual(pluginMetadatum.pluginId);
           });
-        }));
-      });
-
-      it("should queue a task to register the messageID with the plugin server", () => {
-        spyOn(Actions, 'queueTask')
-        waitsForPromise(() => this.task.performRemote().then(() => {
-          let tasks = Actions.queueTask.calls.map((call) => call.args[0]);
-          tasks = tasks.filter((task) => task instanceof NotifyPluginsOfSendTask)
-          expect(tasks.length).toEqual(1);
-          expect(tasks[0].accountId).toEqual(this.draft.accountId);
-          expect(tasks[0].messageId).toEqual(this.response.id);
-        }));
-      });
-
-      it("shouldn't queue a NotifyPluginsOfSendTask if there's no metadata", () => {
-        spyOn(Actions, 'queueTask');
-        this.draft.pluginMetadata = []
-        waitsForPromise(() => this.task.performRemote().then(() => {
-          let tasks = Actions.queueTask.calls.map((call) => call.args[0]);
-          tasks = tasks.filter((task) => task instanceof NotifyPluginsOfSendTask)
-          expect(tasks.length).toEqual(0);
         }));
       });
 
@@ -223,8 +203,8 @@ describe('SendDraftTask', function sendDraftTask() {
 
       describe("when there are errors", () => {
         beforeEach(() => {
-          spyOn(Actions, 'sendDraftFailed');
-          jasmine.unspy(NylasAPI, "makeRequest");
+          spyOn(Actions, 'draftDeliveryFailed');
+          jasmine.unspy(NylasAPIRequest.prototype, "run");
         });
 
         it("notifies of a permanent error of misc error types", () => {
@@ -239,13 +219,13 @@ describe('SendDraftTask', function sendDraftTask() {
           waitsForPromise(() => this.task.performRemote().then((status) => {
             expect(status[0]).toBe(Task.Status.Failed);
             expect(status[1]).toBe(thrownError);
-            expect(Actions.sendDraftFailed).toHaveBeenCalled();
+            expect(Actions.draftDeliveryFailed).toHaveBeenCalled();
             expect(NylasEnv.reportError).toHaveBeenCalled();
           }));
         });
 
         it("retries the task if 'Invalid message public id'", () => {
-          spyOn(NylasAPI, 'makeRequest').andCallFake((options) => {
+          spyOn(NylasAPIRequest.prototype, 'run').andCallFake((options) => {
             if (options.body.reply_to_message_id) {
               const err = new APIError({body: "Invalid message public id"});
               return Promise.reject(err);
@@ -259,10 +239,10 @@ describe('SendDraftTask', function sendDraftTask() {
           waitsForPromise(() => {
             return this.task.performRemote(this.draft)
             .then(() => {
-              expect(NylasAPI.makeRequest).toHaveBeenCalled();
-              expect(NylasAPI.makeRequest.callCount).toEqual(2);
-              const req1 = NylasAPI.makeRequest.calls[0].args[0];
-              const req2 = NylasAPI.makeRequest.calls[1].args[0];
+              expect(NylasAPIRequest.prototype.run).toHaveBeenCalled();
+              expect(NylasAPIRequest.prototype.run.callCount).toEqual(2);
+              const req1 = NylasAPIRequest.prototype.run.calls[0].args[0];
+              const req2 = NylasAPIRequest.prototype.run.calls[1].args[0];
               expect(req1.body.reply_to_message_id).toBe("reply-123");
               expect(req1.body.thread_id).toBe("thread-123");
 
@@ -273,7 +253,7 @@ describe('SendDraftTask', function sendDraftTask() {
         });
 
         it("retries the task if 'Invalid message public id'", () => {
-          spyOn(NylasAPI, 'makeRequest').andCallFake((options) => {
+          spyOn(NylasAPIRequest.prototype, 'run').andCallFake((options) => {
             if (options.body.reply_to_message_id) {
               return Promise.reject(new APIError({body: "Invalid thread"}));
             }
@@ -284,10 +264,10 @@ describe('SendDraftTask', function sendDraftTask() {
           this.draft.replyToMessageId = "reply-123";
           this.draft.threadId = "thread-123";
           waitsForPromise(() => this.task.performRemote(this.draft).then(() => {
-            expect(NylasAPI.makeRequest).toHaveBeenCalled();
-            expect(NylasAPI.makeRequest.callCount).toEqual(2);
-            const req1 = NylasAPI.makeRequest.calls[0].args[0];
-            const req2 = NylasAPI.makeRequest.calls[1].args[0];
+            expect(NylasAPIRequest.prototype.run).toHaveBeenCalled();
+            expect(NylasAPIRequest.prototype.run.callCount).toEqual(2);
+            const req1 = NylasAPIRequest.prototype.run.calls[0].args[0];
+            const req2 = NylasAPIRequest.prototype.run.calls[1].args[0];
             expect(req1.body.reply_to_message_id).toBe("reply-123");
             expect(req1.body.thread_id).toBe("thread-123");
 
@@ -299,24 +279,24 @@ describe('SendDraftTask', function sendDraftTask() {
         it("notifies of a permanent error on 500 errors", () => {
           const thrownError = new APIError({statusCode: 500, body: "err"})
           spyOn(NylasEnv, "reportError");
-          spyOn(NylasAPI, 'makeRequest').andReturn(Promise.reject(thrownError));
+          spyOn(NylasAPIRequest.prototype, 'run').andReturn(Promise.reject(thrownError));
 
           waitsForPromise(() => this.task.performRemote().then((status) => {
             expect(status[0]).toBe(Task.Status.Failed);
             expect(status[1]).toBe(thrownError);
-            expect(Actions.sendDraftFailed).toHaveBeenCalled();
+            expect(Actions.draftDeliveryFailed).toHaveBeenCalled();
           }));
         });
 
         it("notifies us and users of a permanent error on 400 errors", () => {
           const thrownError = new APIError({statusCode: 400, body: "err"});
           spyOn(NylasEnv, "reportError");
-          spyOn(NylasAPI, 'makeRequest').andReturn(Promise.reject(thrownError));
+          spyOn(NylasAPIRequest.prototype, 'run').andReturn(Promise.reject(thrownError));
 
           waitsForPromise(() => this.task.performRemote().then((status) => {
             expect(status[0]).toBe(Task.Status.Failed);
             expect(status[1]).toBe(thrownError);
-            expect(Actions.sendDraftFailed).toHaveBeenCalled();
+            expect(Actions.draftDeliveryFailed).toHaveBeenCalled();
           }));
         });
 
@@ -340,14 +320,14 @@ describe('SendDraftTask', function sendDraftTask() {
           `
 
           spyOn(NylasEnv, "reportError");
-          spyOn(NylasAPI, 'makeRequest').andReturn(Promise.reject(thrownError));
+          spyOn(NylasAPIRequest.prototype, 'run').andReturn(Promise.reject(thrownError));
 
           waitsForPromise(() => this.task.performRemote().then((status) => {
             expect(status[0]).toBe(Task.Status.Failed);
             expect(status[1]).toBe(thrownError);
-            expect(Actions.sendDraftFailed).toHaveBeenCalled();
+            expect(Actions.draftDeliveryFailed).toHaveBeenCalled();
 
-            const msg = Actions.sendDraftFailed.calls[0].args[0].errorMessage;
+            const msg = Actions.draftDeliveryFailed.calls[0].args[0].errorMessage;
             expect(withoutWhitespace(msg)).toEqual(withoutWhitespace(expectedMessage));
           }));
         });
@@ -365,13 +345,13 @@ describe('SendDraftTask', function sendDraftTask() {
           const expectedMessage = "This message could not be delivered to at least one recipient. (Note: other recipients may have received this message - you should check Sent Mail before re-sending this message.)"
 
           spyOn(NylasEnv, "reportError");
-          spyOn(NylasAPI, 'makeRequest').andReturn(Promise.reject(thrownError));
+          spyOn(NylasAPIRequest.prototype, 'run').andReturn(Promise.reject(thrownError));
           waitsForPromise(() => this.task.performRemote().then((status) => {
             expect(status[0]).toBe(Task.Status.Failed);
             expect(status[1]).toBe(thrownError);
-            expect(Actions.sendDraftFailed).toHaveBeenCalled();
+            expect(Actions.draftDeliveryFailed).toHaveBeenCalled();
 
-            const msg = Actions.sendDraftFailed.calls[0].args[0].errorMessage;
+            const msg = Actions.draftDeliveryFailed.calls[0].args[0].errorMessage;
             expect(withoutWhitespace(msg)).toEqual(withoutWhitespace(expectedMessage));
           }));
         });
@@ -392,7 +372,7 @@ describe('SendDraftTask', function sendDraftTask() {
 
           it("halts on 500s", () => {
             const thrownError = new APIError({statusCode: 500, body: "err"});
-            spyOn(NylasAPI, 'makeRequest').andReturn(Promise.reject(thrownError));
+            spyOn(NylasAPIRequest.prototype, 'run').andReturn(Promise.reject(thrownError));
             waitsForPromise(() => this.task.performRemote().then(() =>
               this.expectBlockedChain()
             ))
@@ -400,7 +380,7 @@ describe('SendDraftTask', function sendDraftTask() {
 
           it("halts on 400s", () => {
             const thrownError = new APIError({statusCode: 400, body: "err"});
-            spyOn(NylasAPI, 'makeRequest').andReturn(Promise.reject(thrownError));
+            spyOn(NylasAPIRequest.prototype, 'run').andReturn(Promise.reject(thrownError));
             waitsForPromise(() => this.task.performRemote().then(() =>
               this.expectBlockedChain()
             ))
@@ -408,7 +388,7 @@ describe('SendDraftTask', function sendDraftTask() {
 
           it("halts and retries on not permanent error codes", () => {
             const thrownError = new APIError({statusCode: 409, body: "err"});
-            spyOn(NylasAPI, 'makeRequest').andReturn(Promise.reject(thrownError));
+            spyOn(NylasAPIRequest.prototype, 'run').andReturn(Promise.reject(thrownError));
             waitsForPromise(() => this.task.performRemote().then(() =>
               this.expectBlockedChain()
             ))
@@ -416,7 +396,7 @@ describe('SendDraftTask', function sendDraftTask() {
 
           it("halts on other errors", () => {
             const thrownError = new Error("oh no");
-            spyOn(NylasAPI, 'makeRequest').andReturn(Promise.reject(thrownError));
+            spyOn(NylasAPIRequest.prototype, 'run').andReturn(Promise.reject(thrownError));
             waitsForPromise(() => this.task.performRemote().then(() =>
               this.expectBlockedChain()
             ))
@@ -426,7 +406,7 @@ describe('SendDraftTask', function sendDraftTask() {
             // Don't spy reportError to make sure to fail the test on unexpected
             // errors
             jasmine.unspy(NylasEnv, 'reportError');
-            spyOn(NylasAPI, 'makeRequest').andCallFake((options) => {
+            spyOn(NylasAPIRequest.prototype, 'run').andCallFake((options) => {
               if (options.success) { options.success(this.response) }
               return Promise.resolve(this.response);
             });
@@ -509,7 +489,7 @@ describe('SendDraftTask', function sendDraftTask() {
       it("should call makeDraftDeletionRequest to delete the draft after sending", () => {
         this.task.performLocal();
         waitsForPromise(() => this.task.performRemote().then(() => {
-          expect(NylasAPI.makeDraftDeletionRequest).toHaveBeenCalled()
+          expect(NylasAPIHelpers.makeDraftDeletionRequest).toHaveBeenCalled()
         }));
       });
 
@@ -529,7 +509,7 @@ describe('SendDraftTask', function sendDraftTask() {
     });
   });
 
-  describe("usingMultiSend", () => {
+  describe("hasCustomBodyPerRecipient", () => {
     beforeEach(() => {
       this.task = new SendDraftTask('client-id');
       this.task.allowMultiSend = true;
@@ -565,13 +545,13 @@ describe('SendDraftTask', function sendDraftTask() {
 
     it("should return false if the provider is eas", () => {
       this.applySpies({"AccountStore.accountForId": "eas"})
-      expect(this.task.usingMultiSend()).toBe(false);
+      expect(this.task.hasCustomBodyPerRecipient()).toBe(false);
     });
 
     it("should return false if allowMultiSend is false", () => {
       this.applySpies();
       this.task.allowMultiSend = false;
-      expect(this.task.usingMultiSend()).toBe(false);
+      expect(this.task.hasCustomBodyPerRecipient()).toBe(false);
     });
 
     it("should return false if the open-tracking id is null", () => {
@@ -579,7 +559,7 @@ describe('SendDraftTask', function sendDraftTask() {
         return name === "open-tracking" ? null : name;
       };
       this.applySpies({"NylasEnv.packages.pluginIdFor": fake});
-      expect(this.task.usingMultiSend()).toBe(false);
+      expect(this.task.hasCustomBodyPerRecipient()).toBe(false);
     });
 
     it("should return false if the link-tracking id is null", () => {
@@ -587,36 +567,36 @@ describe('SendDraftTask', function sendDraftTask() {
         return name === "link-tracking" ? null : name;
       };
       this.applySpies({"NylasEnv.packages.pluginIdFor": fake});
-      expect(this.task.usingMultiSend()).toBe(false);
+      expect(this.task.hasCustomBodyPerRecipient()).toBe(false);
     });
 
     it("should return false if neither open-tracking nor link-tracking is on", () => {
       this.applySpies();
       this.task.draft.applyPluginMetadata('open-tracking', false);
       this.task.draft.applyPluginMetadata('link-tracking', false);
-      expect(this.task.usingMultiSend()).toBe(false);
+      expect(this.task.hasCustomBodyPerRecipient()).toBe(false);
     });
 
     it("should return true if only open-tracking is on", () => {
       this.applySpies();
       this.task.draft.applyPluginMetadata('link-tracking', false);
-      expect(this.task.usingMultiSend()).toBe(true);
+      expect(this.task.hasCustomBodyPerRecipient()).toBe(true);
     });
 
     it("should return true if only link-tracking is on", () => {
       this.applySpies();
       this.task.draft.applyPluginMetadata('open-tracking', false);
-      expect(this.task.usingMultiSend()).toBe(true);
+      expect(this.task.hasCustomBodyPerRecipient()).toBe(true);
     });
 
     it("should return false if there are too many participants", () => {
       this.applySpies({"draft.participants": 15});
-      expect(this.task.usingMultiSend()).toBe(false);
+      expect(this.task.hasCustomBodyPerRecipient()).toBe(false);
     });
 
     it("should return true otherwise", () => {
       this.applySpies();
-      expect(this.task.usingMultiSend()).toBe(true);
+      expect(this.task.hasCustomBodyPerRecipient()).toBe(true);
     });
   });
 });

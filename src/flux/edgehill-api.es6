@@ -1,7 +1,11 @@
 import AccountStore from './stores/account-store'
 import NylasAPIRequest from './nylas-api-request';
 
-class EdgehillAPI {
+// We're currently moving between services hosted on edgehill-api (written in
+// Python) and services written in Node. Since we're doing this move progressively,
+// we need to be able to use the two services at once. That's why we have two
+// objects, EdgehillAPI (new API) and LegacyEdgehillAPI (old API).
+class _EdgehillAPI {
   constructor() {
     NylasEnv.config.onDidChange('env', this._onConfigChanged);
     this._onConfigChanged();
@@ -10,7 +14,7 @@ class EdgehillAPI {
   _onConfigChanged = () => {
     const env = NylasEnv.config.get('env')
     if (['development', 'local'].includes(env)) {
-      this.APIRoot = "http://localhost:5009";
+      this.APIRoot = "http://n1-auth.lvh.me:5555";
     } else if (env === 'experimental') {
       this.APIRoot = "https://edgehill-experimental.nylas.com";
     } else if (env === 'staging') {
@@ -21,12 +25,12 @@ class EdgehillAPI {
   }
 
   accessTokenForAccountId(aid) {
-    return AccountStore.tokenForAccountId(aid)
+    return AccountStore.tokensForAccountId(aid).n1Cloud
   }
 
   makeRequest(options = {}) {
     if (NylasEnv.getLoadSettings().isSpec) {
-      return Promise.resolve();
+      return {run: () => Promise.resolve()}
     }
 
     if (options.authWithNylasAPI) {
@@ -48,9 +52,13 @@ class EdgehillAPI {
       };
     }
 
-    const req = new NylasAPIRequest(this, options);
-    return req.run();
+    const req = new NylasAPIRequest({
+      api: this,
+      options,
+    });
+    return req;
   }
 }
 
-export default new EdgehillAPI();
+const EdgehillAPI = new _EdgehillAPI();
+export {EdgehillAPI, _EdgehillAPI};

@@ -6,6 +6,7 @@ React = require 'react'
  Actions,
  Contact,
  Message} = require 'nylas-exports'
+{InjectedComponentSet} = require 'nylas-component-kit'
 
 DeveloperBarStore = require './developer-bar-store'
 DeveloperBarTask = require './developer-bar-task'
@@ -36,20 +37,28 @@ class DeveloperBar extends React.Component
       <div className="controls">
         <div className="btn-container pull-left">
           <div className="btn" onClick={ => @_onExpandSection('queue')}>
-            <span>Queue Length: {@state.queue?.length}</span>
+            <span>Client Tasks ({@state.queue?.length})</span>
+          </div>
+        </div>
+        <div className="btn-container pull-left">
+          <div className="btn" onClick={ => @_onExpandSection('providerSyncbackRequests')}>
+            <span>Provider Syncback Requests</span>
           </div>
         </div>
         <div className="btn-container pull-left">
           <div className="btn" onClick={ => @_onExpandSection('long-polling')}>
-            { _.map @state.longPollState, (val, key) =>
-              <div title={"Account ID #{key} - State: #{val}"} key={key} className={"activity-status-bubble state-" + val}></div>
-            }
+            {@_renderDeltaStates()}
             <span>Delta Streaming</span>
           </div>
         </div>
         <div className="btn-container pull-left">
           <div className="btn" onClick={ => @_onExpandSection('curl')}>
             <span>Requests: {@state.curlHistory.length}</span>
+          </div>
+        </div>
+        <div className="btn-container pull-left">
+          <div className="btn" onClick={ => @_onExpandSection('local-sync')}>
+            <span>Local Sync Engine</span>
           </div>
         </div>
       </div>
@@ -59,6 +68,14 @@ class DeveloperBar extends React.Component
         <input className="filter" placeholder="Filter..." value={@state.filter} onChange={@_onFilter} />
       </div>
     </div>
+
+  _renderDeltaStates: =>
+    _.map @state.longPollStates, (deltaStatus, accountId) =>
+      <div className="delta-state-wrap" key={accountId} >
+        { _.map deltaStatus, (val, deltaName) =>
+          <div title={"Account #{accountId} - #{deltaName} State: #{val}"} key={"#{accountId}-#{deltaName}"} className={"activity-status-bubble state-" + val}></div>
+        }
+      </div>
 
   _sectionContent: =>
     expandedDiv = <div></div>
@@ -76,6 +93,16 @@ class DeveloperBar extends React.Component
       itemDivs = @state.longPollHistory.filter(matchingFilter).map (item) ->
         <DeveloperBarLongPollItem item={item} ignoredBecause={item.ignoredBecause} key={"#{item.cursor}-#{item.timestamp}"}/>
       expandedDiv = <div className="expanded-section long-polling">{itemDivs}</div>
+
+    else if @state.section == 'local-sync'
+      expandedDiv = <div className="expanded-section local-sync">
+        <InjectedComponentSet matching={{role: "Developer:LocalSyncUI"}} />
+      </div>
+
+    else if @state.section == 'providerSyncbackRequests'
+      reqs = @state.providerSyncbackRequests.map (req) =>
+        <div key={req.id}>&nbsp;{req.type}: {req.status} - {JSON.stringify(req.props)}</div>
+      expandedDiv = <div className="expanded-section provider-syncback-requests">{reqs}</div>
 
     else if @state.section == 'queue'
       queue = @state.queue.filter(matchingFilter)
@@ -132,7 +159,8 @@ class DeveloperBar extends React.Component
     completed: TaskQueue._completed
     curlHistory: DeveloperBarStore.curlHistory()
     longPollHistory: DeveloperBarStore.longPollHistory()
-    longPollState: DeveloperBarStore.longPollState()
+    longPollStates: DeveloperBarStore.longPollStates()
+    providerSyncbackRequests: DeveloperBarStore.providerSyncbackRequests()
 
 
 module.exports = DeveloperBar

@@ -3,9 +3,10 @@
   "main": "./lib/main",
   "version": "0.1.0",
   "engines": {
-    "nylas": ">=0.4.10-4e3595b"
+    "nylas": "*"
   },
   "isOptional": true,
+  "isHiddenOnPluginsPage": true,
 
   "title": "Encryption",
   "description": "Send and receive encrypted messages using Keybase for public key exchange.",

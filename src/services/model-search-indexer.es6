@@ -1,4 +1,5 @@
-import { DatabaseStore } from 'nylas-exports';
+import DatabaseStore from '../flux/stores/database-store'
+import SearchIndexScheduler from './search-index-scheduler'
 
 const INDEXING_PAGE_SIZE = 1000;
 const INDEXING_PAGE_DELAY = 1000;
@@ -6,6 +7,11 @@ const INDEXING_PAGE_DELAY = 1000;
 export default class ModelSearchIndexer {
   constructor() {
     this.unsubscribers = []
+    this.indexer = SearchIndexScheduler;
+  }
+
+  get MaxIndexSize() {
+    throw new Error("Override me and return a number")
   }
 
   get ConfigKey() {
@@ -25,10 +31,18 @@ export default class ModelSearchIndexer {
   }
 
   activate() {
+    this.indexer.registerSearchableModel({
+      modelClass: this.ModelClass,
+      indexSize: this.MaxIndexSize,
+      indexCallback: (model) => this._indexModel(model),
+      unindexCallback: (model) => this._unindexModel(model),
+    });
+
     this._initializeIndex();
     this.unsubscribers = [
       // TODO listen for changes in AccountStore
       DatabaseStore.listen(this._onDataChanged),
+      () => this.indexer.unregisterSearchableModel(this.ModelClass),
     ];
   }
 
@@ -67,6 +81,14 @@ export default class ModelSearchIndexer {
     });
   }
 
+  _indexModel(model) {
+    DatabaseStore.indexModel(model, this.getIndexDataForModel(model))
+  }
+
+  _unindexModel(model) {
+    DatabaseStore.unindexModel(model)
+  }
+
   /**
    * When a model gets updated we will update the search index with the
    * data from that model if the account it belongs to is not being
@@ -79,9 +101,9 @@ export default class ModelSearchIndexer {
 
     change.objects.forEach((model) => {
       if (change.type === 'persist') {
-        DatabaseStore.indexModel(model, this.getIndexDataForModel(model))
+        this.indexer.notifyHasIndexingToDo();
       } else {
-        DatabaseStore.unindexModel(model)
+        this._unindexModel(model);
       }
     });
   }

@@ -16,7 +16,7 @@ APMWrapper = require './apm-wrapper'
 
 basePackagePaths = null
 
-# Extended: Package manager for coordinating the lifecycle of N1 packages.
+# Extended: Package manager for coordinating the lifecycle of Nylas Mail packages.
 #
 # An instance of this class is always available as the `NylasEnv.packages` global.
 #
@@ -32,7 +32,7 @@ basePackagePaths = null
 # Packages can be enabled/disabled via the `core.disabledPackages` config
 # settings and also by calling `enablePackage()/disablePackage()`.
 #
-# Section: N1
+# Section: NylasEnv
 module.exports =
 class PackageManager
   EmitterMixin.includeInto(this)
@@ -112,7 +112,7 @@ class PackageManager
       return null unless packagePath
       metadata = Package.loadMetadata(packagePath)
 
-    return metadata.appId[env] if metadata and metadata.appId instanceof Object
+    return metadata.name if metadata
     return null
 
   ###
@@ -406,7 +406,7 @@ class PackageManager
 
       fs.exists packageTargetDir, (packageAlreadyExists) =>
         if packageAlreadyExists
-          return callback(new Error("A package named '#{packageName}' is already installed in ~/.nylas/packages."), null)
+          return callback(new Error("A package named '#{packageName}' is already installed in ~/.nylas-mail/packages."), null)
 
         fs.copySync(packageSourceDir, packageTargetDir)
 
@@ -571,10 +571,10 @@ class PackageManager
       for pack in packages
         @loadPackage(pack.name)
 
-      @refreshDatabaseSchema()
+      setupPromise = @refreshDatabaseSchema()
 
       for pack in packages
-        promise = @activatePackage(pack.name)
+        promise = @activatePackage(pack.name, setupPromise)
         promises.push(promise)
     @observeDisabledPackages()
     promises
@@ -588,19 +588,21 @@ class PackageManager
   # entry in `packagesWithDatabaseObjects`.
   refreshDatabaseSchema: ->
     if @packagesWithDatabaseObjects.length > 0
-      DatabaseStore.refreshDatabaseSchema()
-      @packagesWithDatabaseObjects = []
+      return DatabaseStore.refreshDatabaseSchema().then =>
+        @packagesWithDatabaseObjects = []
+    return Promise.resolve()
 
   # Activate a single package by name
-  activatePackage: (name) ->
+  activatePackage: (name, setupPromise = Promise.resolve()) ->
     if pack = @getActivePackage(name)
       Q(pack)
     else if pack = @loadPackage(name)
-      pack.activate().then =>
-        @activePackages[pack.name] = pack
-        @emitter.emit 'did-activate-package', pack
-        @onPluginsChanged()
-        pack
+      setupPromise.then =>
+        pack.activate().then =>
+          @activePackages[pack.name] = pack
+          @emitter.emit 'did-activate-package', pack
+          @onPluginsChanged()
+          pack
     else
       Q.reject(new Error("Failed to load package '#{name}'"))
 

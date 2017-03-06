@@ -1,7 +1,8 @@
-/* eslint prefer-template: 0 */
+/* eslint global-require: 0 *//* eslint prefer-template: 0 */
 /* eslint quote-props: 0 */
 const packager = require('electron-packager');
 const path = require('path');
+const util = require('util');
 const tmpdir = path.resolve(require('os').tmpdir(), 'nylas-build');
 const fs = require('fs-plus');
 const coffeereact = require('coffee-react');
@@ -17,9 +18,10 @@ module.exports = (grunt) => {
     const apmTargetDir = path.resolve(buildPath, '..', 'apm');
     fs.moveSync(path.join(buildPath, 'apm'), apmTargetDir)
 
-    // Move /apm/node_modules/atom-package-manager up a level. We're essentially
-    // pulling the atom-package-manager module up outside of the node_modules folder,
-    // which is necessary because npmV3 installs nested dependencies in the same dir.
+    // Move /apm/node_modules/atom-package-manager up a level. We're
+    // essentially pulling the atom-package-manager module up outside of
+    // the node_modules folder, which is necessary because npmV3 installs
+    // nested dependencies in the same dir.
     const apmPackageDir = path.join(apmTargetDir, 'node_modules', 'atom-package-manager')
     for (const name of fs.readdirSync(apmPackageDir)) {
       fs.renameSync(path.join(apmPackageDir, name), path.join(apmTargetDir, name));
@@ -34,8 +36,8 @@ module.exports = (grunt) => {
   }
 
   function runCopyPlatformSpecificResources(buildPath, electronVersion, platform, arch, callback) {
-    // these files (like nylas-mailto-default.reg) go alongside the ASAR, not inside it,
-    // so we need to move out of the `app` directory.
+    // these files (like nylas-mailto-default.reg) go alongside the ASAR,
+    // not inside it, so we need to move out of the `app` directory.
     const resourcesDir = path.resolve(buildPath, '..');
     if (platform === 'win32') {
       fs.copySync(path.resolve(grunt.config('appDir'), 'build', 'resources', 'win'), resourcesDir);
@@ -44,7 +46,7 @@ module.exports = (grunt) => {
   }
 
   function runCopySymlinkedPackages(buildPath, electronVersion, platform, arch, callback) {
-    console.log(" -- Moving symlinked node modules / internal packages into build folder.")
+    console.log("---> Moving symlinked node modules / internal packages into build folder.")
 
     const dirs = [
       path.join(buildPath, 'internal_packages'),
@@ -56,7 +58,7 @@ module.exports = (grunt) => {
         const packagePath = path.join(dir, packageName)
         const realPackagePath = fs.realpathSync(packagePath).replace('/private/', '/')
         if (realPackagePath !== packagePath) {
-          console.log(`Copying ${realPackagePath} to ${packagePath}`);
+          console.log(`  ---> Copying ${realPackagePath} to ${packagePath}`);
           fs.removeSync(packagePath);
           fs.copySync(realPackagePath, packagePath);
         }
@@ -66,11 +68,24 @@ module.exports = (grunt) => {
     callback();
   }
 
+  /**
+   * We don't need the K2 folder anymore since the previous step hard
+   * copied the local-sync package (and its isomorphic-core dependency)
+   * into /internal_packages. The remains of the folder are N1-Cloud
+   * pieces that aren't necessary
+   */
+  function removeUnnecessaryFiles(buildPath, electronVersion, platform, arch, callback) {
+    fs.removeSync(path.join(buildPath, 'src', 'K2'))
+    callback();
+  }
+
   function runTranspilers(buildPath, electronVersion, platform, arch, callback) {
-    console.log(" -- Running babel and coffeescript transpilers")
+    console.log("---> Running babel and coffeescript transpilers")
 
     grunt.config('source:coffeescript').forEach(pattern => {
       glob.sync(pattern, {cwd: buildPath, absolute: true}).forEach((coffeepath) => {
+        if (/(node_modules|\.js$)/.test(coffeepath)) return
+        console.log(`  ---> Compiling ${coffeepath.slice(coffeepath.indexOf("/app") + 4)}`)
         const outPath = coffeepath.replace(path.extname(coffeepath), '.js');
         const res = coffeereact.compile(grunt.file.read(coffeepath), {
           bare: false,
@@ -90,7 +105,9 @@ module.exports = (grunt) => {
 
     grunt.config('source:es6').forEach(pattern => {
       glob.sync(pattern, {cwd: buildPath, absolute: true}).forEach((es6Path) => {
+        if (/(node_modules|\.js$)/.test(es6Path)) return
         const outPath = es6Path.replace(path.extname(es6Path), '.js');
+        console.log(`  ---> Compiling ${es6Path.slice(es6Path.indexOf("/app") + 4)}`)
         const res = babel.transformFileSync(es6Path, Object.assign(babelOptions, {
           sourceMaps: true,
           sourceRoot: '/',
@@ -107,6 +124,7 @@ module.exports = (grunt) => {
   }
 
   const platform = grunt.option('platform');
+  const {shouldPublishBuild} = require('./task-helpers')(grunt);
 
   // See: https://github.com/electron-userland/electron-packager/blob/master/usage.txt
   grunt.config.merge({
@@ -132,7 +150,7 @@ module.exports = (grunt) => {
         linux: undefined,
       }[platform],
       'name': {
-        darwin: 'Nylas N1',
+        darwin: 'Nylas Mail',
         win32: 'nylas',
         linux: 'nylas',
       }[platform],
@@ -154,7 +172,6 @@ module.exports = (grunt) => {
         '^[\\/]+build',
         '^[\\/]+electron',
         '^[\\/]+flow-typed',
-        '^[\\/]+src[\\/]+pro',
         '^[\\/]+spec_integration',
 
         // general dirs we never want
@@ -175,6 +192,7 @@ module.exports = (grunt) => {
         '\\.lint$',
         '\\.lintignore$',
         '\\.arcconfig$',
+        '\\.arclint$',
         '\\.flowconfig$',
         '\\.jshintignore$',
         '\\.gitattributes$',
@@ -207,12 +225,12 @@ module.exports = (grunt) => {
        * us to setup the keychain first and install the identity. We do
        * this in the setup-travis-keychain-task
        */
-      'osx-sign': true,
+      'osx-sign': shouldPublishBuild(),
       'win32metadata': {
         CompanyName: 'Nylas, Inc.',
         FileDescription: 'The best email app for people and teams at work',
         LegalCopyright: `Copyright (C) 2014-${new Date().getFullYear()} Nylas, Inc. All rights reserved.`,
-        ProductName: 'Nylas N1',
+        ProductName: 'Nylas Mail',
       },
       // NOTE: The following plist keys can NOT be set in the
       // nylas-Info.plist since they are manually overridden by
@@ -230,31 +248,36 @@ module.exports = (grunt) => {
       // left in the Electron Info.plist file
       'extend-info': path.resolve(grunt.config('appDir'), 'build', 'resources', 'mac', 'nylas-Info.plist'),
       'app-bundle-id': "com.nylas.nylas-mail",
-      'extra-resource': [
-        path.resolve(grunt.config('appDir'), 'build', 'resources', 'mac', 'Nylas Calendar.app'),
-      ],
       'afterCopy': [
         runCopyPlatformSpecificResources,
         runCopyAPM,
         runCopySymlinkedPackages,
+        removeUnnecessaryFiles,
         runTranspilers,
       ],
     },
   })
 
-  grunt.registerTask('packager', 'Package build of N1', function pack() {
-    const done = this.async()
+  grunt.registerTask('packager', 'Package build of Nylas Mail', function pack() {
+    const done = this.async();
 
-    console.log('----- Running build with options:');
-    console.log(JSON.stringify(grunt.config.get('packager'), null, 2));
+    console.log('---> Running build with options:');
+    console.log(util.inspect(grunt.config.get('packager'), true, 7, true));
+
+    let time = 1;
+    const ongoing = setInterval(() => {
+      console.log(`---> Packaging for ${time}s`);
+      time += 1;
+    }, 1000)
 
     packager(grunt.config.get('packager'), (err, appPaths) => {
+      clearInterval(ongoing)
       if (err) {
-        console.error(err);
-        return;
+        grunt.fail.fatal(err);
+        return done(err);
       }
-      console.log(`Done: ${appPaths}`);
-      done();
+      console.log(`---> Done Successfully. Built into: ${appPaths}`);
+      return done();
     });
   });
 };

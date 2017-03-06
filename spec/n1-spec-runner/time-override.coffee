@@ -33,6 +33,7 @@ class TimeOverride
   @enableSpies = =>
     window.advanceClock = @advanceClock
 
+    window.originalSetTimeout = window.setTimeout
     window.originalSetInterval = window.setInterval
     spyOn(window, "setTimeout").andCallFake @_fakeSetTimeout
     spyOn(window, "clearTimeout").andCallFake @_fakeClearTimeout
@@ -46,15 +47,8 @@ class TimeOverride
     @_setPromiseScheduler()
 
   @_setPromiseScheduler: =>
-
-    # Make Bluebird use setTimeout so that it hooks into our stubs, and you
-    # can advance promises using `advanceClock()`. To avoid breaking any
-    # specs that `dont` manually call advanceClock, call it automatically on
-    # the next tick.
     @originalPromiseScheduler ?= Promise.setScheduler (fn) =>
-      setTimeout(fn, 0)
-      process.nextTick =>
-        @advanceClock(1)
+      window.originalSetTimeout(fn, 0)
 
   @disableSpies = =>
     window.advanceClock = null

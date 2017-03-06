@@ -7,7 +7,7 @@ export function activate() {
   ThreadSearchIndexStore.activate()
   ContactSearchIndexer.activate()
   // TODO Calendar feature has been punted, we will disable this indexer for now
-  // EventSearchIndexer.activate()
+  // EventSearchIndexer.activate(indexer)
 }
 
 export function deactivate() {

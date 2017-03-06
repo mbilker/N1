@@ -4,42 +4,48 @@ import {
   Thread,
   AccountStore,
   DatabaseStore,
-  NylasSyncStatusStore,
-  QuotedHTMLTransformer,
+  SearchIndexScheduler,
 } from 'nylas-exports'
 
-const INDEX_SIZE = 10000
-const MAX_INDEX_SIZE = 30000
-const CHUNKS_PER_ACCOUNT = 10
-const INDEXING_WAIT = 1000
+const MAX_INDEX_SIZE = 100000
 const MESSAGE_BODY_LENGTH = 50000
-const INDEX_VERSION = 1
+const INDEX_VERSION = 2
 
 class ThreadSearchIndexStore {
 
   constructor() {
     this.unsubscribers = []
+    this.indexer = SearchIndexScheduler;
   }
 
   activate() {
-    NylasSyncStatusStore.whenSyncComplete().then(() => {
-      const date = Date.now()
-      console.log('Thread Search: Initializing thread search index...')
+    this.indexer.registerSearchableModel({
+      modelClass: Thread,
+      indexSize: MAX_INDEX_SIZE,
+      indexCallback: (model) => this.updateThreadIndex(model),
+      unindexCallback: (model) => this.unindexThread(model),
+    });
 
-      this.accountIds = _.pluck(AccountStore.accounts(), 'id')
-      this.initializeIndex()
-      .then(() => {
-        NylasEnv.config.set('threadSearchIndexVersion', INDEX_VERSION)
-        return Promise.resolve()
-      })
-      .then(() => {
-        console.log(`Thread Search: Index built successfully in ${((Date.now() - date) / 1000)}s`)
-        this.unsubscribers = [
-          AccountStore.listen(this.onAccountsChanged),
-          DatabaseStore.listen(this.onDataChanged),
-        ]
-      })
+    const date = Date.now();
+    console.log('Thread Search: Initializing thread search index...')
+
+    this.accountIds = _.pluck(AccountStore.accounts(), 'id')
+    this.initializeIndex()
+    .then(() => {
+      NylasEnv.config.set('threadSearchIndexVersion', INDEX_VERSION)
+      return Promise.resolve()
     })
+    .then(() => {
+      console.log(`Thread Search: Index built successfully in ${((Date.now() - date) / 1000)}s`)
+      this.unsubscribers = [
+        AccountStore.listen(this.onAccountsChanged),
+        DatabaseStore.listen(this.onDataChanged),
+      ]
+    })
+  }
+
+  _isInvalidSize(size) {
+    return !size || size > MAX_INDEX_SIZE || size === 0;
   }
 
   /**
@@ -61,7 +67,7 @@ class ThreadSearchIndexStore {
     return DatabaseStore.searchIndexSize(Thread)
     .then((size) => {
       console.log(`Thread Search: Current index size is ${(size || 0)} threads`)
-      if (!size || size >= MAX_INDEX_SIZE || size === 0) {
+      if (this._isInvalidSize(size)) {
         return this.clearIndex().thenReturn(this.accountIds)
       }
       return this.getUnindexedAccounts()
@@ -84,31 +90,29 @@ class ThreadSearchIndexStore {
    */
   onAccountsChanged = () => {
     _.defer(() => {
-      NylasSyncStatusStore.whenSyncComplete().then(() => {
-        const latestIds = _.pluck(AccountStore.accounts(), 'id')
-        if (_.isEqual(this.accountIds, latestIds)) {
-          return;
-        }
-        const date = Date.now()
-        console.log(`Thread Search: Updating thread search index for accounts ${latestIds}`)
+      const latestIds = _.pluck(AccountStore.accounts(), 'id')
+      if (_.isEqual(this.accountIds, latestIds)) {
+        return;
+      }
+      const date = Date.now()
+      console.log(`Thread Search: Updating thread search index for accounts ${latestIds}`)
 
-        const newIds = _.difference(latestIds, this.accountIds)
-        const removedIds = _.difference(this.accountIds, latestIds)
-        const promises = []
-        if (newIds.length > 0) {
-          promises.push(this.buildIndex(newIds))
-        }
+      const newIds = _.difference(latestIds, this.accountIds)
+      const removedIds = _.difference(this.accountIds, latestIds)
+      const promises = []
+      if (newIds.length > 0) {
+        promises.push(this.buildIndex(newIds))
+      }
 
-        if (removedIds.length > 0) {
-          promises.push(
-            Promise.all(removedIds.map(id => DatabaseStore.unindexModelsForAccount(id, Thread)))
-          )
-        }
-        this.accountIds = latestIds
-        Promise.all(promises)
-        .then(() => {
-          console.log(`Thread Search: Index updated successfully in ${((Date.now() - date) / 1000)}s`)
-        })
+      if (removedIds.length > 0) {
+        promises.push(
+          Promise.all(removedIds.map(id => DatabaseStore.unindexModelsForAccount(id, Thread)))
+        )
+      }
+      this.accountIds = latestIds
+      Promise.all(promises)
+      .then(() => {
+        console.log(`Thread Search: Index updated successfully in ${((Date.now() - date) / 1000)}s`)
       })
     })
   }
@@ -128,14 +132,14 @@ class ThreadSearchIndexStore {
     }
     _.defer(() => {
       const {objects, type} = change
-      const {isSyncCompleteForAccount} = NylasSyncStatusStore
-      const threads = objects.filter(({accountId}) => isSyncCompleteForAccount(accountId))
+      const threads = objects;
 
       let promises = []
       if (type === 'persist') {
-        promises = threads.map(this.updateThreadIndex)
+        this.indexer.notifyHasIndexingToDo();
       } else if (type === 'unpersist') {
-        promises = threads.map(this.unindexThread)
+        promises = threads.map(thread => this.unindexThread(thread,
+                                                  {isBeingUnpersisted: true}))
       }
       Promise.all(promises)
     })
@@ -143,11 +147,8 @@ class ThreadSearchIndexStore {
 
   buildIndex = (accountIds) => {
     if (!accountIds || accountIds.length === 0) { return Promise.resolve() }
-    const sizePerAccount = Math.floor(INDEX_SIZE / accountIds.length)
-    return Promise.resolve(accountIds)
-    .each((accountId) => (
-      this.indexThreadsForAccount(accountId, sizePerAccount)
-    ))
+    this.indexer.notifyHasIndexingToDo();
+    return Promise.resolve()
   }
 
   clearIndex() {
@@ -160,27 +161,6 @@ class ThreadSearchIndexStore {
   getUnindexedAccounts() {
     return Promise.resolve(this.accountIds)
     .filter((accId) => DatabaseStore.isIndexEmptyForAccount(accId, Thread))
-  }
-
-  indexThreadsForAccount(accountId, indexSize) {
-    const chunkSize = Math.floor(indexSize / CHUNKS_PER_ACCOUNT)
-    const chunks = Promise.resolve(_.times(CHUNKS_PER_ACCOUNT, () => chunkSize))
-
-    return chunks.each((size, idx) => {
-      return DatabaseStore.findAll(Thread)
-      .where({accountId})
-      .limit(size)
-      .offset(size * idx)
-      .order(Thread.attributes.lastMessageReceivedTimestamp.descending())
-      .background()
-      .then((threads) => {
-        return Promise.all(
-          threads.map(this.indexThread)
-        ).then(() => {
-          return new Promise((resolve) => setTimeout(resolve, INDEXING_WAIT))
-        })
-      })
-    })
   }
 
   indexThread = (thread) => {
@@ -201,36 +181,39 @@ class ThreadSearchIndexStore {
     )
   }
 
-  unindexThread = (thread) => {
-    return DatabaseStore.unindexModel(thread)
+  unindexThread = (thread, opts) => {
+    return DatabaseStore.unindexModel(thread, opts)
   }
 
   getIndexData(thread) {
-    const messageBodies = (
-      thread.messages()
-      .then((messages) => (
-        messages
-        .map(({body, snippet}) => (
-          !_.isString(body) ?
-            {snippet} :
-            {body: QuotedHTMLTransformer.removeQuotedHTML(body)}
-        ))
-        .map(({body, snippet}) => (
-          snippet || Utils.extractTextFromHtml(body, {maxLength: MESSAGE_BODY_LENGTH}).replace(/(\s)+/g, ' ')
-        ))
+    return thread.messages().then((messages) => {
+      return {
+        bodies: messages
+           .map(({body, snippet}) => (!_.isString(body) ? {snippet} : {body}))
+           .map(({body, snippet}) => (
+             snippet || Utils.extractTextFromHtml(body, {maxLength: MESSAGE_BODY_LENGTH}).replace(/(\s)+/g, ' ')
+           )).join(' '),
+        to: messages.map(({to, cc, bcc}) => (
+          _.uniq(to.concat(cc).concat(bcc).map(({name, email}) => `${name} ${email}`))
+        )).join(' '),
+        from: messages.map(({from}) => (
+          from.map(({name, email}) => `${name} ${email}`)
+        )).join(' '),
+      };
+    }).then(({bodies, to, from}) => {
+      const categories = (
+        thread.categories
+        .map(({displayName}) => displayName)
         .join(' ')
-      ))
-    )
-    const participants = (
-      thread.participants
-      .map(({name, email}) => `${name} ${email}`)
-      .join(" ")
-    )
+      )
 
-    return Promise.props({
-      participants,
-      body: messageBodies,
-      subject: thread.subject,
+      return {
+        categories: categories,
+        to_: to,
+        from_: from,
+        body: bodies,
+        subject: thread.subject,
+      };
     });
   }
 

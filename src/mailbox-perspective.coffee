@@ -2,7 +2,7 @@ _ = require 'underscore'
 
 Utils = require './flux/models/utils'
 TaskFactory = require('./flux/tasks/task-factory').default
-AccountStore = require './flux/stores/account-store'
+AccountStore = require('./flux/stores/account-store').default
 CategoryStore = require './flux/stores/category-store'
 DatabaseStore = require('./flux/stores/database-store').default
 OutboxStore = require('./flux/stores/outbox-store').default
@@ -73,7 +73,9 @@ class MailboxPerspective
   # Instance Methods
 
   constructor: (@accountIds) ->
-    unless @accountIds instanceof Array and _.every(@accountIds, _.isString)
+    unless @accountIds instanceof Array and _.every(@accountIds, (aid) =>
+      (typeof aid is 'string') or (typeof aid is 'number')
+    )
       throw new Error("#{@constructor.name}: You must provide an array of string `accountIds`")
     @
 
@@ -99,10 +101,14 @@ class MailboxPerspective
     false
 
   emptyMessage: =>
-    "Nothing to display"
+    "No Messages"
 
   categories: =>
     []
+
+  # overwritten in CategoryMailboxPerspective
+  hasSyncingCategories: =>
+    false
 
   categoriesSharedName: =>
     @_categoriesSharedName ?= Category.categoriesSharedName(@categories())
@@ -205,11 +211,14 @@ class StarredMailboxPerspective extends MailboxPerspective
 
   receiveThreads: (threadsOrIds) =>
     ChangeStarredTask = require('./flux/tasks/change-starred-task').default
-    task = new ChangeStarredTask({threads:threadsOrIds, starred: true})
+    task = new ChangeStarredTask({threads:threadsOrIds, starred: true, source: "Dragged Into List"})
     Actions.queueTask(task)
 
   tasksForRemovingItems: (threads) =>
-    task = TaskFactory.taskForInvertingStarred(threads: threads)
+    task = TaskFactory.taskForInvertingStarred({
+      threads: threads
+      source: "Removed From List"
+    })
     return [task]
 
 
@@ -284,6 +293,12 @@ class CategoryMailboxPerspective extends MailboxPerspective
   categories: =>
     @_categories
 
+  hasSyncingCategories: =>
+    for cat in @_categories
+      if not cat.isSyncComplete()
+        return true
+    return false
+
   isArchive: =>
     _.every(@_categories, (cat) -> cat.isArchive())
 
@@ -298,6 +313,7 @@ class CategoryMailboxPerspective extends MailboxPerspective
     # attached to this perspective
     DatabaseStore.modelify(Thread, threadsOrIds).then (threads) =>
       tasks = TaskFactory.tasksForApplyingCategories
+        source: "Dragged Into List",
         threads: threads
         categoriesToRemove: (accountId) ->
           if current.categoriesSharedName() in Category.LockedCategoryNames
@@ -341,7 +357,7 @@ class CategoryMailboxPerspective extends MailboxPerspective
   #   }
   # )
   #
-  tasksForRemovingItems: (threads, ruleset) =>
+  tasksForRemovingItems: (threads, ruleset, source) =>
     if not ruleset
       throw new Error("tasksForRemovingItems: you must pass a ruleset object to determine the destination of the threads")
 
@@ -354,6 +370,7 @@ class CategoryMailboxPerspective extends MailboxPerspective
     return [] if ruleset[name] is null
 
     return TaskFactory.tasksForApplyingCategories(
+      source: source || "Removed From List",
       threads: threads,
       categoriesToRemove: (accountId) =>
         # Remove all categories from this perspective that match the accountId
@@ -381,13 +398,13 @@ class UnreadMailboxPerspective extends CategoryMailboxPerspective
     super(threadsOrIds)
 
     ChangeUnreadTask ?= require('./flux/tasks/change-unread-task').default
-    task = new ChangeUnreadTask({threads:threadsOrIds, unread: true})
+    task = new ChangeUnreadTask({threads:threadsOrIds, unread: true, source: "Dragged Into List"})
     Actions.queueTask(task)
 
-  tasksForRemovingItems: (threads, ruleset) =>
+  tasksForRemovingItems: (threads, ruleset, source) =>
     ChangeUnreadTask ?= require('./flux/tasks/change-unread-task').default
     tasks = super(threads, ruleset)
-    tasks.push new ChangeUnreadTask({threads, unread: false})
+    tasks.push new ChangeUnreadTask({threads, unread: false, source: source || "Removed From List"})
     return tasks
 
 

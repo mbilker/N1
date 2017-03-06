@@ -46,11 +46,14 @@ class NylasComponentKit
   @load "FixedPopover", 'fixed-popover'
   @require "DatePickerPopover", 'date-picker-popover'
   @load "Modal", 'modal'
+  @load "FeatureUsedUpModal", 'feature-used-up-modal'
+  @load "OpenIdentityPageButton", 'open-identity-page-button'
   @load "Flexbox", 'flexbox'
   @load "RetinaImg", 'retina-img'
   @load "SwipeContainer", 'swipe-container'
   @load "FluxContainer", 'flux-container'
   @load "FocusContainer", 'focus-container'
+  @load "SyncingListState", 'syncing-list-state'
   @load "EmptyListState", 'empty-list-state'
   @load "ListTabular", 'list-tabular'
   @load "Notification", 'notification'
@@ -96,6 +99,7 @@ class NylasComponentKit
   @load "OAuthSignInPage", "oauth-signin-page"
   @requireFrom "AttachmentItem", "attachment-items"
   @requireFrom "ImageAttachmentItem", "attachment-items"
+  @load "CodeSnippet", "code-snippet"
 
   @load "ScrollRegion", 'scroll-region'
   @load "ResizableRegion", 'resizable-region'

@@ -199,9 +199,9 @@ describe("DatabaseStore", function DatabaseStoreSpecs() {
     it("can be called multiple times and get queued", () =>
       waitsForPromise(() => {
         return Promise.all([
-          DatabaseStore.inTransaction(() => { }),
-          DatabaseStore.inTransaction(() => { }),
-          DatabaseStore.inTransaction(() => { }),
+          DatabaseStore.inTransaction(() => Promise.resolve()),
+          DatabaseStore.inTransaction(() => Promise.resolve()),
+          DatabaseStore.inTransaction(() => Promise.resolve()),
         ]).then(() => {
           expect(this.performed.length).toBe(6);
           expect(this.performed[0].query).toBe("BEGIN IMMEDIATE TRANSACTION");
@@ -215,12 +215,12 @@ describe("DatabaseStore", function DatabaseStoreSpecs() {
 
     );
 
-    it("carries on if one of them fails, but still calls the COMMIT for the failed block", () => {
+    it("carries on if one of them fails, but still calls the COMMIT for the failed block", async () => {
       let caughtError = false;
-      DatabaseStore.inTransaction(() => DatabaseStore._query("ONE"));
-      DatabaseStore.inTransaction(() => { throw new Error("fail"); }).catch(() => { caughtError = true });
-      DatabaseStore.inTransaction(() => DatabaseStore._query("THREE"));
-      advanceClock(100);
+      const p1 = DatabaseStore.inTransaction(() => DatabaseStore._query("ONE"));
+      const p2 = DatabaseStore.inTransaction(() => { throw new Error("fail"); }).catch(() => { caughtError = true });
+      const p3 = DatabaseStore.inTransaction(() => DatabaseStore._query("THREE"));
+      await Promise.all([p1, p2, p3])
       expect(this.performed.length).toBe(8);
       expect(this.performed[0].query).toBe("BEGIN IMMEDIATE TRANSACTION");
       expect(this.performed[1].query).toBe("ONE");
@@ -233,32 +233,24 @@ describe("DatabaseStore", function DatabaseStoreSpecs() {
       expect(caughtError).toBe(true);
     });
 
-    it("is actually running in series and blocks on never-finishing specs", () => {
+    it("is actually running in series and blocks on never-finishing specs", async () => {
       let resolver = null;
-      DatabaseStore.inTransaction(() => { });
-      advanceClock(100);
+      await DatabaseStore.inTransaction(() => Promise.resolve());
       expect(this.performed.length).toBe(2);
       expect(this.performed[0].query).toBe("BEGIN IMMEDIATE TRANSACTION");
       expect(this.performed[1].query).toBe("COMMIT");
       DatabaseStore.inTransaction(() => new Promise((resolve) => { resolver = resolve }));
-      advanceClock(100);
       let blockedPromiseDone = false;
-      DatabaseStore.inTransaction(() => { }).then(() => {
+      DatabaseStore.inTransaction(() => Promise.resolve()).then(() => {
         blockedPromiseDone = true;
       });
-      advanceClock(100);
+      await new Promise(setImmediate)
       expect(this.performed.length).toBe(3);
       expect(this.performed[2].query).toBe("BEGIN IMMEDIATE TRANSACTION");
       expect(blockedPromiseDone).toBe(false);
-
-      // Now that we've made our assertion about blocking, we need to clean up
-      // our test and actually resolve that blocked promise now, otherwise
-      // remaining tests won't run properly.
-      advanceClock(100);
       resolver();
-      advanceClock(100);
+      await new Promise(setImmediate)
       expect(blockedPromiseDone).toBe(true);
-      return advanceClock(100);
     });
 
     it("can be called multiple times and preserve return values", () =>
@@ -267,9 +259,9 @@ describe("DatabaseStore", function DatabaseStoreSpecs() {
         let v2 = null;
         let v3 = null;
         return Promise.all([
-          DatabaseStore.inTransaction(() => "a").then(val => { v1 = val }),
-          DatabaseStore.inTransaction(() => "b").then(val => { v2 = val }),
-          DatabaseStore.inTransaction(() => "c").then(val => { v3 = val }),
+          DatabaseStore.inTransaction(() => Promise.resolve("a")).then(val => { v1 = val }),
+          DatabaseStore.inTransaction(() => Promise.resolve("b")).then(val => { v2 = val }),
+          DatabaseStore.inTransaction(() => Promise.resolve("c")).then(val => { v3 = val }),
         ]).then(() => {
           expect(v1).toBe("a");
           expect(v2).toBe("b");
@@ -281,9 +273,9 @@ describe("DatabaseStore", function DatabaseStoreSpecs() {
 
     it("can be called multiple times and get queued", () =>
       waitsForPromise(() => {
-        return DatabaseStore.inTransaction(() => { })
-        .then(() => DatabaseStore.inTransaction(() => { }))
-        .then(() => DatabaseStore.inTransaction(() => { }))
+        return DatabaseStore.inTransaction(() => Promise.resolve())
+        .then(() => DatabaseStore.inTransaction(() => Promise.resolve()))
+        .then(() => DatabaseStore.inTransaction(() => Promise.resolve()))
         .then(() => {
           expect(this.performed.length).toBe(6);
           expect(this.performed[0].query).toBe("BEGIN IMMEDIATE TRANSACTION");

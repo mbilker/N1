@@ -1,80 +1,49 @@
+import Rx from 'rx-lite'
 import NylasStore from 'nylas-store';
-import keytar from 'keytar';
-import {ipcRenderer, remote} from 'electron';
+import {ipcRenderer} from 'electron';
 import request from 'request';
 import url from 'url'
-import Moment from 'moment-timezone';
 
-import Actions from '../actions';
-import AccountStore from './account-store';
 import Utils from '../models/utils';
+import Actions from '../actions';
+import {APIError} from '../errors'
+import KeyManager from '../../key-manager'
+import DatabaseStore from './database-store'
 
-const configIdentityKey = "nylas.identity";
-const keytarServiceName = 'Nylas';
-const keytarIdentityKey = 'Nylas Account';
-
-const State = {
-  Trialing: 'Trialing',
-  Valid: 'Valid',
-  Lapsed: 'Lapsed',
-};
+// Note this key name is used when migrating to Nylas Pro accounts from
+// old N1.
+const KEYCHAIN_NAME = 'Nylas Account';
 
 class IdentityStore extends NylasStore {
 
   constructor() {
     super();
+    this._identity = null
+  }
 
-    this._subscriptionRequiredAfter = null;
-
+  async activate() {
     NylasEnv.config.onDidChange('env', this._onEnvChanged);
     this._onEnvChanged();
 
-    this.listenTo(AccountStore, () => { this.trigger() });
-    this.listenTo(Actions.setNylasIdentity, this._onSetNylasIdentity);
     this.listenTo(Actions.logoutNylasIdentity, this._onLogoutNylasIdentity);
 
-    NylasEnv.config.onDidChange(configIdentityKey, () => {
-      this._loadIdentity();
-      this.trigger();
-      if (NylasEnv.isMainWindow()) {
-        this.refreshAccounts();
-      }
-    });
+    const q = DatabaseStore.findJSONBlob("NylasID");
+    this._disp = Rx.Observable.fromQuery(q).subscribe(this._onIdentityChanged)
 
-    this._loadIdentity();
+    const identity = await DatabaseStore.run(q)
+    this._onIdentityChanged(identity)
 
-    if (NylasEnv.isMainWindow() && ['staging', 'production'].includes(NylasEnv.config.get('env'))) {
-      setInterval(this.refreshIdentityAndAccounts, 1000 * 60 * 60); // 1 hour
-      this.refreshIdentityAndAccounts();
-    }
+    this._fetchAndPollRemoteIdentity()
   }
 
-  _onEnvChanged = () => {
-    const env = NylasEnv.config.get('env')
-    if (['development', 'local'].includes(env)) {
-      this.URLRoot = "http://localhost:5009";
-    } else if (env === 'experimental') {
-      this.URLRoot = "https://billing-experimental.nylas.com";
-    } else if (env === 'staging') {
-      this.URLRoot = "https://billing-staging.nylas.com";
-    } else {
-      this.URLRoot = "https://billing.nylas.com";
-    }
-  }
-
-  _loadIdentity() {
-    this._identity = NylasEnv.config.get(configIdentityKey);
-    if (this._identity) {
-      this._identity.token = keytar.getPassword(keytarServiceName, keytarIdentityKey);
-    }
-  }
-
-  get State() {
-    return State;
+  deactivate() {
+    this._disp.dispose();
+    this.stopListeningToAll()
   }
 
   identity() {
-    return this._identity;
+    if (!this._identity || !this._identity.id) return null
+    return Utils.deepClone(this._identity);
   }
 
   identityId() {
@@ -84,48 +53,78 @@ class IdentityStore extends NylasStore {
     return this._identity.id;
   }
 
-  subscriptionState() {
-    if (!this._identity || (this._identity.valid_until === null)) {
-      return State.Trialing;
-    }
-    if (new Date(this._identity.valid_until * 1000) < new Date()) {
-      return State.Lapsed;
-    }
-    return State.Valid;
+  _fetchAndPollRemoteIdentity() {
+    if (!NylasEnv.isMainWindow()) return;
+    if (!['staging', 'production'].includes(NylasEnv.config.get('env'))) return;
+    /**
+     * We only need to re-fetch the identity to synchronize ourselves
+     * with any changes a user did on a separate computer. Any updates
+     * they do on their primary computer will be optimistically updated.
+     * We also update from the server's version every
+     * `SendFeatureUsageEventTask`
+     */
+    setInterval(this._fetchIdentity.bind(this), 1000 * 60 * 10); // 10 minutes
+    // Don't await for this!
+    this._fetchIdentity();
   }
 
-  daysUntilSubscriptionRequired() {
-    if (!this._subscriptionRequiredAfter) {
-      return null;
+  /**
+   * Saves the identity to the database. The local cache will be updated
+   * once the database change comes back through
+   */
+  async saveIdentity(identity) {
+    if (identity && identity.token) {
+      KeyManager.replacePassword(KEYCHAIN_NAME, identity.token)
+      delete identity.token;
     }
-    const now = new Moment();
-    const nowDayOfEpoch = now.dayOfYear() + now.year() * 365;
-    const requiredAt = new Moment(this._subscriptionRequiredAfter);
-    const requiredDayOfEpoch = requiredAt.dayOfYear() + requiredAt.year() * 365;
-
-    return Math.max(0, requiredDayOfEpoch - nowDayOfEpoch);
-  }
-
-  refreshIdentityAndAccounts = () => {
-    return this.fetchIdentity().then(() =>
-      this.refreshAccounts()
-    ).catch((err) => {
-      console.error(`Unable to refresh IdentityStore status: ${err.message}`)
+    if (!identity) {
+      KeyManager.deletePassword(KEYCHAIN_NAME)
+    }
+    await DatabaseStore.inTransaction((t) => {
+      return t.persistJSONBlob("NylasID", identity)
     });
+    this._onIdentityChanged(identity)
   }
 
-  refreshAccounts = () => {
-    const accountIds = AccountStore.accounts().map((a) => a.id);
-    AccountStore.refreshHealthOfAccounts(accountIds);
+  /**
+   * When the identity changes in the database, update our local store
+   * cache and set the token from the keychain.
+   */
+  _onIdentityChanged = (newIdentity) => {
+    const oldId = ((this._identity || {}).id)
+    this._identity = newIdentity
+    if (this._identity && this._identity.id) {
+      if (!this._identity.token) {
+        this._identity.token = KeyManager.getPassword(KEYCHAIN_NAME);
+      }
+    } else {
+      // It's possible the identity exists as an empty object. If the
+      // object looks blank, set the identity to null.
+      this._identity = null
+    }
+    const newId = ((this._identity || {}).id);
+    if (oldId !== newId) {
+      ipcRenderer.send('command', 'onIdentityChanged');
+    }
+    this.trigger();
+  }
 
-    return Promise.all(AccountStore.accounts().map((a) =>
-      this.fetchSubscriptionRequiredDate(a))
-    ).then((subscriptionRequiredDates) => {
-      this._subscriptionRequiredAfter = subscriptionRequiredDates.sort().shift();
-      this.trigger();
-    }).catch((err) => {
-      console.error(`Unable to refresh IdentityStore accounts: ${err.message}`)
-    })
+  _onLogoutNylasIdentity = async () => {
+    await this.saveIdentity(null)
+    ipcRenderer.send('command', 'application:relaunch-to-initial-windows');
+  }
+
+  _onEnvChanged = () => {
+    const env = NylasEnv.config.get('env')
+    if (['development', 'local'].includes(env)) {
+      this.URLRoot = "http://billing.lvh.me:5555";
+    } else if (env === 'experimental') {
+      this.URLRoot = "https://billing-experimental.nylas.com";
+    } else if (env === 'staging') {
+      this.URLRoot = "https://billing-staging.nylas.com";
+    } else {
+      this.URLRoot = "https://billing.nylas.com";
+    }
   }
 
   /**
@@ -178,36 +177,46 @@ class IdentityStore extends NylasStore {
     });
   }
 
-  fetchSubscriptionRequiredDate = (account) => {
-    return this.fetchPath(`/n1/account/${account.id}`).then((json) => {
-      return json.subscription_required_after ? new Date(json.subscription_required_after * 1000) : null;
-    });
-  }
-
-  fetchIdentity = () => {
+  async _fetchIdentity() {
     if (!this._identity || !this._identity.token) {
       return Promise.resolve();
     }
-    return this.fetchPath('/n1/user').then((json) => {
-      const nextIdentity = Object.assign({}, this._identity, json);
-      this._onSetNylasIdentity(nextIdentity);
-    });
+    const json = await this.fetchPath('/n1/user');
+    if (!json || !json.id || json.id !== this._identity.id) {
+      console.error(json)
+      NylasEnv.reportError(new Error("Remote Identity returned invalid json"), json)
+      return Promise.resolve(this._identity)
+    }
+    const nextIdentity = Object.assign({}, this._identity, json);
+    return this.saveIdentity(nextIdentity);
   }
 
-  fetchPath = (path) => {
-    return new Promise((resolve, reject) => {
-      const requestId = Utils.generateTempId();
-      const options = {
-        method: 'GET',
-        url: `${this.URLRoot}${path}`,
-        startTime: Date.now(),
-        auth: {
-          username: this._identity.token,
-          password: '',
-          sendImmediately: true,
-        },
-      };
+  fetchPath = async (path) => {
+    const options = {
+      method: 'GET',
+      url: `${this.URLRoot}${path}`,
+      startTime: Date.now(),
+    };
+    try {
+      const newIdentity = await this.nylasIDRequest(options);
+      return newIdentity
+    } catch (err) {
+      const error = err || new Error(`IdentityStore.fetchPath: ${path} ${err.message}.`)
+      NylasEnv.reportError(error)
+      return null
+    }
+  }
 
+  nylasIDRequest(options) {
+    return new Promise((resolve, reject) => {
+      options.formData = false
+      options.json = true
+      options.auth = {
+        username: this._identity.token,
+        password: '',
+        sendImmediately: true,
+      }
+      const requestId = Utils.generateTempId();
       Actions.willMakeAPIRequest({
         request: options,
         requestId: requestId,
@@ -219,34 +228,14 @@ class IdentityStore extends NylasStore {
           error: error,
           requestId: requestId,
         });
-        if (response.statusCode === 200) {
-          try {
-            return resolve(JSON.parse(body));
-          } catch (err) {
-            NylasEnv.reportError(new Error(`IdentityStore.fetchPath: ${path} ${err.message}.`))
-          }
+        if (error || response.statusCode > 299) {
+          const apiError = new APIError({
+            error, response, body, requestOptions: options});
+          return reject(apiError)
         }
-        return reject(error || new Error(`IdentityStore.fetchPath: ${path} ${response.statusCode}.`));
+        return resolve(body);
       });
-    });
-  }
-
-  _onLogoutNylasIdentity = () => {
-    keytar.deletePassword(keytarServiceName, keytarIdentityKey);
-    NylasEnv.config.unset(configIdentityKey);
-    ipcRenderer.send('command', 'application:relaunch-to-initial-windows');
-  }
-
-  _onSetNylasIdentity = (identity) => {
-    if (identity.token) {
-      if (!keytar.replacePassword(keytarServiceName, keytarIdentityKey, identity.token)) {
-        remote.dialog.showErrorBox("Password Management Error",
-          "We couldn't store your password securely! For more information, visit " +
-          "https://support.nylas.com/hc/en-us/articles/223790028")
-      }
-      delete identity.token;
-    }
-    NylasEnv.config.set(configIdentityKey, identity);
+    })
   }
 }
 

@@ -14,33 +14,32 @@ const UpdateAvailableState = 'update-available';
 const NoUpdateAvailableState = 'no-update-available';
 const UnsupportedState = 'unsupported';
 const ErrorState = 'error';
+const preferredChannel = 'nylas-mail'
 
 export default class AutoUpdateManager extends EventEmitter {
 
-  constructor(version, config, specMode) {
+  constructor(version, config, specMode, databaseReader) {
     super();
 
     this.state = IdleState;
     this.version = version;
     this.config = config;
+    this.databaseReader = databaseReader
     this.specMode = specMode;
+    this.preferredChannel = preferredChannel;
 
-    this._updateFeedURL();
+    this.updateFeedURL();
 
-    this.config.onDidChange(
-      'nylas.identity.id',
-      this._updateFeedURL
-    );
     this.config.onDidChange(
       'nylas.accounts',
-      this._updateFeedURL
+      this.updateFeedURL
     );
 
-    process.nextTick(() => this.setupAutoUpdater());
+    setTimeout(() => this.setupAutoUpdater(), 0);
   }
 
   parameters = () => {
-    let updaterId = this.config.get("nylas.identity.id");
+    let updaterId = (this.databaseReader.getJSONBlob("NylasID") || {}).id
     if (!updaterId) {
       updaterId = "anonymous";
     }
@@ -60,18 +59,24 @@ export default class AutoUpdateManager extends EventEmitter {
       version: this.version,
       id: updaterId,
       emails: updaterEmails,
+      preferredChannel: this.preferredChannel,
     };
   }
 
-  _updateFeedURL = () => {
+  updateFeedURL = () => {
     const params = this.parameters();
+
+    let host = `edgehill.nylas.com`;
+    if (this.config.get('env') === 'staging') {
+      host = `edgehill-staging.nylas.com`;
+    }
 
     if (process.platform === 'win32') {
       // Squirrel for Windows can't handle query params
       // https://github.com/Squirrel/Squirrel.Windows/issues/132
-      this.feedURL = `https://edgehill.nylas.com/update-check/win32/${params.arch}/${params.version}/${params.id}/${params.emails}`
+      this.feedURL = `https://${host}/update-check/win32/${params.arch}/${params.version}/${params.id}/${params.emails}`
     } else {
-      this.feedURL = `https://edgehill.nylas.com/update-check?${qs.stringify(params)}`;
+      this.feedURL = `https://${host}/update-check?${qs.stringify(params)}`;
     }
 
     if (autoUpdater) {
@@ -193,7 +198,7 @@ export default class AutoUpdateManager extends EventEmitter {
       icon: this.iconURL(),
       message: 'No update available.',
       title: 'No Update Available',
-      detail: `You're running the latest version of N1 (${this.version}).`,
+      detail: `You're running the latest version of Nylas Mail (${this.version}).`,
     });
   };
 

@@ -1,143 +1,45 @@
 _ = require 'underscore'
 fs = require 'fs'
 Actions = require('../src/flux/actions').default
-NylasAPI = require '../src/flux/nylas-api'
+NylasAPI = require('../src/flux/nylas-api').default
+NylasAPIHelpers = require '../src/flux/nylas-api-helpers'
+NylasAPIRequest = require('../src/flux/nylas-api-request').default
 Thread = require('../src/flux/models/thread').default
 Message = require('../src/flux/models/message').default
-AccountStore = require '../src/flux/stores/account-store'
+AccountStore = require('../src/flux/stores/account-store').default
 DatabaseStore = require('../src/flux/stores/database-store').default
 DatabaseTransaction = require('../src/flux/stores/database-transaction').default
 
 describe "NylasAPI", ->
-  describe "authPlugin", ->
-    beforeEach ->
-      NylasAPI.pluginsSupported = true
-      @authGetResponse = null
-      @authPostResponse = null
-      @error = null
-      @resolved = false
-      spyOn(NylasEnv.config, 'set')
-      spyOn(NylasEnv.config, 'get').andReturn(null)
-      spyOn(NylasAPI, 'makeRequest').andCallFake (options) =>
-        return @authGetResponse if options.method is 'GET' and @authGetResponse
-        return @authPostResponse if options.method is 'POST' and @authPostResponse
-        return new Promise (resolve, reject) -> #never respond
-
-    it "should reject if the current environment does not support plugins", ->
-      NylasAPI.pluginsSupported = false
-      NylasAPI.authPlugin('PID', 'PSECRET', TEST_ACCOUNT_ID).catch (err) => @error = err
-      waitsFor =>
-        @error
-      runs =>
-        expect(@error.message).toEqual('Sorry, this feature is only available when N1 is running against the hosted version of the Nylas Sync Engine.')
-
-    it "should reject if no account can be found for the given accountOrId", ->
-      NylasAPI.authPlugin('PID', 'PSECRET', 'randomAccountId').catch (err) => @error = err
-      waitsFor =>
-        @error
-      runs =>
-        expect(@error.message).toEqual('Invalid account')
-
-    it "should resolve if the plugin has been successfully authed with accountOrId already", ->
-      jasmine.unspy(NylasEnv.config, 'get')
-      spyOn(NylasEnv.config, 'get').andCallFake (key) =>
-        return Date.now() if key is "plugins.PID.lastAuth.#{TEST_ACCOUNT_ID}"
-        return null
-      NylasAPI.authPlugin('PID', 'PSECRET', TEST_ACCOUNT_ID).then (err) =>
-        @resolved = true
-      waitsFor =>
-        @resolved
-      expect(NylasAPI.makeRequest).not.toHaveBeenCalled()
-
-    describe "check for existing auth", ->
-      it "should GET /auth/plugin to check if the plugin has been authed", ->
-        @authGetResponse = Promise.resolve({authed: true})
-        NylasAPI.authPlugin('PID', 'PSECRET', TEST_ACCOUNT_ID)
-        advanceClock()
-        expect(NylasAPI.makeRequest).toHaveBeenCalledWith({
-          returnsModel: false,
-          method: 'GET',
-          accountId: 'test-account-server-id',
-          path: '/auth/plugin?client_id=PID'
-        })
-
-      it "should record a successful auth in the config and resolve without making a POST", ->
-        @authGetResponse = Promise.resolve({authed: true})
-        @authPostResponse = null
-        NylasAPI.authPlugin('PID', 'PSECRET', TEST_ACCOUNT_ID).then => @resolved = true
-        waitsFor =>
-          @resolved
-        runs =>
-          expect(NylasAPI.makeRequest).toHaveBeenCalled()
-          expect(NylasEnv.config.set.mostRecentCall.args[0]).toEqual("plugins.PID.lastAuth.#{TEST_ACCOUNT_ID}")
-
-      it "should propagate any network errors back to the caller", ->
-        @authGetResponse = Promise.reject(new Error("Network failure!"))
-        NylasAPI.authPlugin('PID', 'PSECRET', TEST_ACCOUNT_ID).catch (err) => @error = err
-        advanceClock()
-        advanceClock()
-        expect(@error.message).toBe("Network failure!")
-        expect(NylasEnv.config.set).not.toHaveBeenCalled()
-
-    describe "request for auth", ->
-      it "should POST to /auth/plugin with the client id and record a successful auth", ->
-        @authGetResponse = Promise.resolve({authed: false})
-        @authPostResponse = Promise.resolve({authed: true})
-        NylasAPI.authPlugin('PID', 'PSECRET', TEST_ACCOUNT_ID).then => @resolved = true
-        waitsFor =>
-          @resolved
-        runs =>
-          expect(NylasAPI.makeRequest.calls[0].args[0]).toEqual({
-            returnsModel: false,
-            method: 'GET',
-            accountId: 'test-account-server-id',
-            path: '/auth/plugin?client_id=PID'
-          })
-          expect(NylasAPI.makeRequest.calls[1].args[0]).toEqual({
-            returnsModel: false,
-            method: 'POST',
-            accountId: 'test-account-server-id',
-            path: '/auth/plugin',
-            body: {client_id: 'PID'},
-            json: true
-          })
-          setCall = NylasEnv.config.set.mostRecentCall
-          expect(setCall.args[0]).toEqual("plugins.PID.lastAuth.#{TEST_ACCOUNT_ID}")
-
-      it "should propagate any network errors back to the caller", ->
-        @authGetResponse = Promise.resolve({authed: false})
-        @authPostResponse = Promise.reject(new Error("Network failure!"))
-        NylasAPI.authPlugin('PID', 'PSECRET', TEST_ACCOUNT_ID).catch (err) => @error = err
-        waitsFor =>
-          @error
-        runs =>
-          expect(@error.message).toBe("Network failure!")
 
   describe "handleModel404", ->
     it "should unpersist the model from the cache that was requested", ->
       model = new Thread(id: 'threadidhere')
-      spyOn(DatabaseTransaction.prototype, 'unpersistModel')
-      spyOn(DatabaseStore, 'find').andCallFake (klass, id) =>
+      spyOn(DatabaseTransaction.prototype, 'unpersistModel').andCallFake =>
+        return Promise.resolve()
+      spyOn(DatabaseTransaction.prototype, 'find').andCallFake (klass, id) =>
         return Promise.resolve(model)
-      NylasAPI._handleModel404("/threads/#{model.id}")
-      advanceClock()
-      expect(DatabaseStore.find).toHaveBeenCalledWith(Thread, model.id)
-      expect(DatabaseTransaction.prototype.unpersistModel).toHaveBeenCalledWith(model)
+      waitsForPromise ->
+        NylasAPIHelpers.handleModel404("/threads/#{model.id}")
+      runs ->
+        expect(DatabaseTransaction.prototype.find).toHaveBeenCalledWith(Thread, model.id)
+        expect(DatabaseTransaction.prototype.unpersistModel).toHaveBeenCalledWith(model)
 
     it "should not do anything if the model is not in the cache", ->
       spyOn(DatabaseTransaction.prototype, 'unpersistModel')
-      spyOn(DatabaseStore, 'find').andCallFake (klass, id) =>
+      spyOn(DatabaseTransaction.prototype, 'find').andCallFake (klass, id) =>
         return Promise.resolve(null)
-      NylasAPI._handleModel404("/threads/1234")
-      advanceClock()
-      expect(DatabaseStore.find).toHaveBeenCalledWith(Thread, '1234')
-      expect(DatabaseTransaction.prototype.unpersistModel).not.toHaveBeenCalledWith()
+      waitsForPromise ->
+        NylasAPIHelpers.handleModel404("/threads/1234")
+      runs ->
+        expect(DatabaseTransaction.prototype.find).toHaveBeenCalledWith(Thread, '1234')
+        expect(DatabaseTransaction.prototype.unpersistModel).not.toHaveBeenCalledWith()
 
     it "should not do anything bad if it doesn't recognize the class", ->
       spyOn(DatabaseStore, 'find')
       spyOn(DatabaseTransaction.prototype, 'unpersistModel')
       waitsForPromise ->
-        NylasAPI._handleModel404("/asdasdasd/1234")
+        NylasAPIHelpers.handleModel404("/asdasdasd/1234")
       runs ->
         expect(DatabaseStore.find).not.toHaveBeenCalled()
         expect(DatabaseTransaction.prototype.unpersistModel).not.toHaveBeenCalled()
@@ -146,7 +48,7 @@ describe "NylasAPI", ->
       spyOn(DatabaseStore, 'find')
       spyOn(DatabaseTransaction.prototype, 'unpersistModel')
       waitsForPromise ->
-        NylasAPI._handleModel404("/account")
+        NylasAPIHelpers.handleModel404("/account")
       runs ->
         expect(DatabaseStore.find).not.toHaveBeenCalled()
         expect(DatabaseTransaction.prototype.unpersistModel).not.toHaveBeenCalled()
@@ -154,38 +56,63 @@ describe "NylasAPI", ->
   describe "handleAuthenticationFailure", ->
     it "should put the account in an `invalid` state", ->
       spyOn(Actions, 'updateAccount')
-      spyOn(AccountStore, 'tokenForAccountId').andReturn('token')
-      NylasAPI._handleAuthenticationFailure('/threads/1234', 'token')
+      spyOn(AccountStore, 'tokensForAccountId').andReturn({localSync: 'token'})
+      NylasAPIHelpers.handleAuthenticationFailure('/threads/1234', 'token')
       expect(Actions.updateAccount).toHaveBeenCalled()
       expect(Actions.updateAccount.mostRecentCall.args).toEqual([AccountStore.accounts()[0].id, {syncState: 'invalid'}])
 
+    it "should put the N1 Cloud account in an `invalid` state", ->
+      spyOn(Actions, 'updateAccount')
+      spyOn(AccountStore, 'tokensForAccountId').andReturn({n1Cloud: 'token'})
+      NylasAPIHelpers.handleAuthenticationFailure('/threads/1234', 'token', 'N1CloudAPI')
+      expect(Actions.updateAccount).toHaveBeenCalled()
+      expect(Actions.updateAccount.mostRecentCall.args).toEqual([AccountStore.accounts()[0].id, {syncState: 'n1_cloud_auth_failed'}])
+
     it "should not throw an exception if the account cannot be found", ->
       spyOn(Actions, 'updateAccount')
-      NylasAPI._handleAuthenticationFailure('/threads/1234', 'token')
+      NylasAPIHelpers.handleAuthenticationFailure('/threads/1234', 'token')
       expect(Actions.updateAccount).not.toHaveBeenCalled()
 
   describe "handleModelResponse", ->
     beforeEach ->
-      spyOn(DatabaseTransaction.prototype, "persistModels").andCallFake (models) ->
+      @stubDB = {}
+      @stubDB.upsertModel = (model) =>
+        @stubDB[model.id] = model
+      spyOn(DatabaseTransaction.prototype, "persistModels").andCallFake (models) =>
+        models.forEach(@stubDB.upsertModel)
         Promise.resolve(models)
+      spyOn(DatabaseStore, "findAll").andCallFake (klass) =>
+        @testClass?(klass)
+        where: (matcher) =>
+          @testMatcher?(matcher)
+          key = matcher.attr.modelKey
+          val = matcher.val
+          models = Object.values(@stubDB).filter((model) =>
+            if matcher.comparator == '='
+              return model[key] == val
+            else if matcher.comparator == 'in'
+              return val.find((item) -> model[key] == item)
+            throw new Error("stubDB doesn't handle comparator: #{matcher.comparator}")
+          )
+          return Promise.resolve(models)
 
-    stubDB = ({models, testClass, testMatcher}) ->
-      spyOn(DatabaseStore, "findAll").andCallFake (klass)  ->
-        testClass?(klass)
-        where: (matcher) ->
-          testMatcher?(matcher)
-          Promise.resolve(models)
+    # stubDB = ({models, testClass, testMatcher}) ->
+    #   spyOn(DatabaseStore, "findAll").andCallFake (klass)  ->
+    #     testClass?(klass)
+    #     where: (matcher) ->
+    #       testMatcher?(matcher)
+    #       Promise.resolve(models)
 
     it "should reject if no JSON is provided", ->
       waitsForPromise ->
-        NylasAPI._handleModelResponse()
+        NylasAPIHelpers.handleModelResponse()
         .then -> throw new Error("Should reject!")
         .catch (err) ->
           expect(err.message).toEqual "handleModelResponse with no JSON provided"
 
     it "should resolve if an empty JSON array is provided", ->
       waitsForPromise ->
-        NylasAPI._handleModelResponse([])
+        NylasAPIHelpers.handleModelResponse([])
         .then (resp) ->
           expect(resp).toEqual []
 
@@ -193,7 +120,7 @@ describe "NylasAPI", ->
       it "should warn and resolve", ->
         spyOn(console, "warn")
         waitsForPromise ->
-          NylasAPI._handleModelResponse([{id: 'a', object: 'unknown'}])
+          NylasAPIHelpers.handleModelResponse([{id: 'a', object: 'unknown'}])
           .then (resp) ->
             expect(resp).toEqual []
             expect(console.warn).toHaveBeenCalled()
@@ -201,49 +128,49 @@ describe "NylasAPI", ->
 
     describe "if JSON contains the same object more than once", ->
       beforeEach ->
-        stubDB(models: [])
         spyOn(console, "warn")
         @dupes = [
-          {id: 'a', object: 'thread'}
-          {id: 'a', object: 'thread'}
-          {id: 'b', object: 'thread'}
+          {id: 't:a', object: 'thread', message_ids: ['a']}
+          {id: 't:a', object: 'thread', message_ids: ['a']}
+          {id: 't:b', object: 'thread', message_ids: ['b']}
         ]
 
       it "should warn", ->
         waitsForPromise =>
-          NylasAPI._handleModelResponse(@dupes)
+          NylasAPIHelpers.handleModelResponse(@dupes)
           .then ->
             expect(console.warn).toHaveBeenCalled()
             expect(console.warn.calls.length).toBe 1
 
       it "should omit duplicates", ->
         waitsForPromise =>
-          NylasAPI._handleModelResponse(@dupes)
+          NylasAPIHelpers.handleModelResponse(@dupes)
           .then ->
             models = DatabaseTransaction.prototype.persistModels.calls[0].args[0]
             expect(models.length).toBe 2
-            expect(models[0].id).toBe 'a'
-            expect(models[1].id).toBe 'b'
+            expect(models[0].id).toBe 't:a'
+            expect(models[1].id).toBe 't:b'
 
     describe "when items in the JSON are locked and we are not accepting changes to them", ->
       it "should remove locked models from the set", ->
         json = [
-          {id: 'a', object: 'thread'}
-          {id: 'b', object: 'thread'}
+          {id: 't:a', object: 'thread', message_ids: ['a', 'c']}
+          {id: 't:b', object: 'thread', message_ids: ['b']}
         ]
-        spyOn(NylasAPI._lockTracker, "acceptRemoteChangesTo").andCallFake (klass, id) ->
-          if id is "a" then return false
+        spyOn(NylasAPI.lockTracker, "acceptRemoteChangesTo").andCallFake (klass, id) ->
+          if id is "t:a" then return false
 
-        stubDB models: [new Thread(json[1])], testMatcher: (whereMatcher) ->
-          expect(whereMatcher.val).toEqual 'b'
+        @stubDB.upsertModel(new Thread(json[1]))
+        @testMatcher = (whereMatcher) ->
+          expect(whereMatcher.val).toEqual 't:b'
 
         waitsForPromise =>
-          NylasAPI._handleModelResponse(json)
+          NylasAPIHelpers.handleModelResponse(json)
           .then (models) ->
             expect(models.length).toBe 1
             models = DatabaseTransaction.prototype.persistModels.calls[0].args[0]
             expect(models.length).toBe 1
-            expect(models[0].id).toBe 'b'
+            expect(models[0].id).toBe 't:b'
 
     describe "when updating models", ->
       Message = require('../src/flux/models/message').default
@@ -253,28 +180,37 @@ describe "NylasAPI", ->
           {id: 'b', object: 'draft', starred: true}
         ]
         @existing = new Message(id: 'b', unread: true)
-        stubDB models: [@existing]
+        @stubDB.upsertModel(@existing)
 
       verifyUpdateHappened = (responseModels) ->
         changedModels = DatabaseTransaction.prototype.persistModels.calls[0].args[0]
         expect(changedModels.length).toBe 2
-        expect(changedModels[1].id).toBe 'b'
-        expect(changedModels[1].starred).toBe true
-        # Doesn't override existing values
-        expect(changedModels[1].unread).toBe true
         expect(responseModels.length).toBe 2
         expect(responseModels[0].id).toBe 'a'
-        expect(responseModels[0].unread).toBe true
+        expect(responseModels[1].id).toBe 'b'
+
+        threadA = @stubDB['a']
+        threadB = @stubDB['b']
+
+        # New values were updated
+        expect(threadB.starred).toBe true
+        expect(threadA.unread).toBe true
+
+        # Existing values without new values weren't overwritten
+        expect(threadB.unread).toBe true
 
       it "updates found models with new data", ->
         waitsForPromise =>
-          NylasAPI._handleModelResponse(@json).then verifyUpdateHappened
+          NylasAPIHelpers.handleModelResponse(@json).then (responseModels) =>
+            verifyUpdateHappened.call(@, responseModels)
 
       it "updates if the json version is newer", ->
         @existing.version = 9
+        @stubDB.upsertModel(@existing)
         @json[1].version = 10
         waitsForPromise =>
-          NylasAPI._handleModelResponse(@json).then verifyUpdateHappened
+          NylasAPIHelpers.handleModelResponse(@json).then (responseModels) =>
+            verifyUpdateHappened.call(@, responseModels)
 
       verifyUpdateStopped = (responseModels) ->
         changedModels = DatabaseTransaction.prototype.persistModels.calls[0].args[0]
@@ -287,15 +223,19 @@ describe "NylasAPI", ->
 
       it "doesn't update if the json version is older", ->
         @existing.version = 10
+        @stubDB.upsertModel(@existing)
         @json[1].version = 9
         waitsForPromise =>
-          NylasAPI._handleModelResponse(@json).then verifyUpdateStopped
+          NylasAPIHelpers.handleModelResponse(@json).then (responseModels) =>
+            verifyUpdateStopped.call(@, responseModels)
 
       it "doesn't update if it's already sent", ->
         @existing.draft = false
+        @stubDB.upsertModel(@existing)
         @json[1].draft = true
         waitsForPromise =>
-          NylasAPI._handleModelResponse(@json).then verifyUpdateStopped
+          NylasAPIHelpers.handleModelResponse(@json).then (responseModels) =>
+            verifyUpdateStopped.call(@, responseModels)
 
     describe "handling all types of objects", ->
       apiObjectToClassMap =
@@ -326,41 +266,57 @@ describe "NylasAPI", ->
       _.forEach apiObjectToClassMap, (klass, type) ->
         it "properly handle the '#{type}' type", ->
           json = [
-            {id: 'a', object: type}
-            {id: 'b', object: type}
+            {id: 'a', object: type, message_ids: ['1']}
+            {id: 'b', object: type, message_ids: ['2']}
           ]
-          stubDB models: [new klass(id: 'b')]
+          @stubDB.upsertModel(new klass(id: 'b'))
 
           verifyUpdate = _.partial(verifyUpdateHappened, klass)
           waitsForPromise =>
-            NylasAPI._handleModelResponse(json).then verifyUpdate
+            NylasAPIHelpers.handleModelResponse(json).then verifyUpdate
+
+    it "properly reconciles threads", ->
+      @stubDB.upsertModel(new Thread(serverId: 't:4', unread: true, starred: true))
+      @stubDB.upsertModel(new Message(serverId: '7', threadId: 't:4'))
+      @stubDB.upsertModel(new Message(serverId: '4', threadId: 't:4'))
+
+      json = [{id: 't:7', object: 'thread', message_ids: ['4', '7'], unread: false}]
+      updatedThread = null
+
+      waitsForPromise =>
+        NylasAPIHelpers.handleModelResponse(json).then( =>
+          DatabaseStore.findAll(Thread).where(Thread.attributes.id.in(['t:7']))
+            .then (threads) -> updatedThread = threads[0]
+        )
+      runs ->
+        expect(updatedThread).toBeDefined()
+        expect(updatedThread.unread).toEqual(false)
+        expect(updatedThread.starred).toEqual(true)
+
 
   describe "makeDraftDeletionRequest", ->
     it "should make an API request to delete the draft", ->
       draft = new Message(accountId: TEST_ACCOUNT_ID, draft: true, clientId: 'asd', serverId: 'asd')
-      spyOn(NylasAPI, 'makeRequest')
-      NylasAPI.makeDraftDeletionRequest(draft)
-      expect(NylasAPI.makeRequest).toHaveBeenCalled()
-      expect(NylasAPI.makeRequest.callCount).toBe 1
-      req = NylasAPI.makeRequest.calls[0].args[0]
-      expect(req.path).toBe "/drafts/#{draft.serverId}"
-      expect(req.accountId).toBe TEST_ACCOUNT_ID
-      expect(req.method).toBe "DELETE"
-      expect(req.returnsModel).toBe false
+      spyOn(NylasAPIRequest.prototype, 'run').andCallFake ->
+        expect(this.options.path).toBe "/drafts/#{draft.serverId}"
+        expect(this.options.accountId).toBe TEST_ACCOUNT_ID
+        expect(this.options.method).toBe "DELETE"
+        expect(this.options.returnsModel).toBe false
+      NylasAPIHelpers.makeDraftDeletionRequest(draft)
 
     it "should increment the change tracker, preventing any further deltas about the draft", ->
       draft = new Message(accountId: TEST_ACCOUNT_ID, draft: true, clientId: 'asd', serverId: 'asd')
       spyOn(NylasAPI, 'incrementRemoteChangeLock')
-      NylasAPI.makeDraftDeletionRequest(draft)
+      NylasAPIHelpers.makeDraftDeletionRequest(draft)
       expect(NylasAPI.incrementRemoteChangeLock).toHaveBeenCalledWith(Message, draft.serverId)
 
     it "should not return a promise or anything else, to avoid accidentally making things dependent on the request", ->
       draft = new Message(accountId: TEST_ACCOUNT_ID, draft: true, clientId: 'asd', serverId: 'asd')
-      a = NylasAPI.makeDraftDeletionRequest(draft)
+      a = NylasAPIHelpers.makeDraftDeletionRequest(draft)
       expect(a).toBe(undefined)
 
     it "should not do anything if the draft is missing a serverId", ->
       draft = new Message(accountId: TEST_ACCOUNT_ID, draft: true, clientId: 'asd', serverId: null)
-      spyOn(NylasAPI, 'makeRequest')
-      NylasAPI.makeDraftDeletionRequest(draft)
-      expect(NylasAPI.makeRequest).not.toHaveBeenCalled()
+      spyOn(NylasAPIRequest.prototype, 'run')
+      NylasAPIHelpers.makeDraftDeletionRequest(draft)
+      expect(NylasAPIRequest.prototype.run).not.toHaveBeenCalled()

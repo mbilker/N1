@@ -13,9 +13,11 @@ npm-debug.log
 debug.log
 /tags
 /electron/
-docs/output
-docs/includes
+/_docs_output
+/junitxml
+
 spec/fixtures/evil-files/
+build/resources/certs
 /_site
 /.sass-cache
 .integration-test-config
@@ -28,8 +30,8 @@ spec-saved-state.json
 *~
 *#
 
-src/error-logger-extensions
-src/nylas-private-*
+/src/error-logger-extensions
+/src/nylas-private-*
 internal_packages/nylas-private-*
 internal_packages/activity-list
 internal_packages/composer-mail-merge
@@ -39,5 +41,6 @@ internal_packages/open-tracking
 internal_packages/send-later
 internal_packages/send-reminders
 internal_packages/thread-sharing
+internal_packages/local-sync
 /dist
 /dump.rdb

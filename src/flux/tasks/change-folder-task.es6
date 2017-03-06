@@ -2,6 +2,7 @@ import _ from 'underscore';
 import Thread from '../models/thread';
 import Category from '../models/category';
 import Message from '../models/message';
+import Actions from '../actions'
 import DatabaseStore from '../stores/database-store';
 import ChangeMailTask from './change-mail-task';
 import SyncbackCategoryTask from './syncback-category-task';
@@ -21,15 +22,16 @@ export default class ChangeFolderTask extends ChangeMailTask {
 
   constructor(options = {}) {
     super(options);
+    this.source = options.source
     this.taskDescription = options.taskDescription;
     this.folder = options.folder;
   }
 
   label() {
     if (this.folder) {
-      return `Moving to ${this.folder.displayName}…`;
+      return `Moving to ${this.folder.displayName}`;
     }
-    return "Moving to folder…";
+    return "Moving to folder";
   }
 
   categoriesToAdd() {
@@ -70,6 +72,26 @@ export default class ChangeFolderTask extends ChangeMailTask {
     }
 
     return super.performLocal();
+  }
+
+  _isArchive() {
+    return this.folder.name === "archive" || this.folder.name === "all"
+  }
+
+  recordUserEvent() {
+    if (this.source === "Mail Rules") {
+      return
+    }
+    Actions.recordUserEvent("Threads Moved to Folder", {
+      source: this.source,
+      isArchive: this._isArchive(),
+      folderType: this.folder.name || "custom",
+      folderDisplayName: this.folder.displayName,
+      numThreads: this.threads.length,
+      numMessages: this.messages.length,
+      description: this.description(),
+      isUndo: this._isUndoTask,
+    })
   }
 
   retrieveModels() {

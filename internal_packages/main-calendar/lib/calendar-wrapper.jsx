@@ -1,7 +1,7 @@
 import {
   Actions,
   DestroyModelTask,
-  CalendarDraggingDataSource,
+  CalendarDataSource,
 } from 'nylas-exports';
 import {
   NylasCalendar,
@@ -18,7 +18,7 @@ export default class CalendarWrapper extends React.Component {
 
   constructor(props) {
     super(props);
-    this._dataSource = new CalendarDraggingDataSource();
+    this._dataSource = new CalendarDataSource();
     this.state = {selectedEvents: []};
   }
 

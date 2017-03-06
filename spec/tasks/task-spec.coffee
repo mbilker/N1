@@ -2,14 +2,13 @@ Actions = require('../../src/flux/actions').default
 TaskQueue = require '../../src/flux/stores/task-queue'
 Task = require('../../src/flux/tasks/task').default
 
-{APIError,
- TimeoutError} = require '../../src/flux/errors'
+{APIError} = require '../../src/flux/errors'
 
 {APITestTask, OKTask, BadTask} = require('../stores/task-subclass')
 
 noop = ->
 
-describe "Task", ->
+xdescribe "Task", ->
   describe "initial state", ->
     it "should set up queue state with additional information about local/remote", ->
       task = new Task()

@@ -1,8 +1,26 @@
 /* eslint global-require: 0 */
 
 import crypto from 'crypto';
-import {EdgehillAPI, NylasAPI, AccountStore, RegExpUtils, IdentityStore} from 'nylas-exports';
-import url from 'url';
+import {CommonProviderSettings} from 'imap-provider-settings'
+import {
+  N1CloudAPI,
+  NylasAPI,
+  NylasAPIRequest,
+  RegExpUtils,
+} from 'nylas-exports';
+
+const IMAP_FIELDS = new Set([
+  "imap_host",
+  "imap_port",
+  "imap_username",
+  "imap_password",
+  "smtp_host",
+  "smtp_port",
+  "smtp_username",
+  "smtp_password",
+  "smtp_custom_config",
+  "ssl_required",
+]);
 
 function base64url(inBuffer) {
   let buffer;
@@ -18,19 +36,44 @@ function base64url(inBuffer) {
     .replace(/\//g, '_'); // Convert '/' to '_'
 }
 
-export function makeGmailOAuthRequest(sessionKey, callback) {
-  EdgehillAPI.makeRequest({
-    path: `/oauth/google/token?key=${sessionKey}`,
-    method: "GET",
-    error: callback,
-    success: (json) => {
-      if (json && json.data) {
-        callback(null, JSON.parse(json.data));
-      } else {
-        callback(null, null);
-      }
+const NO_AUTH = { user: '', pass: '', sendImmediately: true };
+
+export async function makeGmailOAuthRequest(sessionKey) {
+  const remoteRequest = new NylasAPIRequest({
+    api: N1CloudAPI,
+    options: {
+      path: `/auth/gmail/token?key=${sessionKey}`,
+      method: 'GET',
+      auth: NO_AUTH,
     },
   });
+  return remoteRequest.run()
+}
+
+export async function authIMAPForGmail(tokenData) {
+  const localRequest = new NylasAPIRequest({
+    api: NylasAPI,
+    options: {
+      path: `/auth`,
+      method: 'POST',
+      auth: NO_AUTH,
+      timeout: 1000 * 90, // Connecting to IMAP could take up to 90 seconds, so we don't want to hang up too soon
+      body: {
+        email: tokenData.email_address,
+        name: tokenData.name,
+        provider: 'gmail',
+        settings: {
+          xoauth2: tokenData.resolved_settings.xoauth2,
+          expiry_date: tokenData.resolved_settings.expiry_date,
+        },
+      },
+    },
+  })
+  const localJSON = await localRequest.run()
+  const account = Object.assign({}, localJSON);
+  account.localToken = localJSON.account_token;
+  account.cloudToken = tokenData.account_token;
+  return account
 }
 
 export function buildGmailSessionKey() {
@@ -38,33 +81,7 @@ export function buildGmailSessionKey() {
 }
 
 export function buildGmailAuthURL(sessionKey) {
-  // Use a different app for production and development.
-  const env = NylasEnv.config.get('env') || 'production';
-  let googleClientId = '372024217839-cdsnrrqfr4d6b4gmlqepd7v0n0l0ip9q.apps.googleusercontent.com';
-  if (env !== 'production') {
-    googleClientId = '529928329786-e5foulo1g9kiej2h9st9sb0f4dt96s6v.apps.googleusercontent.com';
-  }
-
-  const encryptionKey = base64url(crypto.randomBytes(24));
-  const encryptionIv = base64url(crypto.randomBytes(16));
-
-  return url.format({
-    protocol: 'https',
-    host: 'accounts.google.com/o/oauth2/auth',
-    query: {
-      response_type: 'code',
-      state: `${sessionKey},${encryptionKey},${encryptionIv},`,
-      client_id: googleClientId,
-      redirect_uri: `${EdgehillAPI.APIRoot}/oauth/google/callback`,
-      access_type: 'offline',
-      scope: `https://www.googleapis.com/auth/userinfo.email \
-          https://www.googleapis.com/auth/userinfo.profile \
-          https://mail.google.com/ \
-          https://www.google.com/m8/feeds \
-          https://www.googleapis.com/auth/calendar`,
-      prompt: 'consent',
-    },
-  });
+  return `${N1CloudAPI.APIRoot}/auth/gmail?state=${sessionKey}`;
 }
 
 export function runAuthRequest(accountInfo) {
@@ -87,31 +104,58 @@ export function runAuthRequest(accountInfo) {
     data.settings.smtp_port /= 1;
   }
   // if there's an account with this email, get the ID for it to notify the backend of re-auth
-  const account = AccountStore.accountForEmail(accountInfo.email);
-  const reauthParam = account ? `&reauth=${account.id}` : "";
+  // const account = AccountStore.accountForEmail(accountInfo.email);
+  // const reauthParam = account ? `&reauth=${account.id}` : "";
+
+  /**
+   * Only include the required IMAP fields. Auth validation does not allow
+   * extra fields
+   */
+  if (type !== "gmail" && type !== "office365") {
+    for (const key of Object.keys(data.settings)) {
+      if (!IMAP_FIELDS.has(key)) {
+        delete data.settings[key]
+      }
+    }
+  }
+
+  const noauth = {
+    user: '',
+    pass: '',
+    sendImmediately: true,
+  };
 
   // Send the form data directly to Nylas to get code
   // If this succeeds, send the received code to N1 server to register the account
   // Otherwise process the error message from the server and highlight UI as needed
-  return NylasAPI.makeRequest({
-    path: `/auth?client_id=${NylasAPI.AppID}&n1_id=${IdentityStore.identityId()}${reauthParam}`,
-    method: 'POST',
-    body: data,
-    returnsModel: false,
-    timeout: 150000,
-    auth: {
-      user: '',
-      pass: '',
-      sendImmediately: true,
+  const n1CloudIMAPAuthRequest = new NylasAPIRequest({
+    api: N1CloudAPI,
+    options: {
+      path: '/auth',
+      method: 'POST',
+      timeout: 1000 * 90, // Connecting to IMAP could take up to 90 seconds, so we don't want to hang up too soon
+      body: data,
+      auth: noauth,
+      returnsModel: false,
     },
   })
-  .then((json) => {
-    json.email = data.email;
-    return EdgehillAPI.makeRequest({
-      path: "/connect/nylas",
-      method: "POST",
-      timeout: 60000,
-      body: json,
+  return n1CloudIMAPAuthRequest.run().then((remoteJSON) => {
+    const localSyncIMAPAuthRequest = new NylasAPIRequest({
+      api: NylasAPI,
+      options: {
+        path: `/auth`,
+        method: 'POST',
+        timeout: 1000 * 90, // Connecting to IMAP could take up to 90 seconds, so we don't want to hang up too soon
+        body: data,
+        auth: noauth,
+        returnsModel: false,
+      },
+    })
+    return localSyncIMAPAuthRequest.run().then((localJSON) => {
+      const accountWithTokens = Object.assign({}, localJSON);
+      accountWithTokens.localToken = localJSON.account_token;
+      accountWithTokens.cloudToken = remoteJSON.account_token;
+      return accountWithTokens
     })
   })
 }
@@ -121,11 +165,9 @@ export function isValidHost(value) {
 }
 
 export function accountInfoWithIMAPAutocompletions(existingAccountInfo) {
-  const CommonProviderSettings = require('./common-provider-settings.json');
-
-  const email = existingAccountInfo.email;
+  const {email, type} = existingAccountInfo;
   const domain = email.split('@').pop().toLowerCase();
-  const template = CommonProviderSettings[domain] || {};
+  const template = CommonProviderSettings[domain] || CommonProviderSettings[type] || {};
 
   const usernameWithFormat = (format) => {
     if (format === 'email') {
@@ -148,6 +190,7 @@ export function accountInfoWithIMAPAutocompletions(existingAccountInfo) {
     smtp_username: usernameWithFormat(template.smtp_user_format),
     smtp_password: existingAccountInfo.password,
     ssl_required: (template.ssl === '1'),
+    smtp_custom_config: template.smtp_custom_config,
   }
 
   return Object.assign({}, existingAccountInfo, defaults);

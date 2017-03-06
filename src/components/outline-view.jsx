@@ -1,10 +1,11 @@
+import {Utils} from 'nylas-exports'
 import React, {Component, PropTypes} from 'react';
 import DropZone from './drop-zone';
 import RetinaImg from './retina-img';
 import OutlineViewItem from './outline-view-item';
 
 
-/**
+/*
  * Renders a section that contains a list of {@link OutlineViewItem}s. These items can
  * be arbitrarily nested. See docs for {@link OutlineViewItem}.
  * An OutlineView behaves like a controlled React component, with callbacks for
@@ -32,12 +33,12 @@ import OutlineViewItem from './outline-view-item';
 class OutlineView extends Component {
   static displayName = 'OutlineView';
 
-  /**
+  /*
    * If provided, this function will be called when an item has been created.
    * @callback props.onItemCreated
    * @param {string} value - The value for the created item
    */
-  /**
+  /*
    * If provided, this function will be called when the user clicks the action
    * to collapse or uncollapse the OutlineView
    * @callback props.onCollapseToggled
@@ -60,6 +61,11 @@ class OutlineView extends Component {
   state = {
     showCreateInput: false,
   };
+
+  shouldComponentUpdate(nextProps, nextState) {
+    return !Utils.isEqualReact(nextProps, this.props) ||
+      !Utils.isEqualReact(nextState, this.state);
+  }
 
   componentWillUnmount() {
     clearTimeout(this._expandTimeout);

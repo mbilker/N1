@@ -66,16 +66,7 @@ class Package
     @metadata ?= Package.loadMetadata(@path)
     @bundledPackage = Package.isBundledPackagePath(@path)
     @name = @metadata?.name ? path.basename(@path)
-
-    if @metadata.appId
-      if _.isString @metadata.appId
-        @pluginAppId = @metadata.appId ? null
-      else if _.isObject @metadata.appId
-        @pluginAppId = @metadata.appId[NylasEnv.config.get('env')] ? null
-      else
-        @pluginAppId = null
-    else
-      @pluginAppId = null
+    @pluginAppId = @name
 
     @displayName = @metadata?.displayName || @name
     ModuleCache.add(@path, @metadata)
@@ -175,8 +166,8 @@ class Package
         @mainModule.activate(localState)
         @mainActivated = true
     catch e
-      console.log e.message
-      console.log e.stack
+      console.error e.message
+      console.error e.stack
       console.warn "Failed to activate package named '#{@name}'", e.stack
 
     @activationDeferred?.resolve()
@@ -316,7 +307,8 @@ class Package
       """
       return
     mainModulePath = @getMainModulePath()
-    @mainModule = require(mainModulePath) if fs.isFileSync(mainModulePath)
+    if fs.isFileSync(mainModulePath)
+      @mainModule = require(mainModulePath)
     return @mainModule
 
   getMainModulePath: ->
@@ -389,7 +381,7 @@ class Package
   # Public: Is this package compatible with this version of N1?
   #
   # Incompatible packages cannot be activated. This will include packages
-  # installed to ~/.nylas/packages that were built against node 0.11.10 but
+  # installed to ~/.nylas-mail/packages that were built against node 0.11.10 but
   # now need to be upgrade to node 0.11.13.
   #
   # Returns a {Boolean}, true if compatible, false if incompatible.

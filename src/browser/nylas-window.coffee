@@ -46,7 +46,7 @@ class NylasWindow
 
     browserWindowOptions =
       show: false
-      title: title ? 'Nylas N1'
+      title: title ? 'Nylas Mail'
       frame: frame
       width: width
       height: height
@@ -190,11 +190,17 @@ class NylasWindow
       chosen = dialog.showMessageBox @browserWindow,
         type: 'warning'
         buttons: ['Close', 'Keep Waiting']
-        message: 'N1 is not responding'
+        message: 'Nylas Mail is not responding'
         detail: 'Would you like to force close it or keep waiting?'
       @browserWindow.destroy() if chosen is 0
 
-    @browserWindow.webContents.on 'crashed', =>
+    @browserWindow.webContents.on 'crashed', (event, killed) =>
+      if killed
+        # Killed means that the app is exiting and the browser window is being
+        # forceably cleaned up. Carry on, do not try to reload the window.
+        @browserWindow.destroy()
+        return
+
       app.exit(100) if @exitWhenDone
 
       if @neverClose
@@ -203,7 +209,7 @@ class NylasWindow
         chosen = dialog.showMessageBox @browserWindow,
           type: 'warning'
           buttons: ['Close Window', 'Reload', 'Keep It Open']
-          message: 'N1 has crashed'
+          message: 'Nylas Mail has crashed'
           detail: 'Please report this issue to us at support@nylas.com.'
         switch chosen
           when 0 then @browserWindow.destroy()

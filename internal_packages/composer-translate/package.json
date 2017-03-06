@@ -11,11 +11,11 @@
 
   "license": "GPL-3.0",
   "engines": {
-    "nylas": ">=0.3.0 <0.5.0"
+    "nylas": "*"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/nylas/N1"
+    "url": "https://github.com/nylas/nylas-mail"
   },
   "windowTypes": {
     "default": true,

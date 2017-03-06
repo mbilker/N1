@@ -1,11 +1,11 @@
 Message = require('../models/message').default
 Actions = require('../actions').default
-NylasAPI = require '../nylas-api'
-AccountStore = require './account-store'
+NylasAPIHelpers = require '../nylas-api-helpers'
+AccountStore = require('./account-store').default
 ContactStore = require './contact-store'
 DatabaseStore = require('./database-store').default
 UndoStack = require('../../undo-stack').default
-DraftHelpers = require '../stores/draft-helpers'
+DraftHelpers = require('../stores/draft-helpers').default
 ExtensionRegistry = require '../../registries/extension-registry'
 {Listener, Publisher} = require '../modules/reflux-coffee'
 SyncbackDraftTask = require('../tasks/syncback-draft-task').default
@@ -193,7 +193,7 @@ class DraftEditingSession
       return Promise.reject(new Error("DraftEditingSession::ensureCorrectAccount - you can only send drafts from a configured account."))
 
     if account.id isnt @_draft.accountId
-      NylasAPI.makeDraftDeletionRequest(@_draft)
+      NylasAPIHelpers.makeDraftDeletionRequest(@_draft)
       @changes.add({
         accountId: account.id,
         version: null,
